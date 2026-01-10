@@ -17,7 +17,7 @@
 
 ## 🚀 快速开始
 
-### 💻 本地运行（Windows / macOS / Linux）
+### 💻 直接运行（Windows / macOS / Linux）
 
 1. 克隆仓库：
 
@@ -48,15 +48,15 @@ API 服务将在 `http://localhost:7860` 上运行。
 
 服务启动后，您可以在浏览器中访问 `http://localhost:7860` 打开 Web 控制台主页，在这里可以查看账号状态和服务状态。
 
-> ⚠ **注意：** 本地运行不支持通过 VNC 在线添加账号，需要使用 `npm run setup-auth` 脚本添加账号。当前 VNC 登录功能仅在 Linux 服务器上的 Docker 容器中可用。
+> ⚠ **注意：** 直接运行不支持通过 VNC 在线添加账号，需要使用 `npm run setup-auth` 脚本添加账号。当前 VNC 登录功能仅在 Docker 容器中可用。
 
-### ☁ 云端部署（Linux VPS）
+### 🐋 Docker 部署
 
-在生产环境中部署到服务器（Linux VPS）时，现在可以直接使用 Docker 部署，无需预先提取身份验证凭据。
+使用 Docker 部署，无需预先提取身份验证凭据。
 
-#### 🚢 步骤 1：部署到服务器
+#### 🚢 步骤 1：部署容器
 
-##### 🐋 方式 1：Docker 命令
+##### 🎮️ 方式 1：Docker 命令
 
 ```bash
 docker run -d \
@@ -133,7 +133,7 @@ sudo docker compose down
 - 在本地机器上运行 `npm run setup-auth` 生成认证文件
 - 在网页控制台，点击「上传 Auth」，上传 auth 的 JSON 文件，或手动上传到挂载的 `/path/to/auth` 目录
 
-> 💡 **提示**：您也可以从已有的服务器下载 auth 文件，然后上传到新的服务器。在网页控制台点击对应账号的「下载 Auth」按钮即可下载 auth 文件。
+> 💡 **提示**：您也可以从已有的容器下载 auth 文件，然后上传到新的容器。在网页控制台点击对应账号的「下载 Auth」按钮即可下载 auth 文件。
 
 > ⚠ 目前暂不支持通过环境变量注入认证信息。
 

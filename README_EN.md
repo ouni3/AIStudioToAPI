@@ -17,7 +17,7 @@ A tool that wraps Google AI Studio web interface to provide OpenAI API and Gemin
 
 ## 🚀 Quick Start
 
-### 💻 Local Development (Windows / macOS / Linux)
+### 💻 Run Directly (Windows / macOS / Linux)
 
 1. Clone the repository:
 
@@ -48,15 +48,15 @@ The API server will be available at `http://localhost:7860`
 
 After the service starts, you can access `http://localhost:7860` in your browser to open the web console homepage, where you can view account status and service status.
 
-> ⚠ **Note:** Local deployment does not support adding accounts via VNC online. You need to use the `npm run setup-auth` script to add accounts. VNC login is only available in Docker deployments on Linux servers.
+> ⚠ **Note:** Running directly does not support adding accounts via VNC online. You need to use the `npm run setup-auth` script to add accounts. VNC login is only available in Docker deployments.
 
-### ☁ Cloud Deployment (Linux VPS)
+### 🐋 Docker Deployment
 
-For production deployment on a server (Linux VPS), you can now deploy directly using Docker without pre-extracting authentication credentials.
+Deploy using Docker without pre-extracting authentication credentials.
 
-#### 🚢 Step 1: Deploy on Server
+#### 🚢 Step 1: Deploy Container
 
-##### 🐋 Option 1: Docker Command
+##### 🎮️ Option 1: Docker Command
 
 ```bash
 docker run -d \
@@ -133,7 +133,7 @@ After deployment, you need to add Google accounts using one of these methods:
 - Run `npm run setup-auth` on your local machine to generate auth files
 - In the web console, click "Upload Auth" to upload the auth JSON file, or manually upload to the mounted `/path/to/auth` directory
 
-> 💡 **Tip**: You can also download auth files from an existing server and upload them to a new server. Click the "Download Auth" button for the corresponding account in the web console to download the auth file.
+> 💡 **Tip**: You can also download auth files from an existing container and upload them to a new container. Click the "Download Auth" button for the corresponding account in the web console to download the auth file.
 
 > ⚠ Environment variable-based auth injection is no longer supported.
 
