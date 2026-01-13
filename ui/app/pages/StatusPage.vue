@@ -341,7 +341,7 @@
                 <span class="version-tag">{{ appVersion }}</span>
                 <a
                     v-if="state.hasUpdate"
-                    href="https://github.com/iBenzene/AIStudioToAPI/pkgs/container/aistudio-to-api"
+                    :href="state.releaseUrl || 'https://github.com/iBenzene/AIStudioToAPI/releases'"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="update-tag"
