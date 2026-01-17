@@ -159,7 +159,9 @@ class ProxyServerSystem extends EventEmitter {
 
             // Allow access if session is authenticated (e.g. browser accessing /vnc or API from UI)
             if (req.session && req.session.isAuthenticated) {
-                return next();
+                if (req.path === "/vnc") {
+                    return next();
+                }
             }
 
             const serverApiKeys = this.config.apiKeys;
@@ -210,15 +212,13 @@ class ProxyServerSystem extends EventEmitter {
             try {
                 if (fs.existsSync(this.config.sslKeyPath) && fs.existsSync(this.config.sslCertPath)) {
                     const options = {
-                        key: fs.readFileSync(this.config.sslKeyPath),
                         cert: fs.readFileSync(this.config.sslCertPath),
+                        key: fs.readFileSync(this.config.sslKeyPath),
                     };
                     this.httpServer = https.createServer(options, app);
                     this.logger.info("[System] Starting in HTTPS mode...");
                 } else {
-                    this.logger.warn(
-                        "[System] SSL file paths provided but files not found. Falling back to HTTP."
-                    );
+                    this.logger.warn("[System] SSL file paths provided but files not found. Falling back to HTTP.");
                     this.httpServer = http.createServer(app);
                 }
             } catch (error) {
@@ -302,7 +302,7 @@ class ProxyServerSystem extends EventEmitter {
     _createExpressApp() {
         const app = express();
 
-        // Request logging (Moved to top for better debugging)
+        // Request logging
         app.use((req, res, next) => {
             if (
                 req.path !== "/api/status" &&
@@ -324,11 +324,11 @@ class ProxyServerSystem extends EventEmitter {
             res.header(
                 "Access-Control-Allow-Headers",
                 "Content-Type, Authorization, x-requested-with, x-api-key, x-goog-api-key, x-goog-api-client, x-user-agent," +
-                " origin, accept, baggage, sentry-trace, openai-organization, openai-project, openai-beta, x-stainless-lang, " +
-                "x-stainless-package-version, x-stainless-os, x-stainless-arch, x-stainless-runtime, x-stainless-runtime-version, " +
-                "x-stainless-retry-count, x-stainless-timeout, sec-ch-ua, sec-ch-ua-mobile, sec-ch-ua-platform, " +
-                "x-goog-upload-protocol, x-goog-upload-command, x-goog-upload-header-content-length, " +
-                "x-goog-upload-header-content-type, x-goog-upload-url, x-goog-upload-offset, x-goog-upload-status"
+                    " origin, accept, baggage, sentry-trace, openai-organization, openai-project, openai-beta, x-stainless-lang, " +
+                    "x-stainless-package-version, x-stainless-os, x-stainless-arch, x-stainless-runtime, x-stainless-runtime-version, " +
+                    "x-stainless-retry-count, x-stainless-timeout, sec-ch-ua, sec-ch-ua-mobile, sec-ch-ua-platform, " +
+                    "x-goog-upload-protocol, x-goog-upload-command, x-goog-upload-header-content-length, " +
+                    "x-goog-upload-header-content-type, x-goog-upload-url, x-goog-upload-offset, x-goog-upload-status"
             );
 
             // Expose all common Headers, including upload related ones (matched from BuildProxy)
@@ -336,9 +336,9 @@ class ProxyServerSystem extends EventEmitter {
             res.header(
                 "Access-Control-Expose-Headers",
                 "x-goog-upload-url, x-goog-upload-status, x-goog-upload-chunk-granularity, " +
-                "x-goog-upload-control-url, x-goog-upload-command, x-goog-upload-content-type, " +
-                "x-goog-upload-protocol, x-goog-upload-file-name, x-goog-upload-offset, " +
-                "date, content-type, content-length, location"
+                    "x-goog-upload-control-url, x-goog-upload-command, x-goog-upload-content-type, " +
+                    "x-goog-upload-protocol, x-goog-upload-file-name, x-goog-upload-offset, " +
+                    "date, content-type, content-length, location"
             );
 
             if (req.method === "OPTIONS") {
@@ -382,7 +382,7 @@ class ProxyServerSystem extends EventEmitter {
                 next();
             });
 
-            req.on("error", (err) => {
+            req.on("error", err => {
                 this.logger.error(`[System] Request stream error: ${err.message}`);
                 next(err);
             });
@@ -436,8 +436,14 @@ class ProxyServerSystem extends EventEmitter {
         app.get("/vnc", (req, res) => {
             res.status(400).send(
                 "Error: WebSocket connection failed. " +
-                "If you are using a proxy (like Nginx), ensure it is configured to forward 'Upgrade' and 'Connection' headers."
+                    "If you are using a proxy (like Nginx), ensure it is configured to forward 'Upgrade' and 'Connection' headers."
             );
+        });
+
+        // File Upload Routes
+        // Intercept upload requests to use specialized handler
+        app.all(/\/upload\/.*/, (req, res) => {
+            this.requestHandler.processUploadRequest(req, res);
         });
 
         app.all(/(.*)/, (req, res) => {

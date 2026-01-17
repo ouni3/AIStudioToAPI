@@ -305,7 +305,6 @@ class RequestHandler {
             }
         });
 
-        this.logger.info(`[Request] Incoming ${req.method} ${req.path} (ID: ${requestId})`);
         const proxyRequest = this._buildProxyRequest(req, requestId);
         proxyRequest.is_generative = isGenerativeRequest;
         const messageQueue = this.connectionRegistry.createMessageQueue(requestId);
@@ -341,6 +340,72 @@ class RequestHandler {
                 });
                 this.needsSwitchingAfterRequest = false;
             }
+        }
+    }
+
+    // Process File Upload requests
+    async processUploadRequest(req, res) {
+        const requestId = this._generateRequestId();
+        this.logger.info(`[Upload] Processing upload request ${req.method} ${req.path} (ID: ${requestId})`);
+
+        // Check browser connection
+        if (!this.connectionRegistry.hasActiveConnections()) {
+            const recovered = await this._handleBrowserRecovery(res);
+            if (!recovered) return;
+        }
+
+        // Wait for system to become ready if it's busy
+        if (this.authSwitcher.isSystemBusy) {
+            const ready = await this._waitForSystemReady();
+            if (!ready) {
+                return this._sendErrorResponse(
+                    res,
+                    503,
+                    "Server undergoing internal maintenance (account switching/recovery), please try again later."
+                );
+            }
+            if (!this.connectionRegistry.hasActiveConnections()) {
+                const connectionReady = await this._waitForConnection(10000);
+                if (!connectionReady) {
+                    return this._sendErrorResponse(
+                        res,
+                        503,
+                        "Service temporarily unavailable: Connection not established after switching."
+                    );
+                }
+            }
+        }
+
+        if (this.browserManager) {
+            this.browserManager.notifyUserActivity();
+        }
+
+        res.on("close", () => {
+            if (!res.writableEnded) {
+                this.logger.warn(`[Upload] Client closed request #${requestId} connection prematurely.`);
+                this._cancelBrowserRequest(requestId);
+            }
+        });
+
+        const proxyRequest = {
+            body_b64: req.rawBody ? req.rawBody.toString("base64") : undefined,
+            headers: req.headers,
+            is_generative: false, // Uploads are never generative
+            method: req.method,
+            path: req.path.replace(/^\/proxy/, ""),
+            query_params: req.query || {},
+            request_id: requestId,
+            streaming_mode: "fake", // Uploads always return a single JSON response
+        };
+
+        const messageQueue = this.connectionRegistry.createMessageQueue(requestId);
+
+        try {
+            await this._handleNonStreamResponse(proxyRequest, messageQueue, req, res);
+        } catch (error) {
+            this._handleRequestError(error, res);
+        } finally {
+            this.connectionRegistry.removeMessageQueue(requestId);
         }
     }
 
@@ -729,11 +794,8 @@ class RequestHandler {
                     break;
                 }
                 if (dataMessage.data) {
-                    const writeData = dataMessage.is_binary
-                        ? Buffer.from(dataMessage.data, "base64")
-                        : dataMessage.data;
-                    res.write(writeData);
-                    if (!dataMessage.is_binary) lastChunk = dataMessage.data;
+                    res.write(dataMessage.data);
+                    lastChunk = dataMessage.data;
                 }
             }
             try {
@@ -797,10 +859,7 @@ class RequestHandler {
                     break;
                 }
                 if (message.event_type === "chunk" && message.data) {
-                    const chunkBuffer = message.is_binary
-                        ? Buffer.from(message.data, "base64")
-                        : Buffer.from(message.data);
-                    chunks.push(chunkBuffer);
+                    chunks.push(Buffer.from(message.data));
                 }
             }
 
@@ -817,6 +876,12 @@ class RequestHandler {
             }
 
             this._setResponseHeaders(res, headerMessage, req);
+
+            // Ensure Content-Type is set (Express defaults Buffer to application/octet-stream)
+            if (!res.get("Content-Type")) {
+                res.type("application/json");
+            }
+
             res.send(fullBodyBuffer);
 
             this.logger.info(`[Request] Complete non-stream response sent to client.`);
@@ -1007,11 +1072,13 @@ class RequestHandler {
                     if (req && req.headers && req.headers.host) {
                         newAuthority = req.headers.host;
                     } else {
-                        const host = this.serverSystem.config.host === "0.0.0.0" ? "127.0.0.1" : this.serverSystem.config.host;
+                        const host =
+                            this.serverSystem.config.host === "0.0.0.0" ? "127.0.0.1" : this.serverSystem.config.host;
                         newAuthority = `${host}:${this.serverSystem.config.httpPort}`;
                     }
 
-                    const protocol = req.secure || (req.get && req.get("X-Forwarded-Proto") === "https") ? "https" : "http";
+                    const protocol =
+                        req.secure || (req.get && req.get("X-Forwarded-Proto") === "https") ? "https" : "http";
                     const newUrl = `${protocol}://${newAuthority}${urlObj.pathname}${urlObj.search}`;
 
                     this.logger.info(`[Response] Rewriting header ${name}: ${value} -> ${newUrl}`);
@@ -1208,13 +1275,14 @@ class RequestHandler {
         return {
             body: req.method !== "GET" ? JSON.stringify(bodyObj) : undefined,
             headers: req.headers,
+            is_generative:
+                req.method === "POST" &&
+                (req.path.includes("generateContent") || req.path.includes("streamGenerateContent")),
             method: req.method,
             path: cleanPath,
             query_params: req.query || {},
             request_id: requestId,
             streaming_mode: this.serverSystem.streamingMode,
-            body_b64: req.rawBody ? req.rawBody.toString("base64") : undefined,
-            is_generative: req.method === "POST" && (req.path.includes("generateContent") || req.path.includes("streamGenerateContent")),
         };
     }
 

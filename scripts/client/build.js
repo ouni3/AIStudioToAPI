@@ -99,7 +99,7 @@ class ConnectionManager extends EventTarget {
         this.reconnectAttempts++;
         setTimeout(() => {
             Logger.output(`Attempting reconnection ${this.reconnectAttempts} attempt...`);
-            this.establish().catch(() => { });
+            this.establish().catch(() => {});
         }, this.reconnectDelay);
     }
 }
@@ -181,10 +181,6 @@ class RequestProcessor {
 
             // Handle fake streaming mode adjustments
             if (requestSpec.streaming_mode === "fake") {
-                if (pathSegment.includes(":streamGenerateContent")) {
-                    // This is a bit risky if pathSegment is modified, but BuildProxy does it on the joined string
-                    // We'll follow BuildProxy structured approach but keep this feature
-                }
                 if (queryParams.has("alt") && queryParams.get("alt") === "sse") {
                     queryParams.delete("alt");
                 }
@@ -233,7 +229,7 @@ class RequestProcessor {
 
         if (this.targetDomain.includes("generativelanguage")) {
             const versionRegex = /v1[a-z0-9]*\/files/;
-            const uploadMatch = cleanPath.match(new RegExp(`upload\/${versionRegex.source}`));
+            const uploadMatch = cleanPath.match(new RegExp(`upload/${versionRegex.source}`));
 
             if (uploadMatch) {
                 // If path already contains upload/, just ensure it's correct
@@ -395,7 +391,7 @@ class RequestProcessor {
             "host",
             "connection",
             "content-length",
-            /* 'origin', */ // BuildProxy comments these out
+            "origin",
             "referer",
             "user-agent",
             "sec-fetch-mode",
@@ -493,8 +489,6 @@ class ProxySystem extends EventTarget {
             this._transmitHeaders(response, operationId, requestSpec.headers?.host);
             const reader = response.body.getReader();
             const textDecoder = new TextDecoder();
-            const contentType = response.headers.get("content-type") || "";
-            const isText = contentType.includes("text/") || contentType.includes("application/json");
 
             let fullBody = "";
 
@@ -509,23 +503,17 @@ class ProxySystem extends EventTarget {
 
                 cancelTimeout();
 
-                if (isText) {
-                    const chunk = textDecoder.decode(value, { stream: true });
-                    if (mode === "real") {
-                        this._transmitChunk(chunk, operationId);
-                    } else {
-                        fullBody += chunk;
-                    }
+                const chunk = textDecoder.decode(value, { stream: true });
+                if (mode === "real") {
+                    this._transmitChunk(chunk, operationId);
                 } else {
-                    // Binary data: use Base64 to ensure WebSocket safety
-                    const base64Chunk = btoa(String.fromCharCode(...value));
-                    this._transmitChunk(base64Chunk, operationId, true); // true = isBinary
+                    fullBody += chunk;
                 }
             }
 
             Logger.output("Data stream read complete.");
 
-            if (mode === "fake" && isText) {
+            if (mode === "fake") {
                 // In non-streaming mode, after loop ends, forward the concatenated complete response body
                 this._transmitChunk(fullBody, operationId);
             }
@@ -575,13 +563,12 @@ class ProxySystem extends EventTarget {
         });
     }
 
-    _transmitChunk(data, operationId, isBinary = false) {
+    _transmitChunk(data, operationId) {
         if (!data) return;
         this.connectionManager.transmit({
-            data: data,
+            data,
             event_type: "chunk",
             request_id: operationId,
-            is_binary: isBinary,
         });
     }
 
