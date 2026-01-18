@@ -1081,7 +1081,7 @@ class RequestHandler {
                         req.secure || (req.get && req.get("X-Forwarded-Proto") === "https") ? "https" : "http";
                     const newUrl = `${protocol}://${newAuthority}${urlObj.pathname}${urlObj.search}`;
 
-                    this.logger.info(`[Response] Rewriting header ${name}: ${value} -> ${newUrl}`);
+                    this.logger.debug(`[Response] Debug: Rewriting header ${name}: ${value} -> ${newUrl}`);
                     res.set(name, newUrl);
                 } catch (e) {
                     res.set(name, value);
@@ -1143,6 +1143,41 @@ class RequestHandler {
             );
         } else {
             this.logger.warn(`[Request] Unable to send cancel instruction: No available WebSocket connection.`);
+        }
+    }
+
+    /**
+     * Set browser (build.js) log level at runtime
+     * @param {string} level - 'DEBUG', 'INFO', 'WARN', or 'ERROR'
+     * @returns {boolean} true if message sent successfully, false otherwise
+     */
+    setBrowserLogLevel(level) {
+        const validLevels = ["DEBUG", "INFO", "WARN", "ERROR"];
+        const upperLevel = level?.toUpperCase();
+
+        if (!validLevels.includes(upperLevel)) {
+            return false;
+        }
+
+        const connection = this.connectionRegistry.getFirstConnection();
+        if (connection) {
+            connection.send(
+                JSON.stringify({
+                    event_type: "set_log_level",
+                    level: upperLevel,
+                })
+            );
+            this.logger.info(`[Config] Browser log level set to: ${upperLevel}`);
+
+            // Also update server-side LoggingService level to keep in sync
+            const LoggingService = require("../utils/LoggingService");
+            LoggingService.setLevel(upperLevel);
+            this.logger.info(`[Config] Server log level synchronized to: ${upperLevel}`);
+
+            return true;
+        } else {
+            this.logger.warn(`[Config] Unable to set browser log level: No available WebSocket connection.`);
+            return false;
         }
     }
 

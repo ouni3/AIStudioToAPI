@@ -712,6 +712,34 @@ class BrowserManager {
             }
         }
 
+        // Inject LOG_LEVEL configuration into build.js
+        // Read from LoggingService.currentLevel instead of environment variable
+        // This ensures runtime log level changes are respected when browser restarts
+        const LoggingService = require("../utils/LoggingService");
+        const currentLogLevel = LoggingService.currentLevel; // 0=DEBUG, 1=INFO, 2=WARN, 3=ERROR
+        const currentLogLevelName = LoggingService.getLevel(); // "DEBUG", "INFO", etc.
+
+        if (currentLogLevel !== 1) {
+            const lines = buildScriptContent.split("\n");
+            let levelReplaced = false;
+            for (let i = 0; i < lines.length; i++) {
+                // Match "currentLevel: <number>," pattern, ignoring comments
+                // This is more robust than looking for specific comments like "// Default: INFO"
+                if (/^\s*currentLevel:\s*\d+/.test(lines[i])) {
+                    this.logger.info(`[Config] Found LOG_LEVEL config line: ${lines[i]}`);
+                    lines[i] = `    currentLevel: ${currentLogLevel}, // Injected: ${currentLogLevelName}`;
+                    this.logger.info(`[Config] Replaced with: ${lines[i]}`);
+                    levelReplaced = true;
+                    break;
+                }
+            }
+            if (levelReplaced) {
+                buildScriptContent = lines.join("\n");
+            } else {
+                this.logger.warn("[Config] Failed to find LOG_LEVEL config line in build.js, using default INFO.");
+            }
+        }
+
         try {
             // Viewport Randomization
             const randomWidth = 1920 + Math.floor(Math.random() * 50);

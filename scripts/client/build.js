@@ -23,17 +23,76 @@ const b64toBlob = (b64Data, contentType = "", sliceSize = 512) => {
 };
 
 const Logger = {
-    enabled: true,
-    output(...messages) {
-        if (!this.enabled) return;
-        const timestamp =
-            new Date().toLocaleTimeString("zh-CN", { hour12: false }) +
-            "." +
-            new Date().getMilliseconds().toString().padStart(3, "0");
-        console.log(`[ProxyClient] ${timestamp}`, ...messages);
+    _log(level, levelName, ...messages) {
+        if (!this.enabled || level < this.currentLevel) return;
+
+        // BrowserManager will add timestamp via LoggingService when forwarding logs
+        // INFO level: keep original format without level tag for backward compatibility
+        // Other levels: show level tag for distinction
+        // Format: [ProxyClient] for INFO, [ProxyClient] Debug/Warn/Error: for others
+        let consolePrefix;
+        if (level === this.LEVELS.INFO) {
+            consolePrefix = `[ProxyClient]`;
+        } else {
+            // Capitalize first letter: DEBUG -> Debug, WARN -> Warn, ERROR -> Error
+            const levelLabel = levelName.charAt(0) + levelName.slice(1).toLowerCase();
+            consolePrefix = `[ProxyClient] ${levelLabel}:`;
+        }
+
+        switch (level) {
+            case this.LEVELS.ERROR:
+                console.error(consolePrefix, ...messages);
+                break;
+            case this.LEVELS.WARN:
+                console.warn(consolePrefix, ...messages);
+                break;
+            case this.LEVELS.DEBUG:
+                console.debug(consolePrefix, ...messages);
+                break;
+            default:
+                console.log(consolePrefix, ...messages);
+        }
+
+        // DOM output for debugging in browser page
         const logElement = document.createElement("div");
-        logElement.textContent = `[${timestamp}] ${messages.join(" ")}`;
+        if (level === this.LEVELS.INFO) {
+            logElement.textContent = messages.join(" ");
+        } else {
+            const levelLabel = levelName.charAt(0) + levelName.slice(1).toLowerCase();
+            logElement.textContent = `${levelLabel}: ${messages.join(" ")}`;
+        }
         document.body.appendChild(logElement);
+    },
+
+    // [BrowserManager Injection Point] Do not modify the line below.
+    // This line is dynamically replaced by BrowserManager.js based on LOG_LEVEL environment variable.
+    currentLevel: 1,
+
+    debug(...messages) {
+        this._log(this.LEVELS.DEBUG, "DEBUG", ...messages);
+    },
+
+    // Default: INFO
+    enabled: true,
+
+    error(...messages) {
+        this._log(this.LEVELS.ERROR, "ERROR", ...messages);
+    },
+
+    info(...messages) {
+        this._log(this.LEVELS.INFO, "INFO", ...messages);
+    },
+
+    // Log levels: DEBUG < INFO < WARN < ERROR (consistent with LoggingService.js)
+    LEVELS: { DEBUG: 0, ERROR: 3, INFO: 1, WARN: 2 },
+
+    // Backward compatible method for existing code
+    output(...messages) {
+        this.info(...messages);
+    },
+
+    warn(...messages) {
+        this._log(this.LEVELS.WARN, "WARN", ...messages);
     },
 };
 
@@ -217,7 +276,7 @@ class RequestProcessor {
                     targetHost = params.get("__proxy_host__");
                     params.delete("__proxy_host__");
                     pathAndQuery = tempUrl.pathname + tempUrl.search;
-                    Logger.output(`Dynamically switching target host: ${targetHost}`);
+                    Logger.debug(`Dynamically switching target host: ${targetHost}`);
                 }
             } catch (e) {
                 Logger.output("Failed to parse proxy host:", e.message);
@@ -250,7 +309,7 @@ class RequestProcessor {
         }
 
         const finalUrl = `https://${targetHost}/${cleanPath}`;
-        Logger.output(`Constructed URL: ${pathAndQuery} -> ${finalUrl}`);
+        Logger.debug(`Constructed URL: ${pathAndQuery} -> ${finalUrl}`);
         return finalUrl;
     }
 
@@ -450,6 +509,16 @@ class ProxySystem extends EventTarget {
                     // If it's a cancel instruction, call the cancel method
                     this.requestProcessor.cancelOperation(requestSpec.request_id);
                     break;
+                case "set_log_level":
+                    // Dynamic log level adjustment at runtime
+                    if (Logger.LEVELS[requestSpec.level] !== undefined) {
+                        const oldLevel = Object.keys(Logger.LEVELS).find(k => Logger.LEVELS[k] === Logger.currentLevel);
+                        Logger.currentLevel = Logger.LEVELS[requestSpec.level];
+                        Logger.info(`Log level changed: ${oldLevel} -> ${requestSpec.level}`);
+                    } else {
+                        Logger.warn(`Invalid log level: ${requestSpec.level}`);
+                    }
+                    break;
                 default:
                     // Default case, treat as proxy request
                     // [Final Optimization] Display path directly, no longer display mode as path itself is clear enough
@@ -547,7 +616,7 @@ class ProxySystem extends EventTarget {
                     const newSearch = `${urlObj.search}${separator}__proxy_host__=${urlObj.host}`;
                     const newUrl = `${location.protocol}//${host}${urlObj.pathname}${newSearch}`;
                     headerMap[k] = newUrl;
-                    Logger.output(`Rewriting header ${k}: ${v} -> ${headerMap[k]}`);
+                    Logger.debug(`Rewriting header ${k}: ${v} -> ${headerMap[k]}`);
                 } catch (e) {
                     headerMap[k] = v;
                 }
