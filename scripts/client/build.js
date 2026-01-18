@@ -419,6 +419,20 @@ class RequestProcessor {
                         ).toUpperCase();
                     }
 
+                    // upper case `responseModalities`
+                    if (bodyObj.generationConfig?.responseModalities) {
+                        if (Array.isArray(bodyObj.generationConfig.responseModalities)) {
+                            bodyObj.generationConfig.responseModalities =
+                                bodyObj.generationConfig.responseModalities.map(m =>
+                                    typeof m === "string" ? m.toUpperCase() : m
+                                );
+                        } else if (typeof bodyObj.generationConfig.responseModalities === "string") {
+                            bodyObj.generationConfig.responseModalities = [
+                                bodyObj.generationConfig.responseModalities.toUpperCase(),
+                            ];
+                        }
+                    }
+
                     // if raise `400 INVALID_ARGUMENT`, try to delete `thoughtSignature`
                     // if (Array.isArray(bodyObj.contents)) {
                     //     bodyObj.contents.forEach(msg => {
