@@ -133,6 +133,8 @@ jobs:
       - name: Sign the published Docker image
         if: ${{ github.event_name != 'pull_request' }}
         env:
-          TAGS: ${{ steps.meta.outputs.tags }} ${{ steps.meta-legacy.outputs.tags }}
+          TAGS: |-
+            ${{ steps.meta.outputs.tags }}
+            ${{ steps.meta-legacy.outputs.tags }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
-        run: echo "$TAGS" | xargs -I {} cosign sign --yes {}@${DIGEST}
+        run: echo "$TAGS" | xargs -r -n 1 -I {} cosign sign --yes {}@${DIGEST}
