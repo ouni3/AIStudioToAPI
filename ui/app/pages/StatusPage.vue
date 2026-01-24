@@ -2294,6 +2294,8 @@ watchEffect(() => {
     color: @text-on-primary;
     border-radius: 12px;
     flex-shrink: 0;
+    margin-left: 0;
+    margin-right: 6px;
 }
 
 .account-actions {
