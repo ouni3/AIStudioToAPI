@@ -47,7 +47,19 @@ class LoggingService {
     constructor(serviceName = "ProxyServer") {
         this.serviceName = serviceName;
         this.logBuffer = [];
-        this.maxBufferSize = 100;
+        this.displayLimit = 100;
+        this.maxBufferSize = 1000;
+    }
+
+    /**
+     * Set the number of logs to display/return via API
+     * @param {number} limit - New display limit
+     */
+    setDisplayLimit(limit) {
+        const newLimit = parseInt(limit, 10);
+        if (!isNaN(newLimit) && newLimit > 0) {
+            this.displayLimit = newLimit;
+        }
     }
 
     /**
@@ -86,6 +98,7 @@ class LoggingService {
         const formatted = `[${level}] ${timestamp} [${this.serviceName}] - ${message}`;
 
         this.logBuffer.push(formatted);
+        // Physical hard limit for memory safety
         if (this.logBuffer.length > this.maxBufferSize) {
             this.logBuffer.shift();
         }

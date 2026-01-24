@@ -138,6 +138,20 @@
                     <!-- Service Status Card -->
                     <div class="status-card">
                         <h3 class="card-title">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                style="margin-right: 8px; vertical-align: text-bottom"
+                            >
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                            </svg>
                             {{ t("serviceStatus") }}
                             <span
                                 class="dot"
@@ -196,7 +210,24 @@
 
                     <!-- Account Status Card -->
                     <div v-if="state.serviceConnected" class="status-card">
-                        <h3 class="card-title">{{ t("accountStatus") }}</h3>
+                        <h3 class="card-title">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                style="margin-right: 8px; vertical-align: text-bottom"
+                            >
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            {{ t("accountStatus") }}
+                        </h3>
                         <div class="status-list">
                             <div class="status-item">
                                 <span class="label">
@@ -212,8 +243,9 @@
                                         stroke-linejoin="round"
                                         style="margin-right: 6px"
                                     >
-                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                        <circle cx="12" cy="7" r="4"></circle>
+                                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="8.5" cy="7" r="4"></circle>
+                                        <polyline points="17 11 19 13 23 9"></polyline>
                                     </svg>
                                     {{ t("currentAccount") }}
                                 </span>
@@ -317,7 +349,23 @@
 
                     <!-- Proxy Settings Status Card -->
                     <div v-if="state.serviceConnected" class="status-card">
-                        <h3 class="card-title">{{ t("proxySettingsStatus") }}</h3>
+                        <h3 class="card-title">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                style="margin-right: 8px; vertical-align: text-bottom"
+                            >
+                                <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"></path>
+                            </svg>
+                            {{ t("proxySettingsStatus") }}
+                        </h3>
                         <div class="status-list">
                             <div class="status-item">
                                 <span class="label">
@@ -333,7 +381,7 @@
                                         stroke-linejoin="round"
                                         style="margin-right: 6px; vertical-align: middle"
                                     >
-                                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
                                     </svg>
                                     <span>
                                         {{ t("streamingMode") }}
@@ -368,9 +416,12 @@
                                         stroke-linejoin="round"
                                         style="margin-right: 6px; vertical-align: middle"
                                     >
-                                        <circle cx="12" cy="12" r="10"></circle>
-                                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                        <path d="M15.5 13a3.5 3.5 0 0 0 -3.5 3.5v1a3.5 3.5 0 0 0 7 0v-1.8"></path>
+                                        <path d="M8.5 13a3.5 3.5 0 0 1 3.5 3.5v1a3.5 3.5 0 0 1 -7 0v-1.8"></path>
+                                        <path d="M17.5 16a3.5 3.5 0 0 0 0 -7h-.5"></path>
+                                        <path d="M19 9.3v-2.8a3.5 3.5 0 0 0 -7 0"></path>
+                                        <path d="M6.5 16a3.5 3.5 0 0 1 0 -7h.5"></path>
+                                        <path d="M5 9.3v-2.8a3.5 3.5 0 0 1 7 0v10"></path>
                                     </svg>
                                     {{ t("forceThinking") }}
                                 </span>
@@ -771,11 +822,32 @@
                                 <line x1="16" y1="17" x2="8" y2="17"></line>
                                 <polyline points="10 9 9 9 8 9"></polyline>
                             </svg>
-                            {{ t("logLevel") }}
+                            {{ t("log") }}
                         </h3>
                         <div class="status-list">
                             <div class="status-item">
-                                <span class="label">{{ t("logLevel") }}</span>
+                                <span class="label">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        style="margin-right: 6px"
+                                    >
+                                        <line x1="8" y1="6" x2="21" y2="6"></line>
+                                        <line x1="8" y1="12" x2="21" y2="12"></line>
+                                        <line x1="8" y1="18" x2="21" y2="18"></line>
+                                        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                                        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                                        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                                    </svg>
+                                    {{ t("logLevel") }}
+                                </span>
                                 <el-select
                                     v-model="state.debugModeEnabled"
                                     style="width: 120px"
@@ -784,6 +856,34 @@
                                     <el-option :label="t('normal')" :value="false" />
                                     <el-option :label="t('debug')" :value="true" />
                                 </el-select>
+                            </div>
+                            <div class="status-item">
+                                <span class="label">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        style="margin-right: 6px"
+                                    >
+                                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                                        <line x1="8" y1="21" x2="16" y2="21"></line>
+                                        <line x1="12" y1="17" x2="12" y2="21"></line>
+                                    </svg>
+                                    {{ t("logMaxCount") }}
+                                </span>
+                                <el-input-number
+                                    v-model="state.logMaxCount"
+                                    :min="1"
+                                    :max="1000"
+                                    style="width: 120px"
+                                    @change="handleLogMaxCountChange"
+                                />
                             </div>
                         </div>
                     </div>
@@ -817,7 +917,31 @@
                         </h3>
                         <div class="status-list">
                             <div class="status-item">
-                                <span class="label">{{ t("theme") }}</span>
+                                <span class="label">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        style="margin-right: 6px"
+                                    >
+                                        <circle cx="12" cy="12" r="5"></circle>
+                                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                                    </svg>
+                                    {{ t("theme") }}
+                                </span>
                                 <el-select :model-value="theme" style="width: 150px" @update:model-value="setTheme">
                                     <el-option :label="t('followSystem')" value="auto" />
                                     <el-option :label="t('light')" value="light" />
@@ -825,7 +949,27 @@
                                 </el-select>
                             </div>
                             <div class="status-item">
-                                <span class="label">{{ t("language") }}</span>
+                                <span class="label">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        style="margin-right: 6px"
+                                    >
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                                        <path
+                                            d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                                        ></path>
+                                    </svg>
+                                    {{ t("language") }}
+                                </span>
                                 <el-select
                                     v-model="state.currentLang"
                                     style="width: 150px"
@@ -853,13 +997,29 @@
                                 stroke-linejoin="round"
                                 style="margin-right: 8px; vertical-align: text-bottom"
                             >
-                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                                <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"></path>
                             </svg>
                             {{ t("proxySettings") }}
                         </h3>
                         <div class="settings-switches">
                             <div class="switch-container">
-                                <span class="label">{{ t("streamingMode") }}</span>
+                                <span class="label">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        style="margin-right: 6px; vertical-align: middle"
+                                    >
+                                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                                    </svg>
+                                    {{ t("streamingMode") }}
+                                </span>
                                 <el-switch
                                     v-model="state.streamingModeReal"
                                     inline-prompt
@@ -870,7 +1030,28 @@
                                 />
                             </div>
                             <div class="switch-container">
-                                <span class="label">{{ t("forceThinking") }}</span>
+                                <span class="label">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        style="margin-right: 6px; vertical-align: middle"
+                                    >
+                                        <path d="M15.5 13a3.5 3.5 0 0 0 -3.5 3.5v1a3.5 3.5 0 0 0 7 0v-1.8"></path>
+                                        <path d="M8.5 13a3.5 3.5 0 0 1 3.5 3.5v1a3.5 3.5 0 0 1 -7 0v-1.8"></path>
+                                        <path d="M17.5 16a3.5 3.5 0 0 0 0 -7h-.5"></path>
+                                        <path d="M19 9.3v-2.8a3.5 3.5 0 0 0 -7 0"></path>
+                                        <path d="M6.5 16a3.5 3.5 0 0 1 0 -7h.5"></path>
+                                        <path d="M5 9.3v-2.8a3.5 3.5 0 0 1 7 0v10"></path>
+                                    </svg>
+                                    {{ t("forceThinking") }}
+                                </span>
                                 <el-switch
                                     v-model="state.forceThinkingEnabled"
                                     :width="50"
@@ -878,7 +1059,27 @@
                                 />
                             </div>
                             <div class="switch-container">
-                                <span class="label">{{ t("forceWebSearch") }}</span>
+                                <span class="label">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        style="margin-right: 6px; vertical-align: middle"
+                                    >
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                                        <path
+                                            d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                                        ></path>
+                                    </svg>
+                                    {{ t("forceWebSearch") }}
+                                </span>
                                 <el-switch
                                     v-model="state.forceWebSearchEnabled"
                                     :width="50"
@@ -886,7 +1087,24 @@
                                 />
                             </div>
                             <div class="switch-container">
-                                <span class="label">{{ t("forceUrlContext") }}</span>
+                                <span class="label">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        style="margin-right: 6px; vertical-align: middle"
+                                    >
+                                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                                    </svg>
+                                    {{ t("forceUrlContext") }}
+                                </span>
                                 <el-switch
                                     v-model="state.forceUrlContextEnabled"
                                     :width="50"
@@ -899,9 +1117,42 @@
             </div>
 
             <!-- LOGS VIEW -->
-            <div v-if="activeTab === 'logs'" class="view-container mobile-logs-view">
-                <header class="page-header">
+            <div v-if="activeTab === 'logs'" class="view-container logs-view-container">
+                <header class="page-header" style="display: flex; justify-content: space-between; align-items: center">
                     <h1>{{ t("realtimeLogs") }} ({{ state.logCount }})</h1>
+                    <button
+                        class="btn-icon"
+                        :title="t('downloadLogs')"
+                        style="
+                            padding: 8px;
+                            border-radius: 8px;
+                            background: var(--bg-card);
+                            border: 1px solid var(--border-light);
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                            color: var(--text-primary);
+                        "
+                        @click="downloadCurrentLogs"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        <span style="font-size: 0.9rem; font-weight: 500">{{ t("downloadLogs") }}</span>
+                    </button>
                 </header>
                 <div class="status-card logs-card">
                     <pre id="log-container">{{ state.logs }}</pre>
@@ -1278,6 +1529,27 @@ const handleStatsDebugChange = val => {
     });
 };
 
+const handleLogMaxCountChange = val => {
+    if (!val) return;
+    fetch("/api/settings/log-max-count", {
+        body: JSON.stringify({ count: val }),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.message === "settingUpdateSuccess") {
+                ElMessage.success(t(data.message, { setting: t("logMaxCount"), value: val }));
+                updateContent();
+            } else {
+                ElMessage.error(t(data.message || "settingFailed", { message: data.error || "" }));
+            }
+        })
+        .catch(err => {
+            ElMessage.error(t("settingFailed", { message: err.message || err }));
+        });
+};
+
 const handleLanguageChange = lang => {
     I18n.setLang(lang);
     state.currentLang = lang;
@@ -1450,6 +1722,7 @@ const updateStatus = data => {
     state.usageCount = data.status.usageCount;
     state.failureCount = data.status.failureCount;
     state.logCount = data.logCount || 0;
+    state.logMaxCount = data.status.logMaxCount || 100;
     state.logs = data.logs || "";
     state.isSystemBusy = data.status.isSystemBusy;
 
@@ -1549,6 +1822,31 @@ const handleFileUpload = async event => {
 const downloadAccountByIndex = accountIndex => {
     if (accountIndex === null || accountIndex === undefined) return;
     window.location.href = `/api/files/auth-${accountIndex}.json`;
+};
+
+// Download current logs
+const downloadCurrentLogs = () => {
+    if (!state.logs) return;
+
+    const blob = new Blob([state.logs], { type: "text/plain" });
+    const now = new Date();
+    const YYYY = now.getFullYear();
+    const MM = String(now.getMonth() + 1).padStart(2, "0");
+    const DD = String(now.getDate()).padStart(2, "0");
+    const HH = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+
+    const filename = `AIStudioProxy_${YYYY}-${MM}-${DD}_${HH}${mm}${ss}_${state.logCount}.log`;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 };
 
 // Check for updates once on page load
@@ -1759,6 +2057,7 @@ watchEffect(() => {
     justify-content: space-between;
     align-items: center;
     font-size: 0.95rem;
+    min-height: 32px; /* Ensure uniform height even with components */
 }
 
 .label {
@@ -2050,20 +2349,37 @@ watchEffect(() => {
     justify-content: space-between;
     align-items: center;
     font-size: 0.95rem;
+    min-height: 32px;
 }
 
 /* Logs View Specifics */
-.logs-card {
-    height: calc(100vh - 150px);
+.logs-view-container {
+    /* Full height minus content-area padding (2rem top + 2rem bottom) */
+    height: calc(100vh - 4rem);
     display: flex;
     flex-direction: column;
-    padding: 0;
     overflow: hidden;
+}
+
+.logs-view-container .page-header {
+    flex-shrink: 0;
+    /* Ensure header doesn't take extra margins causing overflow */
+    margin-bottom: 20px;
+}
+
+.logs-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Contain scroll */
+    min-height: 0; /* Allow flex child to shrink below content size */
+    padding: 0;
+    margin-bottom: 0;
 }
 
 #log-container {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: auto; /* Internal scrollbar */
     padding: 20px;
     margin: 0;
     background: @background-white;
@@ -2075,6 +2391,7 @@ watchEffect(() => {
     white-space: pre-wrap;
     word-break: break-all;
     max-width: 100%;
+    width: 100%;
 }
 
 .version-footer {
@@ -2302,31 +2619,14 @@ watchEffect(() => {
         padding-bottom: 90px;
     }
 
-    .mobile-logs-view {
-        /* Calculate height: 100vh - top padding (16px) - bottom padding (90px) */
-        height: calc(100vh - 106px);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-    }
-
-    .mobile-logs-view .page-header {
-        flex-shrink: 0;
-        margin-bottom: 16px;
-    }
-
-    .mobile-logs-view .logs-card {
-        flex: 1;
-        height: auto !important; /* Override previous fixed height, use flex for responsiveness */
-        margin-bottom: 0;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .mobile-logs-view #log-container {
-        flex: 1;
-        overflow-y: auto;
+    /* Mobile adaptation for logs view is now handled by the general flex layout,
+       but we can adjust padding if needed */
+    .logs-view-container {
+        /* On mobile, content margin might be different.
+           If sidebar changes to top nav, height calc might need adjustment.
+           For now assuming similar layout logic or letting it fall back.
+        */
+        height: calc(100vh - 106px); /* Keeping the old logic for mobile specific height if needed */
     }
 }
 
