@@ -1,6 +1,8 @@
 /**
  * File: ui/app/utils/useTheme.js
  * Description: Composable for managing application theme state (light/dark/auto)
+ *
+ * Author: bbbugg
  */
 
 import { ref, watchEffect } from 'vue';

@@ -1,3 +1,10 @@
+<!--
+ * File: ui/app/pages/StatusPage.vue
+ * Description: Status page component for displaying system status and logs
+ *
+ * Author: Ellinav, iBenzene, bbbugg
+-->
+
 <template>
     <div class="main-layout">
         <!-- Sidebar Navigation -->

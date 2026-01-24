@@ -2,7 +2,7 @@
  * File: ui/app/pages/NotFound.vue
  * Description: 404 Not Found page component for handling invalid routes
  *
- * Author: Ellinav, iBenzene, bbbugg
+ * Author: iBenzene
 -->
 
 <template>
