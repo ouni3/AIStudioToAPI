@@ -803,23 +803,18 @@ class BrowserManager {
                 // Get viewport size for realistic movement range
                 const vp = this.page.viewportSize() || { height: 1080, width: 1920 };
 
-                // Move to a random start point (Top-Left quadrant)
-                const startX = Math.floor(Math.random() * (vp.width * 0.4));
-                const startY = Math.floor(Math.random() * (vp.height * 0.4));
-                await this._simulateHumanMovement(this.page, startX, startY);
+                // 1. Move to a random point to simulate activity
+                const randomX = Math.floor(Math.random() * (vp.width * 0.7));
+                const randomY = Math.floor(Math.random() * (vp.height * 0.7));
+                await this._simulateHumanMovement(this.page, randomX, randomY);
 
+                // 2. Move to (1,1) specifically for a safe click, using human simulation
+                await this._simulateHumanMovement(this.page, 1, 1);
                 await this.page.mouse.down();
-                await this.page.waitForTimeout(50 + Math.random() * 150);
+                await this.page.waitForTimeout(50 + Math.random() * 100);
                 await this.page.mouse.up();
 
-                // Move to a random end point (Bottom-Right quadrant)
-                const endX = Math.floor(vp.width * 0.6 + Math.random() * (vp.width * 0.3));
-                const endY = Math.floor(vp.height * 0.6 + Math.random() * (vp.height * 0.3));
-                await this._simulateHumanMovement(this.page, endX, endY);
-
-                this.logger.info(
-                    `[Browser] ✅ Executed realistic page activation (${startX},${startY} -> ${endX},${endY}).`
-                );
+                this.logger.info(`[Browser] ✅ Executed realistic page activation (Random -> 1,1 Click).`);
             } catch (e) {
                 this.logger.warn(`[Browser] Wakeup minor error: ${e.message}`);
             }
