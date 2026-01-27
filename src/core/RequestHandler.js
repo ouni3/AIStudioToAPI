@@ -546,7 +546,7 @@ class RequestHandler {
                     let fullBody = "";
                     let streaming = true;
                     while (streaming) {
-                        const message = await messageQueue.dequeue(300000);
+                        const message = await messageQueue.dequeue();
                         if (message.type === "STREAM_END") {
                             streaming = false;
                             break;
@@ -646,7 +646,7 @@ class RequestHandler {
             let fullData = "";
             let streaming = true;
             while (streaming) {
-                const message = await messageQueue.dequeue(300000); // 5 min timeout
+                const message = await messageQueue.dequeue(); // 5 min timeout
                 if (message.type === "STREAM_END") {
                     streaming = false;
                     break;
@@ -851,7 +851,7 @@ class RequestHandler {
             const chunks = [];
             let receiving = true;
             while (receiving) {
-                const message = await messageQueue.dequeue(300000);
+                const message = await messageQueue.dequeue();
                 if (message.type === "STREAM_END") {
                     this.logger.info("[Request] Received end signal, data reception complete.");
                     receiving = false;
@@ -1024,7 +1024,7 @@ class RequestHandler {
         let fullBody = "";
         let receiving = true;
         while (receiving) {
-            const message = await messageQueue.dequeue(300000);
+            const message = await messageQueue.dequeue();
             if (message.type === "STREAM_END") {
                 this.logger.info("[Request] Received end signal.");
                 receiving = false;
