@@ -59,6 +59,14 @@ class AuthRoutes {
         if (req.headers["true-client-ip"]) {
             return req.headers["true-client-ip"];
         }
+        // Alibaba Cloud's ESA
+        if (req.headers["ali-real-client-ip"]) {
+            return req.headers["ali-real-client-ip"];
+        }
+        // Tencent Cloud's EdgeOne
+        if (req.headers["eo-connecting-ip"]) {
+            return req.headers["eo-connecting-ip"];
+        }
 
         // Priority 2: X-Real-IP (reliable in trusted internal proxy chains)
         if (req.headers["x-real-ip"]) {
