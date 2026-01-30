@@ -150,7 +150,7 @@ class ProxyServerSystem extends EventEmitter {
 
             if (clientKey && serverApiKeys.includes(clientKey)) {
                 this.logger.info(
-                    `[Auth] API Key verification passed (from: ${req.headers["x-forwarded-for"] || req.ip})`
+                    `[Auth] API Key verification passed (from: ${this.webRoutes.authRoutes.getClientIP(req)})`
                 );
                 if (req.query.key) {
                     delete req.query.key;
@@ -159,7 +159,7 @@ class ProxyServerSystem extends EventEmitter {
             }
 
             if (req.path !== "/favicon.ico") {
-                const clientIp = req.headers["x-forwarded-for"] || req.ip;
+                const clientIp = this.webRoutes.authRoutes.getClientIP(req);
                 this.logger.warn(
                     `[Auth] Access password incorrect or missing, request denied. IP: ${clientIp}, Path: ${req.path}`
                 );
