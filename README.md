@@ -35,6 +35,8 @@
    - 启动浏览器并自动导航到 AI Studio
    - 在本地保存您的身份验证凭据
 
+   > 💡 **提示：** 如果下载 Camoufox 浏览器失败或等待太久，可以[自行点击此处下载](https://github.com/daijro/camoufox/releases/tag/v135.0.1-beta.24)，然后设置环境变量 `CAMOUFOX_EXECUTABLE_PATH` 为可执行文件的绝对路径。
+
 3. 配置环境变量（可选）：
 
    复制根目录下的 `.env.example` 为 `.env`，并在 `.env` 中按需修改配置（如端口、API 密钥等）。
