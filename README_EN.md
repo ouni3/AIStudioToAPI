@@ -35,7 +35,7 @@ A tool that wraps Google AI Studio web interface to provide OpenAI API and Gemin
    - Launch the browser and navigate to AI Studio automatically
    - Save your authentication credentials locally
 
-   > 💡 **Tip:** If downloading the Camoufox browser fails or takes too long, you can [manually download it from here](https://github.com/daijro/camoufox/releases/tag/v135.0.1-beta.24), and set the environment variable `CAMOUFOX_EXECUTABLE_PATH` to the absolute path of the browser executable.
+   > 💡 **Tip:** If downloading the Camoufox browser fails or takes too long, you can [manually download it from here](https://github.com/daijro/camoufox/releases/tag/v135.0.1-beta.24), and set the environment variable `CAMOUFOX_EXECUTABLE_PATH` to the path of the browser executable (both absolute and relative paths are supported).
 
 3. Configure Environment Variables (Optional):
 
@@ -238,13 +238,13 @@ This endpoint is forwarded to the official Gemini API format endpoint.
 
 #### 🗒️ Other Configuration
 
-| Variable                   | Description                                                                              | Default       |
-| :------------------------- | :--------------------------------------------------------------------------------------- | :------------ |
-| `STREAMING_MODE`           | Streaming mode. `real` for real streaming, `fake` for fake streaming.                    | `real`        |
-| `FORCE_THINKING`           | Force enable thinking mode for all requests.                                             | `false`       |
-| `FORCE_WEB_SEARCH`         | Force enable web search for all requests.                                                | `false`       |
-| `FORCE_URL_CONTEXT`        | Force enable URL context for all requests.                                               | `false`       |
-| `CAMOUFOX_EXECUTABLE_PATH` | Absolute path to the Camoufox browser executable (only required if manually downloaded). | Auto-detected |
+| Variable                   | Description                                                                                                                | Default       |
+| :------------------------- | :------------------------------------------------------------------------------------------------------------------------- | :------------ |
+| `STREAMING_MODE`           | Streaming mode. `real` for real streaming, `fake` for fake streaming.                                                      | `real`        |
+| `FORCE_THINKING`           | Force enable thinking mode for all requests.                                                                               | `false`       |
+| `FORCE_WEB_SEARCH`         | Force enable web search for all requests.                                                                                  | `false`       |
+| `FORCE_URL_CONTEXT`        | Force enable URL context for all requests.                                                                                 | `false`       |
+| `CAMOUFOX_EXECUTABLE_PATH` | Path to the Camoufox browser executable (supports both absolute and relative paths). Only required if manually downloaded. | Auto-detected |
 
 ### 🧠 Model List Configuration
 
