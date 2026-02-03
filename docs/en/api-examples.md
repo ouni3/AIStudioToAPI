@@ -1,6 +1,6 @@
 # API Usage Examples
 
-This document provides simple API usage examples, including OpenAI-compatible API, Anthropic-compatible API, and Gemini native API formats.
+This document provides simple API usage examples, including OpenAI-compatible API, Gemini native API, and Anthropic-compatible API formats.
 
 ## 🤖 OpenAI-Compatible API
 

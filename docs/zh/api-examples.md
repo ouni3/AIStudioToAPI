@@ -1,6 +1,6 @@
 # API 使用示例
 
-本文档提供了简要的 API 使用示例，包括 OpenAI 兼容 API、Anthropic 兼容 API 和 Gemini 原生 API 格式。
+本文档提供了简要的 API 使用示例，包括 OpenAI 兼容 API、Gemini 原生 API 和 Anthropic 兼容 API 格式。
 
 ## 🤖 OpenAI 兼容 API
 
