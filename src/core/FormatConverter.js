@@ -184,9 +184,10 @@ class FormatConverter {
      *
      * @param {Object} obj - The schema object to convert
      * @param {boolean} [isResponseSchema=false] - If true, applies stricter rules (e.g. anyOf for unions) for Structured Outputs
+     * @param {boolean} [isProperties=false] - If true, the current object is a map of property definitions, so keys should not be filtered
      * @returns {Object} The converted schema
      */
-    _convertSchemaToGemini(obj, isResponseSchema = false) {
+    _convertSchemaToGemini(obj, isResponseSchema = false, isProperties = false) {
         if (!obj || typeof obj !== "object") return obj;
 
         const result = Array.isArray(obj) ? [] : {};
@@ -211,11 +212,44 @@ class FormatConverter {
                 unsupportedKeys.push("title", "default", "examples", "$defs", "id");
             }
 
-            if (unsupportedKeys.includes(key)) {
+            // ONLY Filter metadata keywords if NOT a property name (isProperties is false)
+            if (!isProperties && unsupportedKeys.includes(key)) {
                 continue;
             }
 
-            if (key === "type") {
+            // Handle anyOf specially (only when it is a schema keyword)
+            if (key === "anyOf" && !isProperties) {
+                if (Array.isArray(obj[key])) {
+                    const variants = obj[key];
+                    const hasNull = variants.some(v => v.type === "null");
+                    const nonNullVariants = variants.filter(v => v.type !== "null");
+
+                    if (hasNull) {
+                        result.nullable = true;
+                    }
+
+                    if (nonNullVariants.length === 1) {
+                        // Collapse single variant. Reset isProperties to false for the variant's schema.
+                        const converted = this._convertSchemaToGemini(nonNullVariants[0], isResponseSchema, false);
+                        // Merge converted properties into result
+                        Object.assign(result, converted);
+                        if (hasNull) result.nullable = true;
+                        continue; // Skip setting 'anyOf' explicitly
+                    } else if (nonNullVariants.length > 0) {
+                        // Keep anyOf for multiple variants. Reset isProperties for sub-schemas.
+                        result.anyOf = nonNullVariants.map(v =>
+                            this._convertSchemaToGemini(v, isResponseSchema, false)
+                        );
+                        continue;
+                    } else if (hasNull) {
+                        // Only null type? Keep it as nullable without forcing a specific type.
+                        continue;
+                    }
+                }
+            }
+
+            // Handle type specially (only when it is a schema keyword)
+            if (key === "type" && !isProperties) {
                 if (Array.isArray(obj[key])) {
                     // Handle nullable types like ["string", "null"]
                     const types = obj[key];
@@ -247,11 +281,12 @@ class FormatConverter {
                     // Convert lowercase type to uppercase for Gemini
                     result[key] = obj[key].toUpperCase();
                 } else if (typeof obj[key] === "object" && obj[key] !== null) {
-                    result[key] = this._convertSchemaToGemini(obj[key], isResponseSchema);
+                    // Type being an object is a sub-schema definition, not property name mapping
+                    result[key] = this._convertSchemaToGemini(obj[key], isResponseSchema, false);
                 } else {
                     result[key] = obj[key];
                 }
-            } else if (key === "enum") {
+            } else if (key === "enum" && !isProperties) {
                 // 2. Ensure all enum values are strings (Only for Response Schema)
                 if (isResponseSchema) {
                     if (Array.isArray(obj[key])) {
@@ -265,7 +300,14 @@ class FormatConverter {
                     result[key] = obj[key];
                 }
             } else if (typeof obj[key] === "object" && obj[key] !== null) {
-                result[key] = this._convertSchemaToGemini(obj[key], isResponseSchema);
+                // Recursion logic:
+                // - If key is 'properties', next level is a map of property NAMES. Set isProperties = true.
+                // - Otherwise, if we were currently in a properties map (isProperties is true),
+                //   the value is a schema definition. For its keys, isProperties MUST be false.
+                const nextIsProperties = key === "properties";
+                const recursionFlag = isProperties ? false : nextIsProperties;
+
+                result[key] = this._convertSchemaToGemini(obj[key], isResponseSchema, recursionFlag);
             } else {
                 result[key] = obj[key];
             }
