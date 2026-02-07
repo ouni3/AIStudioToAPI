@@ -121,9 +121,6 @@ class FormatConverter {
             return geminiBody;
         }
 
-        // [DEBUG] Log original Gemini tools before sanitization
-        this.logger.debug(`[Adapter] Debug: original Gemini tools = ${JSON.stringify(geminiBody.tools, null, 2)}`);
-
         // Helper function to recursively sanitize schema:
         // 1. Remove unsupported fields ($schema, additionalProperties)
         // 2. Convert lowercase type to uppercase (object -> OBJECT, string -> STRING, etc.)
@@ -171,10 +168,6 @@ class FormatConverter {
             }
         }
 
-        // [DEBUG] Log sanitized Gemini tools after processing
-        this.logger.debug(`[Adapter] Debug: sanitized Gemini tools = ${JSON.stringify(geminiBody.tools, null, 2)}`);
-
-        this.logger.info("[Adapter] Sanitized Gemini tools (removed unsupported fields, converted type to uppercase)");
         return geminiBody;
     }
 
@@ -614,9 +607,8 @@ class FormatConverter {
 
         // Force thinking mode
         if (this.serverSystem.forceThinking && !thinkingConfig) {
-            this.logger.info(
-                "[Adapter] ⚠️ Force thinking enabled and client did not provide config, injecting thinkingConfig."
-            );
+            this.logger.info("[Adapter] ⚠️ Force thinking enabled, injecting thinkingConfig for OpenAI request.");
+
             thinkingConfig = { includeThoughts: true };
         }
 
@@ -665,13 +657,8 @@ class FormatConverter {
             }
 
             if (functionDeclarations.length > 0) {
-                if (!googleRequest.tools) {
-                    googleRequest.tools = [];
-                }
-                googleRequest.tools.push({ functionDeclarations });
-                this.logger.info(
-                    `[Adapter] Converted ${functionDeclarations.length} OpenAI tool(s) to Gemini functionDeclarations`
-                );
+                googleRequest.tools = [{ functionDeclarations }];
+                this.logger.info(`[Adapter] Converted ${functionDeclarations.length} OpenAI tool(s) to Gemini format`);
             }
         }
 
@@ -732,13 +719,6 @@ class FormatConverter {
                         this.logger.info(
                             `[Adapter] Converted OpenAI response_format to Gemini responseSchema: ${jsonSchema.name || "unnamed"}`
                         );
-
-                        // Log warning if tools are also present (may cause conflicts)
-                        if (googleRequest.tools && googleRequest.tools.length > 0) {
-                            this.logger.warn(
-                                "[Adapter] ⚠️ Both response_format and tools are present. This may cause unexpected behavior."
-                            );
-                        }
                     } catch (error) {
                         this.logger.error(
                             `[Adapter] Failed to convert response_format schema: ${error.message}`,
@@ -821,7 +801,7 @@ class FormatConverter {
      * @param {object} streamState - Optional state object to track thought mode
      */
     translateGoogleToOpenAIStream(googleChunk, modelName = "gemini-2.5-flash-lite", streamState = null) {
-        this.logger.debug(`[Adapter] Debug: Received Google chunk: ${googleChunk}`);
+        this.logger.debug(`[Adapter] Debug: Received Google chunk for OpenAI: ${googleChunk}`);
 
         // Ensure streamState exists to properly track tool call indices
         if (!streamState) {
@@ -847,7 +827,7 @@ class FormatConverter {
         try {
             googleResponse = JSON.parse(jsonString);
         } catch (e) {
-            this.logger.warn(`[Adapter] Unable to parse Google JSON chunk: ${jsonString}`);
+            this.logger.warn(`[Adapter] Unable to parse Google JSON chunk for OpenAI: ${jsonString}`);
             return null;
         }
 
@@ -869,7 +849,7 @@ class FormatConverter {
         if (!candidate) {
             if (googleResponse.promptFeedback) {
                 this.logger.warn(
-                    `[Adapter] Google returned promptFeedback, may have been blocked: ${JSON.stringify(
+                    `[Adapter] Google returned promptFeedback for OpenAI stream, may have been blocked: ${JSON.stringify(
                         googleResponse.promptFeedback
                     )}`
                 );
@@ -1414,7 +1394,7 @@ class FormatConverter {
 
         // Force thinking mode
         if (this.serverSystem.forceThinking && !thinkingConfig) {
-            this.logger.info("[Adapter] Force thinking enabled, injecting thinkingConfig for Claude request.");
+            this.logger.info("[Adapter] ⚠️ Force thinking enabled, injecting thinkingConfig for Claude request.");
             thinkingConfig = { includeThoughts: true };
         }
 
@@ -1578,7 +1558,12 @@ class FormatConverter {
      * @param {object} streamState - State object to track streaming progress
      */
     translateGoogleToClaudeStream(googleChunk, modelName = "gemini-2.5-flash-lite", streamState = null) {
+        this.logger.debug(`[Adapter] Debug: Received Google chunk for Claude: ${googleChunk}`);
+
         if (!streamState) {
+            this.logger.warn(
+                "[Adapter] streamState not provided, creating default state. This may cause issues with tool call tracking."
+            );
             streamState = {};
         }
         if (!googleChunk || googleChunk.trim() === "") {
@@ -1623,7 +1608,11 @@ class FormatConverter {
 
         if (!candidate) {
             if (googleResponse.promptFeedback) {
-                this.logger.warn(`[Adapter] Google returned promptFeedback for Claude stream`);
+                this.logger.warn(
+                    `[Adapter] Google returned promptFeedback for Claude stream, may have been blocked: ${JSON.stringify(
+                        googleResponse.promptFeedback
+                    )}`
+                );
             }
             return null;
         }

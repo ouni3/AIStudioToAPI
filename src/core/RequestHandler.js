@@ -1861,6 +1861,8 @@ class RequestHandler {
         let cleanPath = fullPath.replace(/^\/proxy/, "");
         const bodyObj = req.body;
 
+        this.logger.debug(`[Proxy] Debug: incoming Gemini Body (Google Native) = ${JSON.stringify(bodyObj, null, 2)}`);
+
         // Parse thinkingLevel suffix from model name in native Gemini generation requests
         // Only handle generation requests: /v1beta/models/{modelName}:generateContent or :streamGenerateContent
         const modelPathMatch = cleanPath.match(
