@@ -10,6 +10,9 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
+// Load environment variables from .env file
+require("dotenv").config({ path: path.resolve(__dirname, "..", "..", ".env") });
+
 // Initialize language from environment variable passed by setupAuth.js
 const lang = process.env.SETUP_AUTH_LANG || "zh";
 
