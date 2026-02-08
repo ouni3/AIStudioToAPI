@@ -10,51 +10,7 @@ const path = require("path");
 const { firefox, devices } = require("playwright");
 const os = require("os");
 
-const parseProxyFromEnv = () => {
-    const serverRaw =
-        process.env.HTTPS_PROXY ||
-        process.env.https_proxy ||
-        process.env.HTTP_PROXY ||
-        process.env.http_proxy ||
-        process.env.ALL_PROXY ||
-        process.env.all_proxy;
-
-    if (!serverRaw) return null;
-
-    const bypassRaw = process.env.NO_PROXY || process.env.no_proxy;
-
-    try {
-        const u = new URL(serverRaw);
-        const proxy = {
-            server: `${u.protocol}//${u.host}`,
-        };
-
-        if (u.username) proxy.username = decodeURIComponent(u.username);
-        if (u.password) proxy.password = decodeURIComponent(u.password);
-
-        if (bypassRaw) {
-            proxy.bypass = bypassRaw
-                .split(",")
-                .map(s => s.trim())
-                .filter(Boolean)
-                .join(",");
-        }
-
-        return proxy;
-    } catch {
-        const proxy = { server: serverRaw };
-
-        if (bypassRaw) {
-            proxy.bypass = bypassRaw
-                .split(",")
-                .map(s => s.trim())
-                .filter(Boolean)
-                .join(",");
-        }
-
-        return proxy;
-    }
-};
+const { parseProxyFromEnv } = require("../utils/ProxyUtils");
 
 /**
  * Browser Manager Module
@@ -1031,13 +987,13 @@ class BrowserManager {
         // It does NOT affect the main `this.browser` used for the API proxy.
         const vncBrowser = await firefox.launch({
             args: this.launchArgs,
-            // Must be false for VNC to be visible.
             env: {
                 ...process.env,
                 ...extraArgs.env,
             },
             executablePath: this.browserExecutablePath,
             firefoxUserPrefs: this.firefoxUserPrefs,
+            // Must be false for VNC to be visible.
             headless: false,
             ...(proxyConfig ? { proxy: proxyConfig } : {}),
         });

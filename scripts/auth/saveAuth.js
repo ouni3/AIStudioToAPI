@@ -33,51 +33,7 @@ const browserExecutablePath = process.env.CAMOUFOX_EXECUTABLE_PATH || getDefault
 const VALIDATION_LINE_THRESHOLD = 200; // Validation line threshold
 const CONFIG_DIR = "configs/auth"; // Authentication files directory
 
-const parseProxyFromEnv = () => {
-    const serverRaw =
-        process.env.HTTPS_PROXY ||
-        process.env.https_proxy ||
-        process.env.HTTP_PROXY ||
-        process.env.http_proxy ||
-        process.env.ALL_PROXY ||
-        process.env.all_proxy;
-
-    if (!serverRaw) return null;
-
-    const bypassRaw = process.env.NO_PROXY || process.env.no_proxy;
-
-    // Playwright expects: { server, bypass?, username?, password? }
-    // server examples: "http://127.0.0.1:7890", "socks5://127.0.0.1:7890"
-    try {
-        const u = new URL(serverRaw);
-        const proxy = {
-            server: `${u.protocol}//${u.host}`,
-        };
-
-        if (u.username) proxy.username = decodeURIComponent(u.username);
-        if (u.password) proxy.password = decodeURIComponent(u.password);
-
-        if (bypassRaw) {
-            proxy.bypass = bypassRaw
-                .split(",")
-                .map(s => s.trim())
-                .filter(Boolean)
-                .join(",");
-        }
-
-        return proxy;
-    } catch {
-        const proxy = { server: serverRaw };
-        if (bypassRaw) {
-            proxy.bypass = bypassRaw
-                .split(",")
-                .map(s => s.trim())
-                .filter(Boolean)
-                .join(",");
-        }
-        return proxy;
-    }
-};
+const { parseProxyFromEnv } = require("../../src/utils/ProxyUtils");
 
 /**
  * Ensures that the specified directory exists, creating it if it doesn't.
