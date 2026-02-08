@@ -159,15 +159,15 @@ const getNextAuthIndex = () => {
         const bypassText = proxyConfig.bypass ? `, bypass=${proxyConfig.bypass}` : "";
         console.log(
             getText(
-                `🌐 使用代理: ${proxyConfig.server}${bypassText}`,
-                `🌐 Using proxy: ${proxyConfig.server}${bypassText}`
+                `🌐  使用代理: ${proxyConfig.server}${bypassText}`,
+                `🌐  Using proxy: ${proxyConfig.server}${bypassText}`
             )
         );
     } else {
         console.log(
             getText(
-                "🌐 未检测到代理环境变量 (HTTPS_PROXY/HTTP_PROXY/ALL_PROXY)。如需代理请在运行前设置。",
-                "🌐 No proxy env detected (HTTPS_PROXY/HTTP_PROXY/ALL_PROXY). Set it before running if needed."
+                "🌐  未检测到代理环境变量 (HTTPS_PROXY/HTTP_PROXY/ALL_PROXY)。如需代理请在运行前设置。",
+                "🌐  No proxy env detected (HTTPS_PROXY/HTTP_PROXY/ALL_PROXY). Set it before running if needed."
             )
         );
     }
