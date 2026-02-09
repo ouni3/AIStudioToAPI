@@ -788,7 +788,13 @@
                                     </svg>
                                     {{ t("currentVersion") }}
                                 </span>
-                                <span class="value">{{ appVersion }}</span>
+                                <span class="value">
+                                    <el-tooltip :content="t('copy')" placement="top">
+                                        <span class="clickable-version" @click="copyAppVersion">
+                                            {{ appVersion }}
+                                        </span>
+                                    </el-tooltip>
+                                </span>
                             </div>
                             <div class="status-item">
                                 <span class="label">
@@ -1732,6 +1738,16 @@ const switchAccountByIndex = targetIndex => {
         });
 };
 
+const copyAppVersion = async () => {
+    try {
+        await navigator.clipboard.writeText(appVersion.value);
+        ElMessage.success(t("copySuccess"));
+    } catch (err) {
+        ElMessage.error(t("copyFailed"));
+        console.error("Failed to copy version:", err);
+    }
+};
+
 const updateStatus = data => {
     state.serviceConnected = true;
 
@@ -2011,7 +2027,7 @@ watchEffect(() => {
 }
 
 .view-container {
-    /* animation: fadeIn 0.3s ease; */
+    animation: fadeIn 0.3s ease;
 }
 
 @keyframes fadeIn {
@@ -2172,6 +2188,17 @@ watchEffect(() => {
 
     &.status-error {
         background-color: @error-color;
+    }
+}
+
+.clickable-version {
+    cursor: pointer;
+    transition: color 0.3s;
+    display: inline-flex;
+    align-items: center;
+
+    &:hover {
+        color: @primary-color;
     }
 }
 
