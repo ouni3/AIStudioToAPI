@@ -27,7 +27,6 @@ class BrowserManager {
         // currentAuthIndex is the single source of truth for current account, accessed via getter/setter
         // -1 means no account is currently active (invalid/error state)
         this._currentAuthIndex = -1;
-        this.scriptFileName = "build.js";
 
         // Flag to distinguish intentional close from unexpected disconnect
         // Used by ConnectionRegistry callback to skip unnecessary reconnect attempts
@@ -35,6 +34,15 @@ class BrowserManager {
 
         // Added for background wakeup logic from new core
         this.noButtonCount = 0;
+
+        // WebSocket initialization flags - track browser-side initialization status
+        this._wsInitSuccess = false;
+        this._wsInitFailed = false;
+        this._consoleListenerRegistered = false;
+
+        // Target URL for AI Studio app
+        this.targetUrl = "https://ai.studio/apps/0400c62c-9bcb-48c1-b056-9b5cf4cb5603";
+        this.expectedAppId = "0400c62c-9bcb-48c1-b056-9b5cf4cb5603";
 
         // Firefox/Camoufox does not use Chromium-style command line args.
         // We keep this empty; Camoufox has its own anti-fingerprinting optimizations built-in.
@@ -99,6 +107,91 @@ class BrowserManager {
 
     set currentAuthIndex(value) {
         this._currentAuthIndex = value;
+    }
+
+    /**
+     * Helper: Check for page errors that require refresh
+     * @returns {Object} Object with error flags
+     */
+    async _checkPageErrors() {
+        try {
+            const hasError = await this.page.evaluate(() => {
+                // eslint-disable-next-line no-undef
+                const bodyText = document.body.innerText || "";
+                return {
+                    appletFailed: bodyText.includes("Failed to initialize applet"),
+                    concurrentUpdates:
+                        bodyText.includes("There are concurrent updates") || bodyText.includes("concurrent updates"),
+                    snapshotFailed:
+                        bodyText.includes("Failed to create snapshot") || bodyText.includes("Please try again"),
+                };
+            });
+            return hasError;
+        } catch (e) {
+            return { appletFailed: false, concurrentUpdates: false, snapshotFailed: false };
+        }
+    }
+
+    /**
+     * Helper: Wait for WebSocket initialization with log monitoring
+     * @param {string} logPrefix - Log prefix for messages
+     * @param {number} timeout - Timeout in milliseconds (default 60000)
+     * @returns {Promise<boolean>} true if initialization succeeded, false if failed
+     */
+    async _waitForWebSocketInit(logPrefix = "[Browser]", timeout = 60000) {
+        this.logger.info(`${logPrefix} ⏳ Waiting for WebSocket initialization (timeout: ${timeout / 1000}s)...`);
+
+        // Don't reset flags here - they should be reset before calling this method
+        // This allows the method to detect if initialization already completed
+
+        const startTime = Date.now();
+        const checkInterval = 1000; // Check every 1 second
+
+        try {
+            while (Date.now() - startTime < timeout) {
+                // Check if initialization succeeded
+                if (this._wsInitSuccess) {
+                    return true;
+                }
+
+                // Check if initialization failed
+                if (this._wsInitFailed) {
+                    this.logger.warn(`${logPrefix} Initialization failed, will attempt refresh...`);
+                    return false;
+                }
+
+                // Check for page errors
+                const errors = await this._checkPageErrors();
+                if (errors.appletFailed || errors.concurrentUpdates || errors.snapshotFailed) {
+                    this.logger.warn(
+                        `${logPrefix} Detected page error: ${JSON.stringify(errors)}, will attempt refresh...`
+                    );
+                    return false;
+                }
+
+                // Random mouse movement while waiting (30% chance per iteration)
+                if (Math.random() < 0.3) {
+                    try {
+                        const vp = this.page.viewportSize() || { height: 1080, width: 1920 };
+                        const randomX = Math.floor(Math.random() * (vp.width * 0.7));
+                        const randomY = Math.floor(Math.random() * (vp.height * 0.7));
+                        await this._simulateHumanMovement(this.page, randomX, randomY);
+                    } catch (e) {
+                        // Ignore movement errors
+                    }
+                }
+
+                // Wait before next check
+                await this.page.waitForTimeout(checkInterval);
+            }
+
+            // Timeout reached
+            this.logger.error(`${logPrefix} ⏱️ WebSocket initialization timeout after ${timeout / 1000}s`);
+            return false;
+        } catch (error) {
+            this.logger.error(`${logPrefix} Error during WebSocket initialization wait: ${error.message}`);
+            return false;
+        }
     }
 
     /**
@@ -322,7 +415,7 @@ class BrowserManager {
 
     /**
      * Helper: Load and configure build.js script content
-     * Applies environment-specific configurations (TARGET_DOMAIN, WS_PORT, LOG_LEVEL)
+     * Applies environment-specific configurations (TARGET_DOMAIN, LOG_LEVEL)
      * @returns {string} Configured build.js script content
      */
     _loadAndConfigureBuildScript() {
@@ -351,22 +444,12 @@ class BrowserManager {
         }
 
         if (process.env.WS_PORT) {
-            const lines = buildScriptContent.split("\n");
-            let portReplaced = false;
-            for (let i = 0; i < lines.length; i++) {
-                if (lines[i].includes('constructor(endpoint = "ws://127.0.0.1:9998")')) {
-                    this.logger.info(`[Config] Found port config line: ${lines[i]}`);
-                    lines[i] = `    constructor(endpoint = "ws://127.0.0.1:${process.env.WS_PORT}") {`;
-                    this.logger.info(`[Config] Replaced with: ${lines[i]}`);
-                    portReplaced = true;
-                    break;
-                }
-            }
-            if (portReplaced) {
-                buildScriptContent = lines.join("\n");
-            } else {
-                this.logger.warn("[Config] Failed to find port config line in build.js, using default.");
-            }
+            // WS_PORT environment variable is no longer supported
+            this.logger.error(
+                `[Config] ❌ WS_PORT environment variable is deprecated and no longer supported. ` +
+                    `The WebSocket port is now fixed at 9998. Please remove WS_PORT from your .env file.`
+            );
+            // Do not modify the default WS_PORT - keep it at 9998
         }
 
         // Inject LOG_LEVEL configuration into build.js
@@ -509,9 +592,7 @@ class BrowserManager {
      */
     async _navigateAndWakeUpPage(logPrefix = "[Browser]") {
         this.logger.info(`${logPrefix} Navigating to target page...`);
-        const targetUrl =
-            "https://aistudio.google.com/u/0/apps/bundled/blank?showPreview=true&showCode=true&showAssistant=true";
-        await this.page.goto(targetUrl, {
+        await this.page.goto(this.targetUrl, {
             timeout: 180000,
             waitUntil: "domcontentloaded",
         });
@@ -540,6 +621,49 @@ class BrowserManager {
             this.logger.warn(`${logPrefix} Wakeup minor error: ${e.message}`);
         }
         await this.page.waitForTimeout(2000 + Math.random() * 2000);
+    }
+
+    /**
+     * Helper: Verify navigation to correct page and retry if needed
+     * Throws error on failure, which will be caught by the caller's try-catch block
+     * @param {string} logPrefix - Log prefix for messages (e.g., "[Browser]" or "[Reconnect]")
+     * @throws {Error} If navigation fails after retry
+     */
+    async _verifyAndRetryNavigation(logPrefix = "[Browser]") {
+        let currentUrl = this.page.url();
+
+        if (!currentUrl.includes(this.expectedAppId)) {
+            this.logger.warn(`${logPrefix} ⚠️ Page redirected to: ${currentUrl}`);
+            this.logger.info(`${logPrefix} Expected app ID: ${this.expectedAppId}`);
+            this.logger.info(`${logPrefix} Attempting to navigate again...`);
+
+            // Reset WebSocket initialization flags before re-navigation
+            this._wsInitSuccess = false;
+            this._wsInitFailed = false;
+
+            // Wait a bit before retrying
+            await this.page.waitForTimeout(2000);
+
+            // Try navigating again
+            await this.page.goto(this.targetUrl, {
+                timeout: 180000,
+                waitUntil: "domcontentloaded",
+            });
+            await this.page.waitForTimeout(2000);
+
+            // Check URL again
+            currentUrl = this.page.url();
+            if (!currentUrl.includes(this.expectedAppId)) {
+                this.logger.error(`${logPrefix} ❌ Still on wrong page after retry: ${currentUrl}`);
+                throw new Error(
+                    `Failed to navigate to correct page. Current URL: ${currentUrl}, Expected app ID: ${this.expectedAppId}`
+                );
+            } else {
+                this.logger.info(`${logPrefix} ✅ Successfully navigated to correct page on retry: ${currentUrl}`);
+            }
+        } else {
+            this.logger.info(`${logPrefix} ✅ Confirmed on correct page: ${currentUrl}`);
+        }
     }
 
     /**
@@ -597,6 +721,11 @@ class BrowserManager {
 
         const popupConfigs = [
             {
+                logFound: `${logPrefix} ✅ Found "Continue to the app" button, clicking...`,
+                name: "Continue to the app",
+                selector: 'button:text("Continue to the app")',
+            },
+            {
                 logFound: `${logPrefix} ✅ Found Cookie consent banner, clicking "Agree"...`,
                 name: "Cookie consent",
                 selector: 'button:text("Agree")',
@@ -607,9 +736,39 @@ class BrowserManager {
                 selector: 'div.dialog button:text("Got it")',
             },
             {
+                logFound: `${logPrefix} ✅ Found "Got it" button (generic), clicking...`,
+                name: "Got it button",
+                selector: 'button:text("Got it")',
+            },
+            {
                 logFound: `${logPrefix} ✅ Found onboarding tutorial popup, clicking close button...`,
                 name: "Onboarding tutorial",
                 selector: 'button[aria-label="Close"]',
+            },
+            {
+                logFound: `${logPrefix} ✅ Found "Dismiss" button, clicking...`,
+                name: "Dismiss button",
+                selector: 'button:text("Dismiss")',
+            },
+            {
+                logFound: `${logPrefix} ✅ Found "Not now" button, clicking...`,
+                name: "Not now button",
+                selector: 'button:text("Not now")',
+            },
+            {
+                logFound: `${logPrefix} ✅ Found "Maybe later" button, clicking...`,
+                name: "Maybe later button",
+                selector: 'button:text("Maybe later")',
+            },
+            {
+                logFound: `${logPrefix} ✅ Found "Skip" button, clicking...`,
+                name: "Skip button",
+                selector: 'button:text-is("Skip")',
+            },
+            {
+                logFound: `${logPrefix} ✅ Found update notification, clicking close...`,
+                name: "Update notification",
+                selector: 'button[aria-label="Close notification"]',
             },
         ];
 
@@ -673,15 +832,64 @@ class BrowserManager {
             // 1. Must have completed minimum iterations (ensure slow popups have time to load)
             // 2. Consecutive idle count exceeds threshold (no new popups appearing)
             if (i >= minIterations - 1 && consecutiveIdleCount >= idleThreshold) {
-                this.logger.info(
-                    `${logPrefix} ✅ Popup detection complete (${i + 1} iterations, ${handledPopups.size} popups handled)`
-                );
                 break;
             }
 
             if (i < maxIterations - 1) {
                 await this.page.waitForTimeout(pollInterval);
             }
+        }
+
+        // Log final summary
+        if (handledPopups.size === 0) {
+            this.logger.info(`${logPrefix} ℹ️ No popups detected during scan`);
+        } else {
+            this.logger.info(
+                `${logPrefix} ✅ Popup detection complete: handled ${handledPopups.size} popup(s) - ${Array.from(handledPopups).join(", ")}`
+            );
+        }
+    }
+
+    /**
+     * Helper: Try to click Launch button if it exists on the page
+     * This is not a popup, but a page button that may need to be clicked
+     * @param {string} logPrefix - Log prefix for messages (e.g., "[Browser]" or "[Reconnect]")
+     */
+    async _tryClickLaunchButton(logPrefix = "[Browser]") {
+        try {
+            this.logger.info(`${logPrefix} 🔍 Checking for Launch button...`);
+
+            // Try to find Launch button with multiple selectors
+            const launchSelectors = [
+                'button:text("Launch")',
+                'button:has-text("Launch")',
+                'button[aria-label*="Launch"]',
+                'button span:has-text("Launch")',
+                'div[role="button"]:has-text("Launch")',
+            ];
+
+            let clicked = false;
+            for (const selector of launchSelectors) {
+                try {
+                    const element = this.page.locator(selector).first();
+                    if (await element.isVisible({ timeout: 2000 })) {
+                        this.logger.info(`${logPrefix} ✅ Found Launch button with selector: ${selector}`);
+                        await element.click({ force: true, timeout: 5000 });
+                        this.logger.info(`${logPrefix} ✅ Launch button clicked successfully`);
+                        clicked = true;
+                        await this.page.waitForTimeout(1000);
+                        break;
+                    }
+                } catch (e) {
+                    // Continue to next selector
+                }
+            }
+
+            if (!clicked) {
+                this.logger.info(`${logPrefix} ℹ️ No Launch button found (this is normal if already launched)`);
+            }
+        } catch (error) {
+            this.logger.warn(`${logPrefix} ⚠️ Error while checking for Launch button: ${error.message}`);
         }
     }
 
@@ -1082,7 +1290,13 @@ class BrowserManager {
             await Promise.race([closePromise, timeoutPromise]);
             this.context = null;
             this.page = null;
-            this.logger.info("[Browser] Old API context closed.");
+
+            // Reset flags when closing context, as page object is no longer valid
+            this._consoleListenerRegistered = false;
+            this._wsInitSuccess = false;
+            this._wsInitFailed = false;
+
+            this.logger.info("[Browser] Old API context closed, flags reset.");
         }
 
         const sourceDescription = `File auth-${authIndex}.json`;
@@ -1095,8 +1309,6 @@ class BrowserManager {
         if (!storageStateObject) {
             throw new Error(`Failed to get or parse auth source for index ${authIndex}.`);
         }
-
-        const buildScriptContent = this._loadAndConfigureBuildScript();
 
         try {
             // Viewport Randomization
@@ -1134,31 +1346,104 @@ class BrowserManager {
                 this.logger.warn(`[Browser] Wakeup minor error: ${e.message}`);
             }
 
-            this.page.on("console", msg => {
-                const msgText = msg.text();
-                if (msgText.includes("Content-Security-Policy")) {
-                    return;
-                }
+            // Register console listener only once to avoid duplicate registrations
+            if (!this._consoleListenerRegistered) {
+                this.page.on("console", msg => {
+                    const msgText = msg.text();
+                    if (msgText.includes("Content-Security-Policy")) {
+                        return;
+                    }
 
-                if (msgText.includes("[ProxyClient]")) {
-                    this.logger.info(`[Browser] ${msgText.replace("[ProxyClient] ", "")}`);
-                } else if (msg.type() === "error") {
-                    this.logger.error(`[Browser Page Error] ${msgText}`);
-                }
-            });
+                    // Filter out WebGL not supported warning (expected when GPU is disabled for privacy)
+                    if (msgText.includes("WebGL not supported")) {
+                        return;
+                    }
+
+                    if (msgText.includes("[ProxyClient]")) {
+                        this.logger.info(`[Browser] ${msgText.replace("[ProxyClient] ", "")}`);
+                    } else if (msg.type() === "error") {
+                        this.logger.error(`[Browser Page Error] ${msgText}`);
+                    }
+
+                    // Check for WebSocket initialization status
+                    if (msgText.includes("System initialization complete, waiting for server instructions")) {
+                        this.logger.info(`[Browser] ✅ Detected successful initialization message from browser`);
+                        this._wsInitSuccess = true;
+                    } else if (msgText.includes("System initialization failed")) {
+                        this.logger.warn(`[Browser] ❌ Detected initialization failure message from browser`);
+                        this._wsInitFailed = true;
+                    }
+                });
+                this._consoleListenerRegistered = true;
+            }
 
             await this._navigateAndWakeUpPage("[Browser]");
 
             // Check for cookie expiration, region restrictions, and other errors
             await this._checkPageStatusAndErrors("[Browser]");
 
-            // Handle various popups (Cookie consent, Got it, Onboarding, etc.)
+            // Check if we were redirected to the wrong page BEFORE handling popups
+            await this._verifyAndRetryNavigation("[Browser]");
+
+            // Handle various popups AFTER URL check (Cookie consent, Got it, Onboarding, etc.)
             await this._handlePopups("[Browser]");
 
-            await this._injectScriptToEditor(buildScriptContent, "[Browser]");
+            // Try to click Launch button if it exists (not a popup, but a page button)
+            await this._tryClickLaunchButton("[Browser]");
 
-            // Start background wakeup service - only started here during initial browser launch
+            // Wait for WebSocket initialization with error checking and retry logic
+            const maxRetries = 3;
+            let retryCount = 0;
+            let initSuccess = false;
+
+            // Check if initialization already succeeded (console listener may have detected it)
+            if (this._wsInitSuccess) {
+                this.logger.info(`[Browser] ✅ WebSocket already initialized, skipping wait`);
+                initSuccess = true;
+            }
+
+            while (retryCount < maxRetries && !initSuccess) {
+                if (retryCount > 0) {
+                    this.logger.info(`[Browser] 🔄 Retry attempt ${retryCount}/${maxRetries - 1}...`);
+
+                    // Reset flags before page refresh to ensure clean state
+                    this._wsInitSuccess = false;
+                    this._wsInitFailed = false;
+
+                    // Navigate to target page again
+                    await this.page.goto(this.targetUrl, {
+                        timeout: 180000,
+                        waitUntil: "domcontentloaded",
+                    });
+                    await this.page.waitForTimeout(2000);
+
+                    // Handle various popups (Cookie consent, Got it, Onboarding, etc.)
+                    await this._handlePopups("[Browser]");
+
+                    // Try to click Launch button after reload
+                    await this._tryClickLaunchButton("[Browser]");
+                }
+
+                // Wait for WebSocket initialization (60 second timeout)
+                initSuccess = await this._waitForWebSocketInit("[Browser]", 60000);
+
+                if (!initSuccess) {
+                    retryCount++;
+                    if (retryCount < maxRetries) {
+                        this.logger.warn(`[Browser] Initialization failed, refreshing page...`);
+                    }
+                }
+            }
+
+            if (!initSuccess) {
+                throw new Error(
+                    "WebSocket initialization failed after multiple retries. Please check browser logs and page errors."
+                );
+            }
+
+            // Start background services - only started here during initial browser launch
             this._startBackgroundWakeup();
+            this._startHealthMonitor();
 
             this._currentAuthIndex = authIndex;
 
@@ -1179,7 +1464,7 @@ class BrowserManager {
     }
 
     /**
-     * Lightweight Reconnect: Refreshes the page and re-injects the script
+     * Lightweight Reconnect: Refreshes the page and clicks "Continue to the app" button
      * without restarting the entire browser instance.
      *
      * This method is called when WebSocket connection is lost but the browser
@@ -1218,20 +1503,74 @@ class BrowserManager {
         }
 
         try {
-            // Load and configure the build.js script using the shared helper
-            const buildScriptContent = this._loadAndConfigureBuildScript();
-
             // Navigate to target page and wake it up
             await this._navigateAndWakeUpPage("[Reconnect]");
 
             // Check for cookie expiration, region restrictions, and other errors
             await this._checkPageStatusAndErrors("[Reconnect]");
 
-            // Handle various popups (Cookie consent, Got it, Onboarding, etc.)
+            // Check if we were redirected to the wrong page BEFORE handling popups
+            await this._verifyAndRetryNavigation("[Reconnect]");
+
+            // Handle various popups AFTER URL check (Cookie consent, Got it, Onboarding, etc.)
             await this._handlePopups("[Reconnect]");
 
-            // Use shared script injection helper with [Reconnect] log prefix
-            await this._injectScriptToEditor(buildScriptContent, "[Reconnect]");
+            // Try to click Launch button if it exists (not a popup, but a page button)
+            await this._tryClickLaunchButton("[Reconnect]");
+
+            // Wait for WebSocket initialization with error checking and retry logic
+            const maxRetries = 3;
+            let retryCount = 0;
+            let initSuccess = false;
+
+            // Check if initialization already succeeded (console listener may have detected it)
+            if (this._wsInitSuccess) {
+                this.logger.info(`[Reconnect] ✅ WebSocket already initialized, skipping wait`);
+                initSuccess = true;
+            }
+
+            while (retryCount < maxRetries && !initSuccess) {
+                if (retryCount > 0) {
+                    this.logger.info(`[Reconnect] 🔄 Retry attempt ${retryCount}/${maxRetries - 1}...`);
+
+                    // Reset flags before page refresh to ensure clean state
+                    this._wsInitSuccess = false;
+                    this._wsInitFailed = false;
+
+                    // Navigate to target page again
+                    await this.page.goto(this.targetUrl, {
+                        timeout: 180000,
+                        waitUntil: "domcontentloaded",
+                    });
+                    await this.page.waitForTimeout(2000);
+
+                    // Handle various popups (Cookie consent, Got it, Onboarding, etc.)
+                    await this._handlePopups("[Reconnect]");
+
+                    // Try to click Launch button after reload
+                    await this._tryClickLaunchButton("[Reconnect]");
+                }
+
+                // Wait for WebSocket initialization (60 second timeout)
+                initSuccess = await this._waitForWebSocketInit("[Reconnect]", 60000);
+
+                if (!initSuccess) {
+                    retryCount++;
+                    if (retryCount < maxRetries) {
+                        this.logger.warn(`[Reconnect] Initialization failed, refreshing page...`);
+                    }
+                }
+            }
+
+            if (!initSuccess) {
+                this.logger.error("[Reconnect] WebSocket initialization failed after multiple retries.");
+                return false;
+            }
+
+            // Restart health monitor after successful reconnect
+            // Note: _startBackgroundWakeup is not restarted because it's a continuous loop
+            // that checks this.page === currentPage, and will continue running after page reload
+            this._startHealthMonitor();
 
             // [Auth Update] Save the refreshed cookies to the auth file immediately
             await this._updateAuthFile(authIndex);
@@ -1270,12 +1609,18 @@ class BrowserManager {
                 this.logger.warn(`[Browser] Error during close (ignored): ${e.message}`);
             }
 
-            // Reset all references
+            // Reset all references and flags
             this.browser = null;
             this.context = null;
             this.page = null;
             this._currentAuthIndex = -1;
-            this.logger.info("[Browser] Main browser instance closed, currentAuthIndex reset to -1.");
+
+            // Reset WebSocket initialization flags
+            this._consoleListenerRegistered = false;
+            this._wsInitSuccess = false;
+            this._wsInitFailed = false;
+
+            this.logger.info("[Browser] Main browser instance closed, all references and flags reset.");
         }
 
         // Reset flag after close is complete
