@@ -614,7 +614,7 @@ class ProxyServerSystem extends EventEmitter {
 
         // Close servers and wait for them to finish closing
         const closeServer = (server, name) =>
-            new Promise((resolve) => {
+            new Promise(resolve => {
                 if (!server) {
                     return resolve();
                 }
@@ -625,9 +625,7 @@ class ProxyServerSystem extends EventEmitter {
                         resolve();
                     });
                 } catch (error) {
-                    this.logger.warn(
-                        `[System] Error while closing ${name}: ${error.message}`
-                    );
+                    this.logger.warn(`[System] Error while closing ${name}: ${error.message}`);
                     resolve();
                 }
             });
