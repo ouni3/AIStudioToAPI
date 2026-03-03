@@ -51,6 +51,9 @@ class BrowserManager {
         // Used by ConnectionRegistry callback to skip unnecessary reconnect attempts
         this.isClosingIntentionally = false;
 
+        // ConnectionRegistry reference (set after construction to avoid circular dependency)
+        this.connectionRegistry = null;
+
         // Background wakeup service status (instance-level, tracks this.page)
         // Prevents multiple BackgroundWakeup instances from running simultaneously
         this.backgroundWakeupRunning = false;
@@ -64,7 +67,7 @@ class BrowserManager {
         this._wsInitState = new Map();
 
         // Target URL for AI Studio app
-        this.targetUrl = "https://ai.studio/apps/63257911-1f2c-441d-8022-effaa4ca4580";
+        this.targetUrl = "https://ai.studio/apps/0ca9e275-368c-4c54-9c0f-dd2cbef48aac";
 
         // Firefox/Camoufox does not use Chromium-style command line args.
         // We keep this empty; Camoufox has its own anti-fingerprinting optimizations built-in.
@@ -136,6 +139,14 @@ class BrowserManager {
 
     set currentAuthIndex(value) {
         this._currentAuthIndex = value;
+    }
+
+    /**
+     * Set the ConnectionRegistry reference (called after construction to avoid circular dependency)
+     * @param {ConnectionRegistry} connectionRegistry - The ConnectionRegistry instance
+     */
+    setConnectionRegistry(connectionRegistry) {
+        this.connectionRegistry = connectionRegistry;
     }
 
     /**
@@ -2466,6 +2477,18 @@ class BrowserManager {
         // _removeConnection will see that the context is already gone and skip reconnect logic
         this.contexts.delete(authIndex);
 
+        // Proactively close message queues BEFORE closing context to prevent race condition
+        // Race condition: context.close() triggers async WebSocket 'close' event, which calls _removeConnection()
+        // But _removeConnection() executes later in event loop, after switchAccount() may have updated currentAuthIndex
+        // So we must close queues NOW for ANY account being closed (current or not)
+        if (this.connectionRegistry) {
+            const isCurrent = this._currentAuthIndex === authIndex;
+            this.logger.info(
+                `[Browser] Proactively closing message queues for account #${authIndex}${isCurrent ? " (current account)" : ""}`
+            );
+            this.connectionRegistry.closeMessageQueuesForAuth(authIndex, "context_closed");
+        }
+
         // If this was the current context, reset current references
         if (this._currentAuthIndex === authIndex) {
             this.context = null;
@@ -2543,7 +2566,12 @@ class BrowserManager {
             this.logger.debug("[Browser] Closing main browser instance and all contexts...");
             try {
                 // Give close() 5 seconds, otherwise force proceed
-                await Promise.race([this.browser.close(), new Promise(resolve => setTimeout(resolve, 5000))]);
+                const closePromise = this.browser.close();
+                // Attach a catch handler to prevent unhandled rejection if timeout wins
+                closePromise.catch(() => {
+                    // Silently ignore - the timeout will handle this
+                });
+                await Promise.race([closePromise, new Promise(resolve => setTimeout(resolve, 5000))]);
             } catch (e) {
                 this.logger.warn(`[Browser] Error during close (ignored): ${e.message}`);
             }
