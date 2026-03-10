@@ -74,7 +74,7 @@ curl -X POST http://localhost:7860/v1/chat/completions \
   }'
 ```
 
-### Responses API
+### 💬 Responses API
 
 ```bash
 curl -X POST http://localhost:7860/v1/responses \
@@ -87,7 +87,7 @@ curl -X POST http://localhost:7860/v1/responses \
   }'
 ```
 
-#### Streaming Responses API
+#### 🌊 Streaming Responses API
 
 ```bash
 curl -X POST http://localhost:7860/v1/responses \
