@@ -287,3 +287,9 @@ sudo docker compose down
 [![Contributors](https://contrib.rocks/image?repo=iBUHub/AIStudioToAPI)](https://github.com/iBUHub/AIStudioToAPI/graphs/contributors)
 
 感谢所有为本项目付出汗水与智慧的开发者。
+
+---
+
+如果你觉得 AIStudioToAPI 对你有帮助，欢迎给项目点一个 ⭐️！
+
+[![Star History Chart](https://api.star-history.com/svg?repos=iBUHub/AIStudioToAPI&type=date&legend=top-left)](https://www.star-history.com/#iBUHub/AIStudioToAPI&type=date&legend=top-left)

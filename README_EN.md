@@ -285,3 +285,9 @@ This project is a fork of [**ais2api**](https://github.com/Ellinav/ais2api) by [
 [![Contributors](https://contrib.rocks/image?repo=iBUHub/AIStudioToAPI)](https://github.com/iBUHub/AIStudioToAPI/graphs/contributors)
 
 We would like to thank all developers who have contributed their time, effort, and wisdom to this project.
+
+---
+
+If you find AIStudioToAPI useful, consider giving it a ⭐️!
+
+[![Star History Chart](https://api.star-history.com/svg?repos=iBUHub/AIStudioToAPI&type=date&legend=top-left)](https://www.star-history.com/#iBUHub/AIStudioToAPI&type=date&legend=top-left)
