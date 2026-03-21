@@ -1956,6 +1956,10 @@ class BrowserManager {
                     return;
                 }
 
+                if (msgText.includes("downloadable font: download failed")) {
+                    return;
+                }
+
                 if (msgText.includes("[ProxyClient]")) {
                     this.logger.info(`[Context#${authIndex}] ${msgText.replace("[ProxyClient] ", "")}`);
                 } else if (msg.type() === "error") {
