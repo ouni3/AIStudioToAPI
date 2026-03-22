@@ -1639,7 +1639,11 @@ const formattedLogs = computed(() => {
     // Escape HTML first to prevent XSS (though logs should be safe, better safe than sorry)
     let safeLogs = escapeHtml(state.logs);
 
-    // Highlight [WARN] and [ERROR] at the start of lines with inline styles
+    // Highlight [DEBUG], [WARN], and [ERROR] at the start of lines with inline styles
+    safeLogs = safeLogs.replace(
+        /(^|\r?\n)(\[DEBUG\])(?=\s)/g,
+        '$1<span style="color: #3498db; font-weight: bold;">$2</span>'
+    );
     safeLogs = safeLogs.replace(
         /(^|\r?\n)(\[WARN\])(?=\s)/g,
         '$1<span style="color: #f39c12; font-weight: bold;">$2</span>'

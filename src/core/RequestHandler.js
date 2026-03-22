@@ -96,6 +96,24 @@ class RequestHandler {
         return false;
     }
 
+    _logGeminiNativeChunkDebug(googleChunk, mode = "stream") {
+        this.logger.debug(`[Proxy] Debug: Received Google chunk for Gemini native ${mode}: ${googleChunk}`);
+    }
+
+    _logGeminiNativeResponseDebug(googleResponse, mode = "non-stream") {
+        try {
+            this.logger.debug(
+                `[Proxy] Debug: Received Google response for Gemini native ${mode}: ${JSON.stringify(googleResponse)}`
+            );
+        } catch (e) {
+            this.logger.debug(
+                `[Proxy] Debug: Received Google response for Gemini native ${mode} (non-serializable): ${String(
+                    googleResponse
+                )}`
+            );
+        }
+    }
+
     /**
      * Handle queue closed error in real streaming mode with proper SSE error response
      * @param {Error} error - The error object (QueueClosedError)
@@ -2290,6 +2308,7 @@ class RequestHandler {
 
             try {
                 const googleResponse = JSON.parse(fullData);
+                this._logGeminiNativeResponseDebug(googleResponse, "pseudo-stream");
                 const candidate = googleResponse.candidates?.[0];
 
                 if (candidate && candidate.content && Array.isArray(candidate.content.parts)) {
@@ -2566,6 +2585,7 @@ class RequestHandler {
                 }
 
                 if (dataMessage.data) {
+                    this._logGeminiNativeChunkDebug(dataMessage.data, "stream");
                     if (!this._isResponseWritable(res)) {
                         this.logger.debug(
                             "[Request] Response no longer writable during Gemini real stream; stopping stream."
@@ -2681,6 +2701,7 @@ class RequestHandler {
 
             try {
                 const fullResponse = JSON.parse(fullBodyBuffer.toString());
+                this._logGeminiNativeResponseDebug(fullResponse, "non-stream");
                 const finishReason = fullResponse.candidates?.[0]?.finishReason || "UNKNOWN";
                 this.logger.info(
                     `✅ [Request] Response ended, reason: ${finishReason}, request ID: ${proxyRequest.request_id}`
