@@ -51,6 +51,13 @@
 
    服务启动后，您可以在浏览器中访问 `http://localhost:7860` 打开 Web 控制台主页，在这里可以查看账号状态和服务状态。
 
+5. 更新到最新版本（已有本地部署时）：
+
+   ```bash
+   git pull
+   npm install
+   ```
+
 > ⚠ **注意：** 直接运行不支持通过 VNC 在线添加账号，需要使用 `npm run setup-auth` 脚本添加账号。当前 VNC 登录功能仅在 Docker 容器中可用。
 
 ### 🐋 Docker 部署

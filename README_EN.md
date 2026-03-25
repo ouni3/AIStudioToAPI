@@ -51,6 +51,13 @@ A tool that wraps Google AI Studio web interface to provide OpenAI API, Gemini A
 
    After the service starts, you can access `http://localhost:7860` in your browser to open the web console homepage, where you can view account status and service status.
 
+5. Update to the latest version (for existing local deployments):
+
+   ```bash
+   git pull
+   npm install
+   ```
+
 > ⚠ **Note:** Running directly does not support adding accounts via VNC online. You need to use the `npm run setup-auth` script to add accounts. VNC login is only available in Docker deployments.
 
 ### 🐋 Docker Deployment
