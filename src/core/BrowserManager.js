@@ -729,7 +729,7 @@ class BrowserManager {
 
         if (pageTitle.includes("Available regions") || pageTitle.includes("not available")) {
             throw new Error(
-                "🚨 Current IP does not support access to Google AI Studio (region restricted). Claw node may be identified as restricted region, try restarting container to get a new IP."
+                "🚨 The current IP does not support access to Google AI Studio. Please change the IP and restart!"
             );
         }
 
