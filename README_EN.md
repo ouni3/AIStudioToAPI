@@ -33,7 +33,7 @@ A tool that wraps Google AI Studio web interface to provide OpenAI API, Gemini A
    This script will:
    - Automatically download the Camoufox browser (a privacy-focused Firefox fork)
    - Launch the browser and navigate to AI Studio automatically
-   - Save your authentication credentials locally
+   - Save your authentication credentials locally (auth files are stored in `/configs/auth`)
 
    > 💡 **Tip:** If downloading the Camoufox browser fails or takes too long, you can manually download it from [here](https://github.com/daijro/camoufox/releases/tag/v135.0.1-beta.24), and set the environment variable `CAMOUFOX_EXECUTABLE_PATH` to the path of the browser executable (both absolute and relative paths are supported).
 
@@ -100,31 +100,17 @@ services:
     image: ghcr.io/ibuhub/aistudio-to-api:latest
     container_name: aistudio-to-api
     ports:
+      # API server port (if using a reverse proxy, strongly consider `127.0.0.1:7860`)
       - 7860:7860
     restart: unless-stopped
     volumes:
+      # Mount directory containing auth files
       - ./auth:/app/configs/auth
     environment:
+      # Comma-separated list of API keys for authentication
       API_KEYS: your-api-key-1,your-api-key-2
-      TZ: Asia/Shanghai # Timezone for logs (optional)
-```
-
-Start the service:
-
-```bash
-sudo docker compose up -d
-```
-
-View logs:
-
-```bash
-sudo docker compose logs -f
-```
-
-Stop the service:
-
-```bash
-sudo docker compose down
+      # Timezone setting (optional, defaults to system timezone)
+      TZ: Asia/Shanghai
 ```
 
 ##### 🛠️ Option 3: Build from Source
@@ -239,6 +225,7 @@ This endpoint forwards requests to the official Gemini API format endpoint.
 | `RATE_LIMIT_WINDOW_MINUTES` | Time window for rate limiting in minutes.                                                                                                                                   | `15`                 |
 | `CHECK_UPDATE`              | Enable version update check on page load (`false` to disable).                                                                                                              | `true`               |
 | `LOG_LEVEL`                 | Logging output level. Set to `DEBUG` for detailed debug logs.                                                                                                               | `INFO`               |
+| `TZ`                        | Timezone used for logs and displayed times, for example `Asia/Shanghai`. Defaults to the system timezone when empty.                                                        | System timezone      |
 
 #### 🌐 Proxy Configuration
 

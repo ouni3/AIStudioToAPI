@@ -33,7 +33,7 @@
    该脚本将：
    - 自动下载 Camoufox 浏览器（一个注重隐私的 Firefox 分支）
    - 启动浏览器并自动导航到 AI Studio
-   - 在本地保存您的身份验证凭据
+   - 在本地保存您的身份验证凭据（auth 文件位于 `/configs/auth`）
 
    > 💡 **提示：** 如果下载 Camoufox 浏览器失败或等待太久，可以自行点击 [此处](https://github.com/daijro/camoufox/releases/tag/v135.0.1-beta.24) 下载，然后设置环境变量 `CAMOUFOX_EXECUTABLE_PATH` 为可执行文件的路径（支持绝对和相对路径）。
 
@@ -100,34 +100,20 @@ services:
     image: ghcr.io/ibuhub/aistudio-to-api:latest
     container_name: aistudio-to-api
     ports:
+      # API 服务器端口（如果使用反向代理，强烈建议改成 127.0.0.1:7860）
       - 7860:7860
     restart: unless-stopped
     volumes:
+      # 挂载包含认证文件的目录
       - ./auth:/app/configs/auth
     environment:
+      # 用于身份验证的 API 密钥列表（使用逗号分隔）
       API_KEYS: your-api-key-1,your-api-key-2
-      TZ: Asia/Shanghai # 日志时区设置（可选）
+      # 时区设置（可选，默认使用系统时区）
+      TZ: Asia/Shanghai
 ```
 
 > 💡 **提示：** 如果 `ghcr.io` 访问速度较慢或不可用，可以将 `image` 改为 `ibuhub/aistudio-to-api:latest`。
-
-启动服务：
-
-```bash
-sudo docker compose up -d
-```
-
-查看日志：
-
-```bash
-sudo docker compose logs -f
-```
-
-停止服务：
-
-```bash
-sudo docker compose down
-```
 
 ##### 🛠️ 方式 3：从源码构建
 
@@ -241,6 +227,7 @@ sudo docker compose down
 | `RATE_LIMIT_WINDOW_MINUTES` | 速率限制的时间窗口长度（分钟）。                                                                                               | `15`                 |
 | `CHECK_UPDATE`              | 是否在页面加载时检查版本更新（设为 `false` 禁用）。                                                                            | `true`               |
 | `LOG_LEVEL`                 | 日志输出等级。设为 `DEBUG` 启用详细调试日志。                                                                                  | `INFO`               |
+| `TZ`                        | 日志和显示时间使用的时区，例如 `Asia/Shanghai`。留空时默认使用系统时区。                                                       | 系统时区             |
 
 #### 🌐 代理配置
 
