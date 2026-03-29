@@ -707,11 +707,10 @@ class FormatConverter {
             }
         }
 
-        // Force thinking mode
-        if (this.serverSystem.forceThinking && !thinkingConfig) {
-            this.logger.info("[Adapter] ⚠️ Force thinking enabled, injecting thinkingConfig for OpenAI request.");
-
-            thinkingConfig = { includeThoughts: true };
+        // Force thinking mode (only set includeThoughts=true when missing)
+        if (this.serverSystem.forceThinking && (!thinkingConfig || thinkingConfig.includeThoughts === undefined)) {
+            this.logger.info("[Adapter] ⚠️ Force thinking enabled, setting includeThoughts=true for OpenAI request.");
+            thinkingConfig = { ...(thinkingConfig || {}), includeThoughts: true };
         }
 
         // If model name suffix specifies thinkingLevel, override directly (highest priority)
@@ -2182,10 +2181,10 @@ class FormatConverter {
             }
         }
 
-        // Force thinking mode
-        if (this.serverSystem.forceThinking && !thinkingConfig) {
-            this.logger.info("[Adapter] ⚠️ Force thinking enabled, injecting thinkingConfig for Claude request.");
-            thinkingConfig = { includeThoughts: true };
+        // Force thinking mode (only set includeThoughts=true when missing)
+        if (this.serverSystem.forceThinking && (!thinkingConfig || thinkingConfig.includeThoughts === undefined)) {
+            this.logger.info("[Adapter] ⚠️ Force thinking enabled, setting includeThoughts=true for Claude request.");
+            thinkingConfig = { ...(thinkingConfig || {}), includeThoughts: true };
         }
 
         // Apply model name suffix thinkingLevel
@@ -2960,12 +2959,12 @@ class FormatConverter {
             thinkingConfig = { includeThoughts: true };
         }
 
-        // Force thinking mode
-        if (this.serverSystem.forceThinking && !thinkingConfig) {
+        // Force thinking mode (only set includeThoughts=true when missing)
+        if (this.serverSystem.forceThinking && (!thinkingConfig || thinkingConfig.includeThoughts === undefined)) {
             this.logger.info(
-                "[Adapter] ⚠️ Force thinking enabled, injecting thinkingConfig for OpenAI Response API request."
+                "[Adapter] ⚠️ Force thinking enabled, setting includeThoughts=true for OpenAI Response API request."
             );
-            thinkingConfig = { includeThoughts: true };
+            thinkingConfig = { ...(thinkingConfig || {}), includeThoughts: true };
         }
 
         // If model name suffix specifies thinkingLevel, override directly (highest priority)

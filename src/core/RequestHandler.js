@@ -3557,22 +3557,16 @@ class RequestHandler {
             if (!bodyObj.generationConfig) {
                 bodyObj.generationConfig = {};
             }
+
             if (
                 !bodyObj.generationConfig.thinkingConfig ||
-                !bodyObj.generationConfig.thinkingConfig.includeThoughts ||
-                bodyObj.generationConfig.thinkingConfig.includeThoughts === false
+                bodyObj.generationConfig.thinkingConfig.includeThoughts === undefined
             ) {
-                this.logger.info(
-                    `[Proxy] ⚠️ Force thinking enabled and client did not provide config, injecting thinkingConfig. (Google Native)`
-                );
+                this.logger.info(`[Proxy] ⚠️ Force thinking enabled, setting includeThoughts=true. (Google Native)`);
                 bodyObj.generationConfig.thinkingConfig = {
                     ...(bodyObj.generationConfig.thinkingConfig || {}),
                     includeThoughts: true,
                 };
-            } else {
-                this.logger.info(
-                    `[Proxy] ✅ Client-provided thinking config detected, skipping force injection. (Google Native)`
-                );
             }
         }
 
