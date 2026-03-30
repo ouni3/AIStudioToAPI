@@ -37,6 +37,30 @@ class FormatConverter {
     };
 
     /**
+     * Parse streaming mode suffix from model name.
+     * Only supports the LAST hyphen token: `-real` or `-fake` (case-insensitive).
+     *
+     * Examples:
+     * - gemini-3-flash-preview-minimal-fake -> { cleanModelName: "gemini-3-flash-preview-minimal", streamingMode: "fake" }
+     * - gemini-3-flash-preview-fake-minimal -> no match (streaming suffix must be last)
+     *
+     * @param {string} modelName - Original model name
+     * @returns {{ cleanModelName: string, streamingMode: ("real"|"fake"|null) }}
+     */
+    static parseModelStreamingModeSuffix(modelName) {
+        if (!modelName || typeof modelName !== "string") {
+            return { cleanModelName: modelName, streamingMode: null };
+        }
+
+        const match = modelName.match(/^(.+)-(real|fake)$/i);
+        if (!match) {
+            return { cleanModelName: modelName, streamingMode: null };
+        }
+
+        return { cleanModelName: match[1], streamingMode: match[2].toLowerCase() };
+    }
+
+    /**
      * Parse thinkingLevel suffix from model name
      * Supports two formats:
      *   - Parenthesis format: gemini-3-flash-preview(minimal), gemini-3-pro-preview(high)
@@ -395,23 +419,34 @@ class FormatConverter {
     /**
      * Convert OpenAI request format to Google Gemini format
      * @param {object} openaiBody - OpenAI format request body
-     * @returns {Promise<{ googleRequest: object, cleanModelName: string }>} - Converted request and cleaned model name
+     * @returns {Promise<{ googleRequest: object, cleanModelName: string, modelStreamingMode: ("real"|"fake"|null) }>}
+     *          - modelStreamingMode: Streaming mode override parsed from model name suffix, or null
      */
     async translateOpenAIToGoogle(openaiBody) {
         this.logger.info("[Adapter] Starting translation of OpenAI request format to Google format...");
 
-        // Parse thinkingLevel suffix from model name (e.g., gemini-3-flash-preview-minimal or gemini-3-flash-preview(low))
-        const rawModel = openaiBody.model || "gemini-2.5-flash-lite";
-        const { cleanModelName, thinkingLevel: modelThinkingLevel } = FormatConverter.parseModelThinkingLevel(rawModel);
-
-        if (modelThinkingLevel) {
-            this.logger.info(
-                `[Adapter] Detected thinkingLevel suffix in model name: "${rawModel}" -> model="${cleanModelName}", thinkingLevel="${modelThinkingLevel}"`
-            );
-        }
-
         // [DEBUG] Log incoming messages for troubleshooting
         this.logger.debug(`[Adapter] Debug: incoming OpenAI Body = ${JSON.stringify(openaiBody, null, 2)}`);
+
+        // Parse model suffixes in fixed order:
+        // 1) streaming override: only `-real` / `-fake` at the end
+        // 2) thinkingLevel override: `-minimal` / `(minimal)` etc.
+        const rawModel = openaiBody.model || "gemini-2.5-flash-lite";
+        const { cleanModelName: streamStrippedModel, streamingMode: modelStreamingMode } =
+            FormatConverter.parseModelStreamingModeSuffix(rawModel);
+        const { cleanModelName, thinkingLevel: modelThinkingLevel } =
+            FormatConverter.parseModelThinkingLevel(streamStrippedModel);
+
+        if (modelStreamingMode) {
+            this.logger.info(
+                `[Adapter] Detected streamingMode suffix in model name: "${rawModel}" -> model="${streamStrippedModel}", streamingMode="${modelStreamingMode}"`
+            );
+        }
+        if (modelThinkingLevel) {
+            this.logger.info(
+                `[Adapter] Detected thinkingLevel suffix in model name: "${streamStrippedModel}" -> model="${cleanModelName}", thinkingLevel="${modelThinkingLevel}"`
+            );
+        }
 
         let systemInstruction = null;
         const googleContents = [];
@@ -719,9 +754,7 @@ class FormatConverter {
                 thinkingConfig = {};
             }
             thinkingConfig.thinkingLevel = modelThinkingLevel;
-            this.logger.info(
-                `[Adapter] Applied thinkingLevel from model name suffix: ${modelThinkingLevel} (overriding any existing value)`
-            );
+            this.logger.info(`[Adapter] Applied thinkingLevel from model name suffix: ${modelThinkingLevel}`);
         }
 
         if (thinkingConfig) {
@@ -841,7 +874,7 @@ class FormatConverter {
 
         this._finalizeGoogleRequest(googleRequest);
         this.logger.info("[Adapter] OpenAI to Google translation complete.");
-        return { cleanModelName, googleRequest };
+        return { cleanModelName, googleRequest, modelStreamingMode };
     }
 
     /**
@@ -1920,23 +1953,34 @@ class FormatConverter {
     /**
      * Convert Claude API request format to Google Gemini format
      * @param {object} claudeBody - Claude API format request body
-     * @returns {Promise<{ googleRequest: object, cleanModelName: string }>} - Converted request and cleaned model name
+     * @returns {Promise<{ googleRequest: object, cleanModelName: string, modelStreamingMode: ("real"|"fake"|null) }>}
+     *          - modelStreamingMode: Streaming mode override parsed from model name suffix, or null
      */
     async translateClaudeToGoogle(claudeBody) {
         this.logger.info("[Adapter] Starting translation of Claude request format to Google format...");
 
-        // Parse thinkingLevel suffix from model name
-        const rawModel = claudeBody.model || "gemini-2.5-flash-lite";
-        const { cleanModelName, thinkingLevel: modelThinkingLevel } = FormatConverter.parseModelThinkingLevel(rawModel);
-
-        if (modelThinkingLevel) {
-            this.logger.info(
-                `[Adapter] Detected thinkingLevel suffix in model name: "${rawModel}" -> model="${cleanModelName}", thinkingLevel="${modelThinkingLevel}"`
-            );
-        }
-
         // [DEBUG] Log incoming messages
         this.logger.debug(`[Adapter] Debug: incoming Claude Body = ${JSON.stringify(claudeBody, null, 2)}`);
+
+        // Parse model suffixes in fixed order:
+        // 1) streaming override: only `-real` / `-fake` at the end
+        // 2) thinkingLevel override: `-minimal` / `(minimal)` etc.
+        const rawModel = claudeBody.model || "gemini-2.5-flash-lite";
+        const { cleanModelName: streamStrippedModel, streamingMode: modelStreamingMode } =
+            FormatConverter.parseModelStreamingModeSuffix(rawModel);
+        const { cleanModelName, thinkingLevel: modelThinkingLevel } =
+            FormatConverter.parseModelThinkingLevel(streamStrippedModel);
+
+        if (modelStreamingMode) {
+            this.logger.info(
+                `[Adapter] Detected streamingMode suffix in model name: "${rawModel}" -> model="${streamStrippedModel}", streamingMode="${modelStreamingMode}"`
+            );
+        }
+        if (modelThinkingLevel) {
+            this.logger.info(
+                `[Adapter] Detected thinkingLevel suffix in model name: "${streamStrippedModel}" -> model="${cleanModelName}", thinkingLevel="${modelThinkingLevel}"`
+            );
+        }
 
         let systemInstruction = null;
         const googleContents = [];
@@ -2337,7 +2381,7 @@ class FormatConverter {
 
         this._finalizeGoogleRequest(googleRequest);
         this.logger.info("[Adapter] Claude to Google translation complete.");
-        return { cleanModelName, googleRequest };
+        return { cleanModelName, googleRequest, modelStreamingMode };
     }
 
     /**
@@ -2683,24 +2727,35 @@ class FormatConverter {
      * Convert OpenAI Response API request format to Google Gemini format
      * Response API uses different structure: input instead of messages, instructions instead of system message
      * @param {object} responseBody - OpenAI Response API format request body
-     * @returns {Promise<{ googleRequest: object, cleanModelName: string }>} - Converted request and cleaned model name
+     * @returns {Promise<{ googleRequest: object, cleanModelName: string, modelStreamingMode: ("real"|"fake"|null) }>}
+     *          - modelStreamingMode: Streaming mode override parsed from model name suffix, or null
      */
     async translateOpenAIResponseToGoogle(responseBody) {
         this.logger.info("[Adapter] Starting translation of OpenAI Response API request format to Google format...");
 
-        // Parse thinkingLevel suffix from model name
-        const rawModel = responseBody.model || "gemini-2.5-flash-lite";
-        const { cleanModelName, thinkingLevel: modelThinkingLevel } = FormatConverter.parseModelThinkingLevel(rawModel);
-
-        if (modelThinkingLevel) {
-            this.logger.info(
-                `[Adapter] Detected thinkingLevel suffix in model name: "${rawModel}" -> model="${cleanModelName}", thinkingLevel="${modelThinkingLevel}"`
-            );
-        }
-
         this.logger.debug(
             `[Adapter] Debug: incoming OpenAI Response API Body = ${JSON.stringify(responseBody, null, 2)}`
         );
+
+        // Parse model suffixes in fixed order:
+        // 1) streaming override: only `-real` / `-fake` at the end
+        // 2) thinkingLevel override: `-minimal` / `(minimal)` etc.
+        const rawModel = responseBody.model || "gemini-2.5-flash-lite";
+        const { cleanModelName: streamStrippedModel, streamingMode: modelStreamingMode } =
+            FormatConverter.parseModelStreamingModeSuffix(rawModel);
+        const { cleanModelName, thinkingLevel: modelThinkingLevel } =
+            FormatConverter.parseModelThinkingLevel(streamStrippedModel);
+
+        if (modelStreamingMode) {
+            this.logger.info(
+                `[Adapter] Detected streamingMode suffix in model name: "${rawModel}" -> model="${streamStrippedModel}", streamingMode="${modelStreamingMode}"`
+            );
+        }
+        if (modelThinkingLevel) {
+            this.logger.info(
+                `[Adapter] Detected thinkingLevel suffix in model name: "${streamStrippedModel}" -> model="${cleanModelName}", thinkingLevel="${modelThinkingLevel}"`
+            );
+        }
 
         const googleContents = [];
         let systemInstructionText = "";
@@ -2973,9 +3028,7 @@ class FormatConverter {
                 thinkingConfig = {};
             }
             thinkingConfig.thinkingLevel = modelThinkingLevel;
-            this.logger.info(
-                `[Adapter] Applied thinkingLevel from model name suffix: ${modelThinkingLevel} (overriding any existing value)`
-            );
+            this.logger.info(`[Adapter] Applied thinkingLevel from model name suffix: ${modelThinkingLevel}`);
         }
 
         if (thinkingConfig) {
@@ -3176,7 +3229,7 @@ class FormatConverter {
 
         this._finalizeGoogleRequest(googleRequest);
         this.logger.info("[Adapter] OpenAI Response API to Google translation complete.");
-        return { cleanModelName, googleRequest };
+        return { cleanModelName, googleRequest, modelStreamingMode };
     }
 }
 
