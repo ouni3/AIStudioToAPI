@@ -146,7 +146,7 @@ class FormatConverter {
                     if (!signatureAdded) {
                         part.thoughtSignature = DUMMY_SIGNATURE;
                         signatureAdded = true;
-                        this.logger.info(
+                        this.logger.debug(
                             `[Adapter] Added dummy thoughtSignature for functionCall: ${part.functionCall.name}`
                         );
                     }

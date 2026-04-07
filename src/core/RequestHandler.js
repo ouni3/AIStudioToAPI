@@ -2377,7 +2377,7 @@ class RequestHandler {
                 const candidate = googleResponse.candidates?.[0];
 
                 if (candidate && candidate.content && Array.isArray(candidate.content.parts)) {
-                    this.logger.info(
+                    this.logger.debug(
                         "[Request] Splitting full Gemini response into 'thought' and 'content' chunks for pseudo-stream."
                     );
 
