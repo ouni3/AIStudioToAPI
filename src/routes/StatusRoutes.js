@@ -10,6 +10,7 @@ const path = require("path");
 const archiver = require("archiver");
 const VersionChecker = require("../utils/VersionChecker");
 const LoggingService = require("../utils/LoggingService");
+const UsageStatsService = require("../core/UsageStatsService");
 
 /**
  * Status Routes Manager
@@ -166,6 +167,11 @@ class StatusRoutes {
             }
 
             res.json(this._getStatusData());
+        });
+
+        app.get("/api/usage-stats", isAuthenticated, (req, res) => {
+            const snapshot = this.serverSystem.usageStatsService?.getSnapshot();
+            res.json(snapshot || UsageStatsService.createEmptySnapshot());
         });
 
         app.put("/api/accounts/current", isAuthenticated, async (req, res) => {

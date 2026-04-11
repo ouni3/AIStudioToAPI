@@ -50,6 +50,7 @@ A tool that wraps Google AI Studio web interface to provide OpenAI API, Gemini A
    The API server will be available at `http://localhost:7860`
 
    After the service starts, you can access `http://localhost:7860` in your browser to open the web console homepage, where you can view account status and service status.
+   Request usage statistics are persisted locally at `/data/usage-stats.jsonl`.
 
 5. Update to the latest version (for existing local deployments):
 
@@ -73,6 +74,7 @@ docker run -d \
   --name aistudio-to-api \
   -p 7860:7860 \
   -v /path/to/auth:/app/configs/auth \
+  -v /path/to/data:/app/data \
   -e API_KEYS=your-api-key-1,your-api-key-2 \
   -e TZ=America/New_York \
   --restart unless-stopped \
@@ -85,6 +87,7 @@ Parameters:
 
 - `-p 7860:7860`: API server port (if using a reverse proxy, strongly consider `127.0.0.1:7860`)
 - `-v /path/to/auth:/app/configs/auth`: Mount directory containing auth files
+- `-v /path/to/data:/app/data`: Mount persistent data directory for usage statistics (`/app/data/usage-stats.jsonl`)
 - `-e API_KEYS`: Comma-separated list of API keys for authentication
 - `-e TZ=America/New_York`: Timezone for logs (optional, defaults to system timezone)
 
@@ -106,6 +109,8 @@ services:
     volumes:
       # Mount directory containing auth files
       - ./auth:/app/configs/auth
+      # Mount persistent data directory for usage statistics
+      - ./data:/app/data
     environment:
       # Comma-separated list of API keys for authentication
       API_KEYS: your-api-key-1,your-api-key-2
@@ -130,6 +135,7 @@ If you prefer to build the Docker image yourself, you can use the following comm
      --name aistudio-to-api \
      -p 7860:7860 \
      -v /path/to/auth:/app/configs/auth \
+     -v /path/to/data:/app/data \
      -e API_KEYS=your-api-key-1,your-api-key-2 \
      -e TZ=America/New_York \
      --restart unless-stopped \
@@ -233,6 +239,7 @@ This endpoint forwards requests to the official Gemini API format endpoint.
 | :------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- |
 | `INITIAL_AUTH_INDEX`            | Initial authentication index to use on startup.                                                                                                                                                                                                                       | `0`       |
 | `ENABLE_AUTH_UPDATE`            | Whether to enable automatic auth credential updates. Defaults to enabled. The auth file will be automatically updated upon successful login/account switch and every 24 hours. Set to `false` to disable.                                                             | `true`    |
+| `ENABLE_USAGE_STATS`            | Whether to enable request usage statistics. Defaults to enabled. Set to `false` to skip loading local stats, skip writing stats, and make `/api/usage-stats` return an empty payload.                                                                                 | `true`    |
 | `MAX_RETRIES`                   | Maximum number of retries for failed requests (only effective for fake streaming and non-streaming).                                                                                                                                                                  | `3`       |
 | `RETRY_DELAY`                   | Delay between retries in milliseconds.                                                                                                                                                                                                                                | `2000`    |
 | `SWITCH_ON_USES`                | Number of requests before automatically switching accounts (`0` to disable).                                                                                                                                                                                          | `40`      |
