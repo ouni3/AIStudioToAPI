@@ -2229,6 +2229,71 @@
                             </table>
                         </div>
                     </section>
+
+                    <section class="status-card wide-card">
+                        <div class="card-header-v2">
+                            <h3 class="card-title-usage">{{ t("modelUsageBreakdown") }}</h3>
+                        </div>
+                        <div v-if="filteredModels.length === 0" class="empty-state">
+                            {{ t("noUsageStats") }}
+                        </div>
+                        <div v-else class="table-scroll-wrapper">
+                            <table class="data-table fixed-header-table">
+                                <thead>
+                                    <tr>
+                                        <th>{{ t("requestModel") }}</th>
+                                        <th>{{ t("total") }}</th>
+                                        <th>{{ t("success") }}</th>
+                                        <th>{{ t("failed") }}</th>
+                                        <th>{{ t("aborted") }}</th>
+                                        <th>{{ t("successRate") }}</th>
+                                        <th>{{ t("avgDuration") }}</th>
+                                        <th>{{ t("accountUsage") }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="item in filteredModels" :key="item.modelKey">
+                                        <td class="account-cell">
+                                            {{ item.modelKey === EMPTY_FILTER_VALUE ? t("emptyValue") : item.modelKey }}
+                                        </td>
+                                        <td>{{ item.totalRequests }}</td>
+                                        <td class="status-ok">{{ item.successCount }}</td>
+                                        <td class="status-error">{{ item.errorCount }}</td>
+                                        <td class="status-warning">{{ item.abortedCount }}</td>
+                                        <td>{{ item.successRate }}%</td>
+                                        <td>{{ formatDuration(item.avgDurationMs) }}</td>
+                                        <td>
+                                            <div class="breakdown-list">
+                                                <span
+                                                    v-for="ac in item.accountCounts"
+                                                    :key="ac.key"
+                                                    class="usage-tag-compact"
+                                                    :style="{
+                                                        '--progress':
+                                                            (item.totalRequests > 0
+                                                                ? (ac.count / item.totalRequests) * 100
+                                                                : 0) + '%',
+                                                        '--error-progress':
+                                                            (ac.count > 0 ? (ac.error / ac.count) * 100 : 0) + '%',
+                                                    }"
+                                                >
+                                                    <span class="tag-label">
+                                                        {{ formatAccount(ac.authIndex, ac.accountName) }}
+                                                    </span>
+                                                    <span class="tag-count">
+                                                        {{ ac.count }}
+                                                        <span v-if="ac.error > 0" class="tag-error-count"
+                                                            >({{ ac.error }})</span
+                                                        >
+                                                    </span>
+                                                </span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
                 </div>
 
                 <div class="full-width-section">
@@ -3048,6 +3113,67 @@ const filteredAccounts = computed(() => {
                 }))
                 .sort((a, b) => b.count - a.count),
             successRate: acc.totalRequests > 0 ? Number(((acc.successCount / acc.totalRequests) * 100).toFixed(1)) : 0,
+        }))
+        .sort((a, b) => b.totalRequests - a.totalRequests);
+});
+
+const filteredModels = computed(() => {
+    const records = filteredRecords.value;
+    if (!records.length) return [];
+
+    const modelMap = {};
+    records.forEach(r => {
+        const modelKey = isEmptyFilterField(r.model) ? EMPTY_FILTER_VALUE : r.model;
+        if (!modelMap[modelKey]) {
+            modelMap[modelKey] = {
+                abortedCount: 0,
+                accountCounts: {},
+                errorCount: 0,
+                modelKey,
+                successCount: 0,
+                totalDurationMs: 0,
+                totalRequests: 0,
+            };
+        }
+
+        const model = modelMap[modelKey];
+        model.totalRequests += 1;
+        model.totalDurationMs += r.durationMs || 0;
+        if (r.outcome === "success") model.successCount += 1;
+        else if (r.outcome === "aborted") model.abortedCount += 1;
+        else model.errorCount += 1;
+
+        const accountKey = r.accountKey || getAccountStatsKey(r.finalAuthIndex, r.finalAccountName);
+        if (!model.accountCounts[accountKey]) {
+            model.accountCounts[accountKey] = {
+                accountName: r.finalAccountName,
+                authIndex: r.finalAuthIndex,
+                error: 0,
+                total: 0,
+            };
+        }
+
+        model.accountCounts[accountKey].total += 1;
+        if (r.outcome === "error") {
+            model.accountCounts[accountKey].error += 1;
+        }
+    });
+
+    return Object.values(modelMap)
+        .map(model => ({
+            ...model,
+            accountCounts: Object.entries(model.accountCounts)
+                .map(([key, stats]) => ({
+                    accountName: stats.accountName,
+                    authIndex: stats.authIndex,
+                    count: stats.total,
+                    error: stats.error,
+                    key,
+                }))
+                .sort((a, b) => b.count - a.count),
+            avgDurationMs: model.totalRequests > 0 ? Math.round(model.totalDurationMs / model.totalRequests) : 0,
+            successRate:
+                model.totalRequests > 0 ? Number(((model.successCount / model.totalRequests) * 100).toFixed(1)) : 0,
         }))
         .sort((a, b) => b.totalRequests - a.totalRequests);
 });
