@@ -423,6 +423,9 @@ class RequestProcessor {
                         if (bodyObj.generationConfig?.responseMimeType) {
                             delete bodyObj.generationConfig.responseMimeType;
                         }
+                        if (bodyObj.generationConfig?.responseJsonSchema) {
+                            delete bodyObj.generationConfig.responseJsonSchema;
+                        }
                     }
 
                     // --- Module 1.5: responseModalities Handling ---
@@ -442,28 +445,18 @@ class RequestProcessor {
                     }
 
                     // --- Module 2: Computer-Use Model Filtering ---
-                    // Remove tools, responseModalities
-                    const isComputerUseModel = requestSpec.path.includes("computer-use");
-                    if (isComputerUseModel) {
-                        const incompatibleKeys = ["tool_config", "toolChoice", "tools"];
-                        incompatibleKeys.forEach(key => {
-                            if (Object.prototype.hasOwnProperty.call(bodyObj, key)) delete bodyObj[key];
-                        });
-                        if (bodyObj.generationConfig?.responseModalities) {
-                            delete bodyObj.generationConfig.responseModalities;
-                        }
-                    }
-
                     // --- Module 3: Robotics Model Filtering ---
-                    // Remove googleSearch, urlContext from tools; also remove responseModalities
+                    const isComputerUseModel = requestSpec.path.includes("computer-use");
                     const isRoboticsModel = requestSpec.path.includes("robotics");
-                    if (isRoboticsModel) {
-                        if (Array.isArray(bodyObj.tools)) {
-                            bodyObj.tools = bodyObj.tools.filter(t => !t.googleSearch && !t.urlContext);
-                            if (bodyObj.tools.length === 0) delete bodyObj.tools;
-                        }
+                    if (isComputerUseModel || isRoboticsModel) {
                         if (bodyObj.generationConfig?.responseModalities) {
                             delete bodyObj.generationConfig.responseModalities;
+                        }
+                        if (bodyObj.generationConfig?.responseMimeType) {
+                            delete bodyObj.generationConfig.responseMimeType;
+                        }
+                        if (bodyObj.generationConfig?.responseJsonSchema) {
+                            delete bodyObj.generationConfig.responseJsonSchema;
                         }
                     }
 
