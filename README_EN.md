@@ -30,9 +30,28 @@ A tool that wraps Google AI Studio web interface to provide OpenAI API, Gemini A
    npm run setup-auth
    ```
 
+   Non-interactive example:
+
+   ```bash
+   npm run setup-auth -- --non-interactive --email your-email@gmail.com --password your-password --headless
+   ```
+
+   If the account uses TOTP-based 2FA, you can also provide the secret up front:
+
+   ```bash
+   npm run setup-auth -- --non-interactive --email your-email@gmail.com --password your-password --totp-secret your-base32-secret --headless
+   ```
+
+   If you already configured `users.csv`, you can also select an account without prompts:
+
+   ```bash
+   npm run setup-auth -- --non-interactive --account 1
+   ```
+
    This script will:
    - Automatically download the Camoufox browser (a privacy-focused Firefox fork)
    - Launch the browser and navigate to AI Studio automatically
+   - Try to auto-accept the first-run AI Studio agreement dialog when it appears
    - Save your authentication credentials locally (auth files are stored in `/configs/auth`)
 
    > 💡 **Tip:** If downloading the Camoufox browser fails or takes too long, you can manually download it from [here](https://github.com/daijro/camoufox/releases/tag/v135.0.1-beta.24), and set the environment variable `CAMOUFOX_EXECUTABLE_PATH` to the path of the browser executable (both absolute and relative paths are supported).
@@ -281,10 +300,14 @@ Usage:
 To simplify the login process for multiple accounts, you can configure the `users.csv` file for auto-fill:
 
 1. Create `users.csv` in the project root.
-2. Format: `email,password` (one per line).
+2. Format: `email,password,recovery_email,totp_secret` (one per line, `recovery_email` and `totp_secret` are optional).
 3. Run `npm run setup-auth` and select the account when prompted.
 
 > 📖 For detailed configuration instructions, see: [Account Auto-fill Guide](docs/en/auto-fill-guide.md)
+>
+> 💡 **Tip**: For promptless runs, use `npm run setup-auth -- --non-interactive --account 1`, or pass `--email` / `--password` directly.
+>
+> 💡 **Batch add**: Use `npm run setup-auth-batch -- --headless` to add every account in `users.csv` sequentially.
 
 ### 🧠 Model List Configuration
 
