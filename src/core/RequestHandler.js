@@ -17,8 +17,8 @@ const { QueueClosedError, QueueTimeoutError } = require("../utils/MessageQueue")
 const WS_RECONNECT_WAIT_MS = 130000;
 const WS_CONNECTION_READY_TIMEOUT_MS = 10000;
 
-// Timeout constants (in milliseconds)
-const TIMEOUTS = {
+// Default timeout constants (in milliseconds)
+const DEFAULT_TIMEOUTS = {
     FAKE_STREAM: 300000, // 300 seconds (5 minutes) - timeout for fake streaming (buffered response)
     STREAM_CHUNK: 60000, // 60 seconds - timeout between stream chunks
 };
@@ -41,7 +41,10 @@ class RequestHandler {
         this.needsSwitchingAfterRequest = false;
 
         // Timeout settings
-        this.timeouts = TIMEOUTS;
+        this.timeouts = {
+            FAKE_STREAM: this.config.fakeStreamTimeoutMs || DEFAULT_TIMEOUTS.FAKE_STREAM,
+            STREAM_CHUNK: this.config.streamTimeoutMs || DEFAULT_TIMEOUTS.STREAM_CHUNK,
+        };
     }
 
     // Delegate properties to AuthSwitcher
@@ -2481,7 +2484,7 @@ class RequestHandler {
         let fullBody = "";
         let receiving = true;
         while (receiving) {
-            const message = await messageQueue.dequeue();
+            const message = await messageQueue.dequeue(this.timeouts.FAKE_STREAM);
             if (message.type === "STREAM_END") {
                 this.logger.info("[Request] Claude received end signal.");
                 receiving = false;
@@ -3110,7 +3113,7 @@ class RequestHandler {
             const chunks = [];
             let receiving = true;
             while (receiving) {
-                const message = await activeQueue.dequeue();
+                const message = await activeQueue.dequeue(this.timeouts.FAKE_STREAM);
                 if (message.type === "STREAM_END") {
                     this.logger.info("[Request] Received end signal, data reception complete.");
                     receiving = false;
@@ -3212,7 +3215,7 @@ class RequestHandler {
             try {
                 this._forwardRequest(proxyRequest);
 
-                const initialMessage = await currentQueue.dequeue();
+                const initialMessage = await currentQueue.dequeue(this.timeouts.FAKE_STREAM);
 
                 if (initialMessage.event_type === "timeout") {
                     throw new Error(
@@ -3530,7 +3533,7 @@ class RequestHandler {
         let fullBody = "";
         let receiving = true;
         while (receiving) {
-            const message = await messageQueue.dequeue();
+            const message = await messageQueue.dequeue(this.timeouts.FAKE_STREAM);
             if (message.type === "STREAM_END") {
                 this.logger.info("[Request] OpenAI Response API received end signal.");
                 receiving = false;
@@ -3569,7 +3572,7 @@ class RequestHandler {
         let fullBody = "";
         let receiving = true;
         while (receiving) {
-            const message = await messageQueue.dequeue();
+            const message = await messageQueue.dequeue(this.timeouts.FAKE_STREAM);
             if (message.type === "STREAM_END") {
                 this.logger.info("[Request] OpenAI received end signal.");
                 receiving = false;
