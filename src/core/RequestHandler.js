@@ -606,6 +606,42 @@ class RequestHandler {
         return true;
     }
 
+    async _ensureBrowserBackedRequestReady(res, options = {}) {
+        const { logPrefix = "Request", waitErrorType = null, waitOptions } = options;
+
+        // Check current account's browser connection
+        if (!this.connectionRegistry.getConnectionByAuth(this.currentAuthIndex)) {
+            this.logger.warn(`[${logPrefix}] No WebSocket connection for current account #${this.currentAuthIndex}`);
+            const recovered = await this._handleBrowserRecovery(res);
+            if (!recovered) {
+                this._markTrackedEarlyExitIfNeeded(res, "Service temporarily unavailable: Browser recovery failed.");
+                return false;
+            }
+        }
+
+        // Wait for system to become ready if it's busy
+        const effectiveWaitOptions =
+            waitOptions === undefined && waitErrorType
+                ? {
+                      sendError: (status, message) => this._sendErrorResponse(res, status, message, waitErrorType),
+                  }
+                : waitOptions;
+        const ready =
+            effectiveWaitOptions === undefined
+                ? await this._waitForSystemAndConnectionIfBusy(res)
+                : await this._waitForSystemAndConnectionIfBusy(res, effectiveWaitOptions);
+        if (!ready) {
+            this._markTrackedEarlyExitIfNeeded(res, "Service temporarily unavailable: System not ready.");
+            return false;
+        }
+
+        if (this.browserManager) {
+            this.browserManager.notifyUserActivity();
+        }
+
+        return true;
+    }
+
     _createImmediateSwitchTracker(initialAuthIndex = this.currentAuthIndex) {
         const attemptedAuthIndices = new Set();
         if (Number.isInteger(initialAuthIndex) && initialAuthIndex >= 0) {
@@ -863,30 +899,10 @@ class RequestHandler {
         res.__proxyResponseStreamMode = null;
 
         try {
-            // Check current account's browser connection
-            if (!this.connectionRegistry.getConnectionByAuth(this.currentAuthIndex)) {
-                this.logger.warn(`[Request] No WebSocket connection for current account #${this.currentAuthIndex}`);
-                const recovered = await this._handleBrowserRecovery(res);
-                if (!recovered) {
-                    this._markTrackedEarlyExitIfNeeded(
-                        res,
-                        "Service temporarily unavailable: Browser recovery failed."
-                    );
-                    return;
-                }
+            if (!(await this._ensureBrowserBackedRequestReady(res))) {
+                return;
             }
 
-            // Wait for system to become ready if it's busy
-            {
-                const ready = await this._waitForSystemAndConnectionIfBusy(res);
-                if (!ready) {
-                    this._markTrackedEarlyExitIfNeeded(res, "Service temporarily unavailable: System not ready.");
-                    return;
-                }
-            }
-            if (this.browserManager) {
-                this.browserManager.notifyUserActivity();
-            }
             // Handle usage-based account switching
             const isGenerativeRequest =
                 req.method === "POST" &&
@@ -979,28 +995,8 @@ class RequestHandler {
         res.__proxyResponseStreamMode = null;
 
         try {
-            if (!this.connectionRegistry.getConnectionByAuth(this.currentAuthIndex)) {
-                this.logger.warn(`[Request] No WebSocket connection for current account #${this.currentAuthIndex}`);
-                const recovered = await this._handleBrowserRecovery(res);
-                if (!recovered) {
-                    this._markTrackedEarlyExitIfNeeded(
-                        res,
-                        "Service temporarily unavailable: Browser recovery failed."
-                    );
-                    return;
-                }
-            }
-
-            const ready = await this._waitForSystemAndConnectionIfBusy(res, {
-                sendError: (status, message) => this._sendErrorResponse(res, status, message, "service_unavailable"),
-            });
-            if (!ready) {
-                this._markTrackedEarlyExitIfNeeded(res, "Service temporarily unavailable: System not ready.");
+            if (!(await this._ensureBrowserBackedRequestReady(res, { waitErrorType: "service_unavailable" }))) {
                 return;
-            }
-
-            if (this.browserManager) {
-                this.browserManager.notifyUserActivity();
             }
 
             const { cleanModelName, googleRequest, path } = this.formatConverter.translateOpenAIEmbeddingsToGoogle(
@@ -1060,30 +1056,8 @@ class RequestHandler {
         this._setResponseApiFormat(res, "upload");
 
         try {
-            // Check current account's browser connection
-            if (!this.connectionRegistry.getConnectionByAuth(this.currentAuthIndex)) {
-                this.logger.warn(`[Upload] No WebSocket connection for current account #${this.currentAuthIndex}`);
-                const recovered = await this._handleBrowserRecovery(res);
-                if (!recovered) {
-                    this._markTrackedEarlyExitIfNeeded(
-                        res,
-                        "Service temporarily unavailable: Browser recovery failed."
-                    );
-                    return;
-                }
-            }
-
-            // Wait for system to become ready if it's busy
-            {
-                const ready = await this._waitForSystemAndConnectionIfBusy(res);
-                if (!ready) {
-                    this._markTrackedEarlyExitIfNeeded(res, "Service temporarily unavailable: System not ready.");
-                    return;
-                }
-            }
-
-            if (this.browserManager) {
-                this.browserManager.notifyUserActivity();
+            if (!(await this._ensureBrowserBackedRequestReady(res, { logPrefix: "Upload" }))) {
+                return;
             }
 
             const proxyRequest = {
@@ -1135,32 +1109,8 @@ class RequestHandler {
         res.__proxyResponseStreamMode = null;
 
         try {
-            // Check current account's browser connection
-            if (!this.connectionRegistry.getConnectionByAuth(this.currentAuthIndex)) {
-                this.logger.warn(`[Request] No WebSocket connection for current account #${this.currentAuthIndex}`);
-                const recovered = await this._handleBrowserRecovery(res);
-                if (!recovered) {
-                    this._markTrackedEarlyExitIfNeeded(
-                        res,
-                        "Service temporarily unavailable: Browser recovery failed."
-                    );
-                    return;
-                }
-            }
-
-            // Wait for system to become ready if it's busy
-            {
-                const ready = await this._waitForSystemAndConnectionIfBusy(res, {
-                    sendError: (status, message) =>
-                        this._sendErrorResponse(res, status, message, "service_unavailable"),
-                });
-                if (!ready) {
-                    this._markTrackedEarlyExitIfNeeded(res, "Service temporarily unavailable: System not ready.");
-                    return;
-                }
-            }
-            if (this.browserManager) {
-                this.browserManager.notifyUserActivity();
+            if (!(await this._ensureBrowserBackedRequestReady(res, { waitErrorType: "service_unavailable" }))) {
+                return;
             }
 
             const isOpenAIStream = req.body.stream === true;
@@ -1507,32 +1457,8 @@ class RequestHandler {
         res.__proxyResponseStreamMode = null;
 
         try {
-            // Check current account's browser connection
-            if (!this.connectionRegistry.getConnectionByAuth(this.currentAuthIndex)) {
-                this.logger.warn(`[Request] No WebSocket connection for current account #${this.currentAuthIndex}`);
-                const recovered = await this._handleBrowserRecovery(res);
-                if (!recovered) {
-                    this._markTrackedEarlyExitIfNeeded(
-                        res,
-                        "Service temporarily unavailable: Browser recovery failed."
-                    );
-                    return;
-                }
-            }
-
-            // Wait for system to become ready if it's busy
-            {
-                const ready = await this._waitForSystemAndConnectionIfBusy(res, {
-                    sendError: (status, message) =>
-                        this._sendErrorResponse(res, status, message, "service_unavailable"),
-                });
-                if (!ready) {
-                    this._markTrackedEarlyExitIfNeeded(res, "Service temporarily unavailable: System not ready.");
-                    return;
-                }
-            }
-            if (this.browserManager) {
-                this.browserManager.notifyUserActivity();
+            if (!(await this._ensureBrowserBackedRequestReady(res, { waitErrorType: "service_unavailable" }))) {
+                return;
             }
 
             const isOpenAIStream = req.body.stream === true;
@@ -1957,32 +1883,8 @@ class RequestHandler {
         res.__proxyResponseStreamMode = null;
 
         try {
-            // Check current account's browser connection
-            if (!this.connectionRegistry.getConnectionByAuth(this.currentAuthIndex)) {
-                this.logger.warn(`[Request] No WebSocket connection for current account #${this.currentAuthIndex}`);
-                const recovered = await this._handleBrowserRecovery(res);
-                if (!recovered) {
-                    this._markTrackedEarlyExitIfNeeded(
-                        res,
-                        "Service temporarily unavailable: Browser recovery failed."
-                    );
-                    return;
-                }
-            }
-
-            // Wait for system to become ready if it's busy
-            {
-                const ready = await this._waitForSystemAndConnectionIfBusy(res, {
-                    sendError: (status, message) => this._sendErrorResponse(res, status, message, "overloaded_error"),
-                });
-                if (!ready) {
-                    this._markTrackedEarlyExitIfNeeded(res, "Service temporarily unavailable: System not ready.");
-                    return;
-                }
-            }
-
-            if (this.browserManager) {
-                this.browserManager.notifyUserActivity();
+            if (!(await this._ensureBrowserBackedRequestReady(res, { waitErrorType: "overloaded_error" }))) {
+                return;
             }
 
             const isClaudeStream = req.body.stream === true;
@@ -2319,32 +2221,8 @@ class RequestHandler {
         this._setResponseApiFormat(res, "claude");
 
         try {
-            // Check current account's browser connection
-            if (!this.connectionRegistry.getConnectionByAuth(this.currentAuthIndex)) {
-                this.logger.warn(`[Request] No WebSocket connection for current account #${this.currentAuthIndex}`);
-                const recovered = await this._handleBrowserRecovery(res);
-                if (!recovered) {
-                    this._markTrackedEarlyExitIfNeeded(
-                        res,
-                        "Service temporarily unavailable: Browser recovery failed."
-                    );
-                    return;
-                }
-            }
-
-            // Wait for system to become ready if it's busy
-            {
-                const ready = await this._waitForSystemAndConnectionIfBusy(res, {
-                    sendError: (status, message) => this._sendErrorResponse(res, status, message, "overloaded_error"),
-                });
-                if (!ready) {
-                    this._markTrackedEarlyExitIfNeeded(res, "Service temporarily unavailable: System not ready.");
-                    return;
-                }
-            }
-
-            if (this.browserManager) {
-                this.browserManager.notifyUserActivity();
+            if (!(await this._ensureBrowserBackedRequestReady(res, { waitErrorType: "overloaded_error" }))) {
+                return;
             }
 
             // Translate Claude format to Google format
@@ -2479,33 +2357,8 @@ class RequestHandler {
         this._setResponseApiFormat(res, "response_api");
 
         try {
-            // Check current account's browser connection
-            if (!this.connectionRegistry.getConnectionByAuth(this.currentAuthIndex)) {
-                this.logger.warn(`[Request] No WebSocket connection for current account #${this.currentAuthIndex}`);
-                const recovered = await this._handleBrowserRecovery(res);
-                if (!recovered) {
-                    this._markTrackedEarlyExitIfNeeded(
-                        res,
-                        "Service temporarily unavailable: Browser recovery failed."
-                    );
-                    return;
-                }
-            }
-
-            // Wait for system to become ready if it's busy
-            {
-                const ready = await this._waitForSystemAndConnectionIfBusy(res, {
-                    sendError: (status, message) =>
-                        this._sendErrorResponse(res, status, message, "service_unavailable"),
-                });
-                if (!ready) {
-                    this._markTrackedEarlyExitIfNeeded(res, "Service temporarily unavailable: System not ready.");
-                    return;
-                }
-            }
-
-            if (this.browserManager) {
-                this.browserManager.notifyUserActivity();
+            if (!(await this._ensureBrowserBackedRequestReady(res, { waitErrorType: "service_unavailable" }))) {
+                return;
             }
 
             // Translate OpenAI Response format to Google format (so we can use Gemini countTokens)
