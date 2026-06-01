@@ -1061,8 +1061,9 @@ class RequestHandler {
                 return;
             }
 
+            const uploadBodyBuffer = this._patchUploadStartMetadata(req);
             const proxyRequest = {
-                body_b64: req.rawBody ? req.rawBody.toString("base64") : undefined,
+                body_b64: uploadBodyBuffer ? uploadBodyBuffer.toString("base64") : undefined,
                 headers: req.headers,
                 is_generative: false, // Uploads are never generative
                 method: req.method,
@@ -1095,6 +1096,40 @@ class RequestHandler {
         } finally {
             this._finalizeTrackedRequest(requestId, res);
         }
+    }
+
+    _patchUploadStartMetadata(req) {
+        const originalBody = req.rawBody;
+
+        if (!this._isUploadStartRequest(req)) return originalBody;
+
+        const uploadContentType = req.headers["x-goog-upload-header-content-type"];
+        if (!uploadContentType || !originalBody?.length) return originalBody;
+
+        let bodyObj;
+        try {
+            bodyObj = JSON.parse(originalBody.toString());
+        } catch (e) {
+            this.logger.debug(`[Upload] Start metadata is not valid JSON, skipping mimeType patch: ${e.message}`);
+            return originalBody;
+        }
+
+        if (!bodyObj || typeof bodyObj !== "object") return originalBody;
+
+        const fileMetadata = bodyObj.file || bodyObj.file_metadata || bodyObj;
+        if (!fileMetadata || typeof fileMetadata !== "object") return originalBody;
+
+        if (fileMetadata.mimeType || fileMetadata.mime_type) {
+            return originalBody;
+        }
+
+        fileMetadata.mimeType = uploadContentType;
+        return Buffer.from(JSON.stringify(bodyObj));
+    }
+
+    _isUploadStartRequest(req) {
+        const command = String(req.headers["x-goog-upload-command"] || "").toLowerCase();
+        return req.method === "POST" && req.path.includes("/upload/") && command.includes("start");
     }
 
     // Process OpenAI format requests
@@ -3700,7 +3735,7 @@ class RequestHandler {
             if (lowerName === "content-length") return;
 
             // Special handling for upload URL and redirects: point them back to this proxy
-            if ((lowerName === "x-goog-upload-url" || lowerName === "location") && value.includes("googleapis.com")) {
+            if (lowerName === "x-goog-upload-url" && value.includes("googleapis.com")) {
                 try {
                     const urlObj = new URL(value);
                     // Rewrite upload/redirect URLs to point to this proxy server

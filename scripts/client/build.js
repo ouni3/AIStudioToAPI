@@ -351,6 +351,12 @@ class RequestProcessor {
             }
         }
 
+        if (this._isUploadPathAndQuery(pathAndQuery)) {
+            const tempUrl = new URL(pathAndQuery, "http://dummy");
+            tempUrl.searchParams.delete("key");
+            pathAndQuery = tempUrl.pathname + tempUrl.search;
+        }
+
         let cleanPath = pathAndQuery.replace(/^\/+/, "");
         const method = requestSpec.method ? requestSpec.method.toUpperCase() : "GET";
 
@@ -383,7 +389,7 @@ class RequestProcessor {
 
     _buildRequestConfig(requestSpec, signal) {
         const config = {
-            headers: this._sanitizeHeaders(requestSpec.headers),
+            headers: this._sanitizeHeaders(requestSpec.headers, requestSpec),
             method: requestSpec.method,
             signal,
         };
@@ -536,7 +542,7 @@ class RequestProcessor {
         return config;
     }
 
-    _sanitizeHeaders(headers) {
+    _sanitizeHeaders(headers, requestSpec = {}) {
         const sanitized = { ...headers };
         // Follow BuildProxy's forbidden list exactly
         const forbiddenHeaders = [
@@ -552,7 +558,21 @@ class RequestProcessor {
         ];
 
         forbiddenHeaders.forEach(h => delete sanitized[h]);
+        if (this._isUploadRequestSpec(requestSpec)) {
+            delete sanitized.authorization;
+            delete sanitized["x-api-key"];
+            delete sanitized["x-goog-api-key"];
+        }
         return sanitized;
+    }
+
+    _isUploadRequestSpec(requestSpec = {}) {
+        const path = String(requestSpec.url || requestSpec.path || "").toLowerCase();
+        return this._isUploadPathAndQuery(path);
+    }
+
+    _isUploadPathAndQuery(path) {
+        return path.includes("/upload/");
     }
 
     cancelOperation(operationId, requestAttemptId) {
@@ -829,7 +849,7 @@ class ProxySystem extends EventTarget {
         const headerMap = {};
         response.headers.forEach((v, k) => {
             const lowerKey = k.toLowerCase();
-            if ((lowerKey === "location" || lowerKey === "x-goog-upload-url") && v.includes("googleapis.com")) {
+            if (lowerKey === "x-goog-upload-url" && v.includes("googleapis.com")) {
                 try {
                     const urlObj = new URL(v);
                     const host = proxyHost || location.host;
