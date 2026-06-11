@@ -2361,7 +2361,11 @@ class FormatConverter {
                         googleParts.push(functionCallPart);
                     } else if (block.type === "thinking") {
                         // Claude thinking block -> Gemini thought
-                        googleParts.push({ text: block.thinking, thought: true });
+                        const thoughtPart = { text: block.thinking, thought: true };
+                        if (typeof block.signature === "string" && block.signature.length > 0) {
+                            thoughtPart.thoughtSignature = block.signature;
+                        }
+                        googleParts.push(thoughtPart);
                     } else if (block.type === "text") {
                         googleParts.push({ text: block.text });
                     }
@@ -2949,10 +2953,12 @@ class FormatConverter {
         if (candidate.content && Array.isArray(candidate.content.parts)) {
             for (const part of candidate.content.parts) {
                 if (part.thought === true && part.text) {
-                    content.push({
+                    const thinkingBlock = {
+                        signature: part.thoughtSignature || FormatConverter.DUMMY_THOUGHT_SIGNATURE,
                         thinking: part.text,
                         type: "thinking",
-                    });
+                    };
+                    content.push(thinkingBlock);
                 } else if (part.text) {
                     content.push({
                         text: part.text,
