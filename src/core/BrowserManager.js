@@ -76,7 +76,7 @@ class BrowserManager {
         this._wsInitState = new Map();
 
         // Target URL for AI Studio app
-        this.targetUrl = "https://ai.studio/apps/7bfbb4ef-1e3b-4b46-a37f-37d79c771aa0";
+        this.targetUrl = "https://ai.studio/apps/b14eb99d-655e-4d29-ba95-218a8c086e07";
 
         // Firefox/Camoufox does not use Chromium-style command line args.
         // We keep this empty; Camoufox has its own anti-fingerprinting optimizations built-in.
@@ -348,6 +348,7 @@ class BrowserManager {
         const startTime = Date.now();
         const checkInterval = 1000; // Check every 1 second
         let continueClicked = false;
+        let skipClicked = false;
         let iteration = 0;
 
         try {
@@ -378,6 +379,19 @@ class BrowserManager {
                     );
                     if (continueClicked) {
                         this.logger.info(`${logPrefix} Found "${continueText}" button, clicking...`);
+                    }
+                }
+
+                if (!skipClicked) {
+                    const skipText = "Skip";
+                    skipClicked = await this._clickButtonByTextIfVisible(
+                        page,
+                        skipText,
+                        logPrefix,
+                        `popup "${skipText}"`
+                    );
+                    if (skipClicked) {
+                        this.logger.info(`${logPrefix} Found "${skipText}" button, clicking...`);
                     }
                 }
 
@@ -1004,7 +1018,15 @@ class BrowserManager {
                             "div.cdk-global-overlay-wrapper",
                         ];
 
-                        const targetTexts = ["Reload", "Retry", "Got it", "Dismiss", "Not now", "Continue to the app"];
+                        const targetTexts = [
+                            "Reload",
+                            "Retry",
+                            "Got it",
+                            "Dismiss",
+                            "Not now",
+                            "Continue to the app",
+                            "Skip",
+                        ];
 
                         // Remove passive blockers
                         blockers.forEach(selector => {
