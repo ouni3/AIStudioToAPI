@@ -2362,9 +2362,6 @@ class FormatConverter {
                     } else if (block.type === "thinking") {
                         // Claude thinking block -> Gemini thought
                         const thoughtPart = { text: block.thinking, thought: true };
-                        if (typeof block.signature === "string" && block.signature.length > 0) {
-                            thoughtPart.thoughtSignature = block.signature;
-                        }
                         googleParts.push(thoughtPart);
                     } else if (block.type === "text") {
                         googleParts.push({ text: block.text });
