@@ -1483,7 +1483,13 @@ class BrowserManager {
     async _ensureBrowser() {
         if (this.browser) return;
 
-        const proxyConfig = parseProxyFromEnv();
+        const isStickyProxyEnabled = this.stickyProxyManager.isEnabled();
+        const proxyConfig = isStickyProxyEnabled ? null : parseProxyFromEnv();
+        if (isStickyProxyEnabled) {
+            this.logger.info(
+                "[Browser] Sticky proxy mode enabled; main browser launch will not use environment proxy."
+            );
+        }
         this.logger.info("🚀 [Browser] Launching main browser instance...");
         const browserExecutablePath = this._getBrowserExecutablePath();
         if (!fs.existsSync(browserExecutablePath)) {
