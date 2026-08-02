@@ -1,0 +1,19 @@
+name: aistudio-to-api
+
+services:
+  app:
+    # 首选 ghcr.io 源；如拉取超时/不可达，可改为 `ibuhub/aistudio-to-api:latest`（Docker Hub 镜像）
+    image: ibuhub/aistudio-to-api:latest
+    container_name: aistudio-to-api
+    # 安全防爆：仅绑定 127.0.0.1，禁绝 0.0.0.0 公网暴漏（守 rules/infra-01 §3）
+    ports:
+      - "127.0.0.1:8317:7860"
+    restart: unless-stopped
+    volumes:
+      - ./configs/auth:/app/configs/auth
+      - ./data:/app/data
+    environment:
+      API_KEYS: "sk-123456"
+      TZ: "Asia/Shanghai"
+      LOG_LEVEL: "DEBUG"
+      # 容器内服务仍监听 7860（未置 PORT 环境变量则用镜像默认）；host 8317 映射容器 7860
