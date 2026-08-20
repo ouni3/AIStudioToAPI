@@ -2973,13 +2973,6 @@ const buildRelativeTimeRange = rangeKey => {
     return [new Date(end.getTime() - duration), end];
 };
 
-const loadRelativeTimeRange = rangeKey => {
-    const duration = TIME_RANGE_MS[rangeKey];
-    if (!duration) return null;
-    const end = new Date();
-    return [new Date(end.getTime() - duration), end];
-};
-
 const normalizedCustomTimeRange = computed(() => {
     if (!isValidCustomTimeRange(customTimeRange.value)) return null;
     const [start, end] = customTimeRange.value;
