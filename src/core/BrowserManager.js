@@ -19,7 +19,7 @@ const {
     isContextAbortedError,
 } = require("../utils/CustomErrors");
 
-const WS_INIT_TIMEOUT_MS = 120000;
+const WS_INIT_TIMEOUT_MS = 25000;
 const FIREFOX_DOH_DISABLED_PREFS = {
     "network.trr.mode": 5,
     "network.trr.uri": "",
@@ -821,7 +821,7 @@ class BrowserManager {
         this.logger.debug(`${logPrefix} Navigating to target page...`);
 
         await page.goto(this.targetUrl, {
-            timeout: 180000,
+            timeout: 30000,
             waitUntil: "domcontentloaded",
         });
         this.logger.debug(`${logPrefix} Page loaded.`);
@@ -2018,7 +2018,7 @@ class BrowserManager {
      * @param {number} authIndex - The auth index to wait for
      * @param {number} timeoutMs - Timeout in milliseconds
      */
-    async _waitForContextInit(authIndex, timeoutMs = 120000) {
+    async _waitForContextInit(authIndex, timeoutMs = 25000) {
         const start = Date.now();
         while (this.initializingContexts.has(authIndex)) {
             if (Date.now() - start > timeoutMs) {

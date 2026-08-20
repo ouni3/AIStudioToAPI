@@ -549,7 +549,7 @@ class RequestHandler {
      * @param {number} timeoutMs - Maximum time to wait in milliseconds (default 120s, same as browser launch timeout)
      * @returns {Promise<boolean>} true if system becomes ready, false if timeout
      */
-    async _waitForSystemReady(timeoutMs = 120000) {
+    async _waitForSystemReady(timeoutMs = 25000) {
         if (!this.authSwitcher.isSystemBusy) {
             return true;
         }
@@ -3012,7 +3012,14 @@ class RequestHandler {
                         "[Request] Failure due to connection reset (Gemini Real Stream), skipping account switch."
                     );
                 }
-                return this._sendErrorResponse(res, headerMessage.status, headerMessage.message);
+                let downstreamStatus = headerMessage.status;
+                let errorMessage = headerMessage.message;
+                if (headerMessage.status === 403 || (headerMessage.status === 404 && proxyRequest.is_generative)) {
+                    downstreamStatus = 503;
+                    this.logger.warn(`[Request] Mapping upstream ${headerMessage.status} to 503 for streaming request #${proxyRequest.request_id} (account index: ${currentQueueAuthIndex}) to trigger client-side retry.`);
+                    errorMessage = `Upstream Google AI Studio ${headerMessage.status} error mapped to 503. Original message: ${headerMessage.message}`;
+                }
+                return this._sendErrorResponse(res, downstreamStatus, errorMessage);
             }
             if (!res.writableEnded) res.end();
             return;
@@ -3120,7 +3127,15 @@ class RequestHandler {
                         );
                     }
                 }
-                return this._sendErrorResponse(res, result.error.status || 500, result.error.message);
+                let downstreamStatus = result.error.status || 500;
+                let errorMessage = result.error.message;
+                if (result.error.status === 403 || (result.error.status === 404 && proxyRequest.is_generative)) {
+                    downstreamStatus = 503;
+                    const authIndex = this.connectionRegistry.getAuthIndexForRequest(proxyRequest.request_id) ?? this.currentAuthIndex;
+                    this.logger.warn(`[Request] Mapping upstream ${result.error.status} to 503 for request #${proxyRequest.request_id} (account index: ${authIndex}) to trigger client-side retry.`);
+                    errorMessage = `Upstream Google AI Studio ${result.error.status} error mapped to 503. Original message: ${result.error.message}`;
+                }
+                return this._sendErrorResponse(res, downstreamStatus, errorMessage);
             }
 
             // On success, reset failure count if needed
