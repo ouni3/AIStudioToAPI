@@ -2859,8 +2859,44 @@ const statsState = reactive({
 });
 
 // Time range filter: 'all' | '1h' | '6h' | '24h' | '7d' | '30d' | 'custom'
-const timeRange = ref("all");
-const customTimeRange = ref([]);
+const loadInitialTimeRange = () => {
+    try {
+        const saved = localStorage.getItem("aistudio_stats_time_range");
+        const validOptions = ["all", "1h", "6h", "24h", "7d", "30d", "custom"];
+        if (saved && validOptions.includes(saved)) {
+            return saved;
+        }
+    } catch (e) {
+        console.error("Failed to load timeRange from localStorage", e);
+    }
+    return "all";
+};
+
+const isValidCustomTimeRange = range =>
+    Array.isArray(range) &&
+    range.length === 2 &&
+    range.every(item => item instanceof Date && !Number.isNaN(item.getTime()));
+
+const loadInitialCustomTimeRange = () => {
+    try {
+        const saved = localStorage.getItem("aistudio_stats_custom_time_range");
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length === 2) {
+                const range = [new Date(parsed[0]), new Date(parsed[1])];
+                if (isValidCustomTimeRange(range)) {
+                    return range;
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load customTimeRange from localStorage", e);
+    }
+    return [];
+};
+
+const timeRange = ref(loadInitialTimeRange());
+const customTimeRange = ref(loadInitialCustomTimeRange());
 const recordFilters = reactive({
     apiFormat: [""],
     attemptCount: [""],
@@ -2937,10 +2973,12 @@ const buildRelativeTimeRange = rangeKey => {
     return [new Date(end.getTime() - duration), end];
 };
 
-const isValidCustomTimeRange = range =>
-    Array.isArray(range) &&
-    range.length === 2 &&
-    range.every(item => item instanceof Date && !Number.isNaN(item.getTime()));
+const loadRelativeTimeRange = rangeKey => {
+    const duration = TIME_RANGE_MS[rangeKey];
+    if (!duration) return null;
+    const end = new Date();
+    return [new Date(end.getTime() - duration), end];
+};
 
 const normalizedCustomTimeRange = computed(() => {
     if (!isValidCustomTimeRange(customTimeRange.value)) return null;
@@ -3547,17 +3585,47 @@ const resetRecordFilters = () => {
     recordFilters.outcome = [""];
     recordFilters.statusCode = [""];
     recordFilters.streamMode = [""];
+    try {
+        localStorage.removeItem("aistudio_stats_time_range");
+        localStorage.removeItem("aistudio_stats_custom_time_range");
+    } catch (e) {
+        console.error("Failed to clear filters from localStorage", e);
+    }
 };
 
 watch(
     timeRange,
     (newValue, oldValue) => {
+        try {
+            localStorage.setItem("aistudio_stats_time_range", newValue);
+        } catch (e) {
+            console.error("Failed to save timeRange to localStorage", e);
+        }
         if (newValue !== "custom") return;
         if (normalizedCustomTimeRange.value) return;
         customTimeRange.value =
             buildRelativeTimeRange(oldValue) || buildRelativeTimeRange(DEFAULT_CUSTOM_TIME_RANGE) || [];
     },
     { flush: "sync" }
+);
+
+watch(
+    customTimeRange,
+    newValue => {
+        try {
+            if (isValidCustomTimeRange(newValue)) {
+                localStorage.setItem(
+                    "aistudio_stats_custom_time_range",
+                    JSON.stringify([newValue[0].toISOString(), newValue[1].toISOString()])
+                );
+            } else {
+                localStorage.removeItem("aistudio_stats_custom_time_range");
+            }
+        } catch (e) {
+            console.error("Failed to save customTimeRange to localStorage", e);
+        }
+    },
+    { deep: true, flush: "sync" }
 );
 
 watch(
