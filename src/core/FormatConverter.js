@@ -57,7 +57,12 @@ class FormatConverter {
             return { cleanModelName: modelName, forceWebSearch: false };
         }
 
-        return { cleanModelName: match[1], forceWebSearch: true };
+        let cleanModelName = match[1];
+        if (!cleanModelName || cleanModelName.trim() === "") {
+            cleanModelName = modelName;
+        }
+
+        return { cleanModelName, forceWebSearch: true };
     }
 
     /**
@@ -83,7 +88,11 @@ class FormatConverter {
 
         let match = cleanModelName.match(/^(.+)-(search|code)$/i);
         while (match) {
-            cleanModelName = match[1];
+            const nextClean = match[1];
+            if (!nextClean || nextClean.trim() === "") {
+                break;
+            }
+            cleanModelName = nextClean;
             const suffix = match[2].toLowerCase();
             if (suffix === "code") {
                 forceCodeExecution = true;
@@ -121,7 +130,12 @@ class FormatConverter {
             return { cleanModelName: modelName, streamingMode: null };
         }
 
-        return { cleanModelName: match[1], streamingMode: match[2].toLowerCase() };
+        let cleanModelName = match[1];
+        if (!cleanModelName || cleanModelName.trim() === "") {
+            cleanModelName = modelName;
+        }
+
+        return { cleanModelName, streamingMode: match[2].toLowerCase() };
     }
 
     /**
@@ -145,7 +159,10 @@ class FormatConverter {
         // Check parenthesis format: model(level)
         const parenMatch = modelName.match(new RegExp(`^(.+)\\((${levels.join("|")})\\)$`, "i"));
         if (parenMatch) {
-            const baseModel = parenMatch[1];
+            let baseModel = parenMatch[1];
+            if (!baseModel || baseModel.trim() === "") {
+                baseModel = modelName;
+            }
             const levelKey = parenMatch[2].toLowerCase();
             return {
                 cleanModelName: baseModel,
@@ -156,7 +173,10 @@ class FormatConverter {
         // Check hyphen format: model-level
         const hyphenMatch = modelName.match(new RegExp(`^(.+)-(${levels.join("|")})$`, "i"));
         if (hyphenMatch) {
-            const baseModel = hyphenMatch[1];
+            let baseModel = hyphenMatch[1];
+            if (!baseModel || baseModel.trim() === "") {
+                baseModel = modelName;
+            }
             const levelKey = hyphenMatch[2].toLowerCase();
             return {
                 cleanModelName: baseModel,

@@ -648,6 +648,28 @@ class RequestHandler {
         return { attemptedAuthIndices };
     }
 
+    _isImmediateSwitchStatus(status, message) {
+        if (!status) return false;
+        const statusCode = Number(status);
+        if (isNaN(statusCode)) return false;
+
+        // If it is 403, check if the response body/message contains specific denial reasons
+        if (statusCode === 403) {
+            const msgStr = String(message || "").toUpperCase();
+            if (
+                msgStr.includes("REGION NOT SUPPORTED") ||
+                msgStr.includes("PERMISSION_DENIED") ||
+                msgStr.includes("PERMISSION") ||
+                msgStr.includes("NOT SUPPORTED") ||
+                msgStr.includes("NOT_SUPPORTED")
+            ) {
+                return true;
+            }
+        }
+
+        return this.config?.immediateSwitchStatusCodes?.includes(statusCode) || false;
+    }
+
     _getImmediateStatusRetryCloseReason(status) {
         return `immediate_status_retry_${status}`;
     }
@@ -1177,6 +1199,13 @@ class RequestHandler {
                 return this._sendErrorResponse(res, 400, "Invalid OpenAI request format.", "invalid_request_error");
             }
 
+            if (!model || model.trim() === "" || model === "undefined" || model === "null") {
+                this.logger.warn(
+                    `[Proxy] Invalid model name "${model}" extracted from OpenAI request. Falling back to default model.`
+                );
+                model = "gemini-2.5-flash-lite";
+            }
+
             const effectiveStreamMode = modelStreamingMode || systemStreamMode;
             const useRealStream = isOpenAIStream && effectiveStreamMode === "real";
             const googleEndpoint = useRealStream ? "streamGenerateContent" : "generateContent";
@@ -1231,7 +1260,7 @@ class RequestHandler {
                             initialMessage.event_type === "error" &&
                             !isUserAbortedError(initialMessage) &&
                             Number.isFinite(initialStatus) &&
-                            this.config?.immediateSwitchStatusCodes?.includes(initialStatus)
+                            this._isImmediateSwitchStatus(initialStatus, initialMessage.message)
                         ) {
                             this.logger.warn(
                                 `[Request] OpenAI real stream received ${initialStatus}, preparing retry...`
@@ -1579,6 +1608,13 @@ class RequestHandler {
                 );
             }
 
+            if (!model || model.trim() === "" || model === "undefined" || model === "null") {
+                this.logger.warn(
+                    `[Proxy] Invalid model name "${model}" extracted from OpenAI Response request. Falling back to default model.`
+                );
+                model = "gemini-2.5-flash-lite";
+            }
+
             const effectiveStreamMode = modelStreamingMode || systemStreamMode;
             const useRealStream = isOpenAIStream && effectiveStreamMode === "real";
 
@@ -1634,7 +1670,7 @@ class RequestHandler {
                             initialMessage.event_type === "error" &&
                             !isUserAbortedError(initialMessage) &&
                             Number.isFinite(initialStatus) &&
-                            this.config?.immediateSwitchStatusCodes?.includes(initialStatus)
+                            this._isImmediateSwitchStatus(initialStatus, initialMessage.message)
                         ) {
                             this.logger.warn(
                                 `[Request] OpenAI Response API real stream received ${initialStatus}, preparing retry...`
@@ -1951,6 +1987,13 @@ class RequestHandler {
                 return this._sendErrorResponse(res, 400, "Invalid Claude request format.", "invalid_request_error");
             }
 
+            if (!model || model.trim() === "" || model === "undefined" || model === "null") {
+                this.logger.warn(
+                    `[Proxy] Invalid model name "${model}" extracted from Claude request. Falling back to default model.`
+                );
+                model = "gemini-2.5-flash-lite";
+            }
+
             const effectiveStreamMode = modelStreamingMode || systemStreamMode;
             const useRealStream = isClaudeStream && effectiveStreamMode === "real";
 
@@ -2006,7 +2049,7 @@ class RequestHandler {
                             initialMessage.event_type === "error" &&
                             !isUserAbortedError(initialMessage) &&
                             Number.isFinite(initialStatus) &&
-                            this.config?.immediateSwitchStatusCodes?.includes(initialStatus)
+                            this._isImmediateSwitchStatus(initialStatus, initialMessage.message)
                         ) {
                             this.logger.warn(
                                 `[Request] Claude real stream received ${initialStatus}, preparing retry...`
@@ -2955,7 +2998,7 @@ class RequestHandler {
                 proxyRequest.is_generative &&
                 !isUserAbortedError(headerMessage) &&
                 Number.isFinite(headerStatus) &&
-                this.config?.immediateSwitchStatusCodes?.includes(headerStatus)
+                this._isImmediateSwitchStatus(headerStatus, headerMessage.message)
             ) {
                 this.logger.warn(`[Request] Gemini real stream received ${headerStatus}, preparing retry...`);
                 this._cancelCurrentAttemptBeforeRetry(proxyRequest, currentQueueAuthIndex);
@@ -3016,7 +3059,9 @@ class RequestHandler {
                 let errorMessage = headerMessage.message;
                 if (headerMessage.status === 403 || (headerMessage.status === 404 && proxyRequest.is_generative)) {
                     downstreamStatus = 503;
-                    this.logger.warn(`[Request] Mapping upstream ${headerMessage.status} to 503 for streaming request #${proxyRequest.request_id} (account index: ${currentQueueAuthIndex}) to trigger client-side retry.`);
+                    this.logger.warn(
+                        `[Request] Mapping upstream ${headerMessage.status} to 503 for streaming request #${proxyRequest.request_id} (account index: ${currentQueueAuthIndex}) to trigger client-side retry.`
+                    );
                     errorMessage = `Upstream Google AI Studio ${headerMessage.status} error mapped to 503. Original message: ${headerMessage.message}`;
                 }
                 return this._sendErrorResponse(res, downstreamStatus, errorMessage);
@@ -3131,8 +3176,12 @@ class RequestHandler {
                 let errorMessage = result.error.message;
                 if (result.error.status === 403 || (result.error.status === 404 && proxyRequest.is_generative)) {
                     downstreamStatus = 503;
-                    const authIndex = this.connectionRegistry.getAuthIndexForRequest(proxyRequest.request_id) ?? this.currentAuthIndex;
-                    this.logger.warn(`[Request] Mapping upstream ${result.error.status} to 503 for request #${proxyRequest.request_id} (account index: ${authIndex}) to trigger client-side retry.`);
+                    const authIndex =
+                        this.connectionRegistry.getAuthIndexForRequest(proxyRequest.request_id) ??
+                        this.currentAuthIndex;
+                    this.logger.warn(
+                        `[Request] Mapping upstream ${result.error.status} to 503 for request #${proxyRequest.request_id} (account index: ${authIndex}) to trigger client-side retry.`
+                    );
                     errorMessage = `Upstream Google AI Studio ${result.error.status} error mapped to 503. Original message: ${result.error.message}`;
                 }
                 return this._sendErrorResponse(res, downstreamStatus, errorMessage);
@@ -3391,7 +3440,7 @@ class RequestHandler {
                 // Check if we should stop retrying immediately based on status code
                 if (
                     Number.isFinite(errorStatus) &&
-                    this.config?.immediateSwitchStatusCodes?.includes(errorStatus) &&
+                    this._isImmediateSwitchStatus(errorStatus, errorPayload?.message) &&
                     !isUserAbortedError(errorPayload)
                 ) {
                     this.logger.warn(`[Request] Received ${errorStatus}, preparing retry...`);
@@ -4160,9 +4209,9 @@ class RequestHandler {
         this.logger.debug(`[Proxy] Debug: incoming Gemini Body (Google Native) = ${JSON.stringify(bodyObj, null, 2)}`);
 
         // Parse model suffixes from model name in native Gemini generation requests
-        // Only handle generation requests: /v1beta/models/{modelName}:generateContent or :streamGenerateContent
+        // Supports both v1beta and v1 paths
         const modelPathMatch = cleanPath.match(
-            /^(\/v1beta\/models\/)([^:]+)(:(generateContent|streamGenerateContent).*)$/
+            /^(\/v1(beta)?\/models\/)([^:]+)(:(generateContent|streamGenerateContent).*)$/
         );
         let modelThinkingLevel = null;
         let modelStreamingMode = null;
@@ -4171,8 +4220,21 @@ class RequestHandler {
 
         if (modelPathMatch) {
             const pathPrefix = modelPathMatch[1];
-            const rawModelName = modelPathMatch[2];
-            const pathSuffix = modelPathMatch[3];
+            let rawModelName = modelPathMatch[3];
+            const pathSuffix = modelPathMatch[4];
+
+            // RequestHandler.js URL 拼接前置断言与加固
+            if (
+                !rawModelName ||
+                rawModelName.trim() === "" ||
+                rawModelName === "undefined" ||
+                rawModelName === "null"
+            ) {
+                this.logger.warn(
+                    `[Proxy] Invalid model name "${rawModelName}" detected in path. Falling back to default model.`
+                );
+                rawModelName = "gemini-2.5-flash-lite";
+            }
 
             const {
                 cleanModelName: toolStrippedModel,
@@ -4183,6 +4245,13 @@ class RequestHandler {
                 FormatConverter.parseModelStreamingModeSuffix(toolStrippedModel);
             const { cleanModelName, thinkingLevel: parsedThinkingLevel } =
                 FormatConverter.parseModelThinkingLevel(streamStrippedModel);
+
+            let finalCleanModelName = cleanModelName;
+            if (!finalCleanModelName || finalCleanModelName.trim() === "") {
+                this.logger.warn(`[Proxy] Cleaned model name is empty, falling back to raw model "${rawModelName}"`);
+                finalCleanModelName = rawModelName;
+            }
+
             modelForceCodeExecution = parsedForceCodeExecution;
             modelForceWebSearch = parsedForceWebSearch;
             modelStreamingMode = parsedStreamingMode;
@@ -4205,13 +4274,13 @@ class RequestHandler {
 
             if (modelThinkingLevel) {
                 this.logger.info(
-                    `[Proxy] Detected thinkingLevel suffix in model path: "${streamStrippedModel}" -> model="${cleanModelName}", thinkingLevel="${modelThinkingLevel}"`
+                    `[Proxy] Detected thinkingLevel suffix in model path: "${streamStrippedModel}" -> model="${finalCleanModelName}", thinkingLevel="${modelThinkingLevel}"`
                 );
             }
 
             // Always strip recognized directives from path model name
-            if (cleanModelName !== rawModelName) {
-                cleanPath = `${pathPrefix}${cleanModelName}${pathSuffix}`;
+            if (finalCleanModelName !== rawModelName) {
+                cleanPath = `${pathPrefix}${finalCleanModelName}${pathSuffix}`;
             }
         }
 
