@@ -45,6 +45,8 @@
 |:---|:---|:---|
 | **自愈与容错** | 403 即时换号自愈 | 捕获上游 403 `Region not supported` / `PERMISSION_DENIED` 立即切号重试 |
 | **自愈与容错** | 404 畸形路径清洗 | 严格校验模型名非空，杜绝 `/v1beta/models/:streamGenerateContent` 畸形路径 |
+| **自愈与容错** | 并行请求平滑排空 | 切号前强制 `waitForAuthQueuesToDrain`，等待并发在途请求 100% 传输完成 |
+| **自愈与容错** | 页面错误识别优化 | 精准判定 `Page not found` + `Go to Build`，消除对 Google 普通 Toast 的误杀 |
 | **网络与代理** | 黏性代理隔离 | 解决多账号网络请求中的代理串流与连接污染，隔离 Session 代理上下文 |
 | **网络与代理** | 代理死锁优化 | 修复高并发/断流场景下连接池挂起与代理死锁问题，加入自愈超时熔断 |
 | **UI 与交互** | 日期过滤与持久化 | Web 控制台日志与账单增加精准日期范围筛选，并支持 LocalStorage 持久化 |
@@ -58,8 +60,10 @@
 - [x] 403 区域受限与 404 畸形模型名自愈逻辑落地
 - [x] 黏性代理与死锁优化
 - [x] 前端 UI 日期筛选与持久化支持
+- [x] 8317 容器浏览器连接卡死排查与重启恢复
+- [x] 并发在途请求排空切号与 Google 页面错误误杀修复 (`438d776`)
 - [x] 双容器 API 推理接口 200 OK 实测闭环
-- [x] Memory-Bank 核心资产建库 (productContext / systemPatterns / plan / profit / assets / aes-history / mermaid)
+- [x] Memory-Bank 核心资产建库与更新 (productContext / systemPatterns / plan / profit / assets / aes-history / mermaid)
 
 ---
 

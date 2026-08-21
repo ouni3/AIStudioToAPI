@@ -55,8 +55,12 @@
 
 ### 2.2 凭据轮询与故障转移状态机 (Failover State Machine)
 - **Account State Tracking**: 动态维护凭据健康状态（`HEALTHY`, `COOLING_DOWN`, `REGION_BLOCKED`, `RATE_LIMITED`）。
-- **即时切号重试 (Fast Failover)**:
+- **并行请求平滑排空机制 (In-Flight Request Drain Gate)**:
+  - 无论自动触发还是手动切换账号，强制调用 `ConnectionRegistry.waitForAuthQueuesToDrain(authIndex)`。
+  - 严格等待当前账号的每一个并发在途 WebSocket 请求 100% 流式传输完毕并关闭后，才正式执行切号与清理旧 Context，杜绝并发请求被腰斩。
+- **即时切号重试与页面错误精准感知 (Fast Failover & Page Error Detection)**:
   - 遇到 HTTP 403 (`Region not supported` / `PERMISSION_DENIED`) 或 HTTP 429 时，立即将当前凭据标记异常，自动切至下一健康凭据并重放请求。
+  - 精准识别页面硬路由崩溃特征（如 `Page not found` + `Go to Build`），避免将 Google 偶发非阻塞 Toast 提示（如 `Please try again`）误判为致命错误。
   - 设定最大重试轮次（Max Retry Quorum），保障请求不陷入死循环，并在全部凭据耗尽时规范返回标准上游错误。
 
 ### 2.3 双容器主备协同拓扑 (Dual-Container Topology)

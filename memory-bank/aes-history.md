@@ -26,6 +26,6 @@
 - **双容器健康状态**:
   - 8317 源码定制容器 (`aistudio-to-api`): `/health` 200 OK, `/v1/chat/completions` PASS
   - 8318 镜像稳定容器 (`aistudio-to-api-8318`): `/health` 200 OK, `/v1/chat/completions` PASS
-- **核心沉淀**: 完成双容器架构固化，沉淀 403 区域即时换号与 404 模型防空机制，Memory-Bank 规范建库。
+- **核心沉淀**: 完成双容器架构固化，沉淀 403 区域即时换号与 404 模型防空机制，新增在途并发请求排空切号与页面错误误杀修复，Memory-Bank 规范建库。
 
 (End of file - total 30 lines)
