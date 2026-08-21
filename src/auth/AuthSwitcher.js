@@ -101,6 +101,11 @@ class AuthSwitcher {
             const startIndex = hasCurrentAccount ? currentIndexInArray : 0;
             const originalStartAccount = hasCurrentAccount ? available[startIndex] : null;
 
+            // Wait for in-flight requests on the current account to finish before switching
+            if (this.currentAuthIndex >= 0 && this.browserManager?.connectionRegistry) {
+                await this.browserManager.connectionRegistry.waitForAuthQueuesToDrain(this.currentAuthIndex, 25000);
+            }
+
             this.logger.info("==================================================");
             this.logger.info(`🔄 [Auth] Multi-account mode: Starting intelligent account switching`);
             this.logger.info(`   • Current account: #${this.currentAuthIndex}`);
@@ -225,6 +230,11 @@ class AuthSwitcher {
 
         this.isSystemBusy = true;
         try {
+            // Wait for in-flight requests on the current account to finish before manual switch
+            if (this.currentAuthIndex >= 0 && this.browserManager?.connectionRegistry) {
+                await this.browserManager.connectionRegistry.waitForAuthQueuesToDrain(this.currentAuthIndex, 25000);
+            }
+
             this.logger.info(`🔄 [Auth] Starting switch to specified account #${targetIndex}...`);
             // Pre-cleanup: remove excess contexts BEFORE creating new one to avoid exceeding maxContexts
             await this.browserManager.preCleanupForSwitch(targetIndex);

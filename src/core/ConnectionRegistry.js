@@ -508,6 +508,76 @@ class ConnectionRegistry extends EventEmitter {
     }
 
     /**
+     * Get active message queue count for a specific account or total across all accounts.
+     * @param {number} [authIndex] - Optional account index
+     * @returns {number} Count of active queues
+     */
+    getActiveQueueCount(authIndex = null) {
+        if (authIndex === null || authIndex === undefined || authIndex < 0) {
+            return this.messageQueues.size;
+        }
+        let count = 0;
+        for (const entry of this.messageQueues.values()) {
+            if (entry.authIndex === authIndex) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Wait for active message queues to drain for a specific account.
+     * Guarantees in-flight parallel requests complete before switching/closing this account.
+     * @param {number} authIndex - Account index to wait for
+     * @param {number} [timeoutMs=30000] - Max wait time in ms
+     * @returns {Promise<boolean>} True if drained cleanly, false if timed out
+     */
+    async waitForAuthQueuesToDrain(authIndex, timeoutMs = 30000) {
+        if (!Number.isInteger(authIndex) || authIndex < 0) {
+            return true;
+        }
+        if (!this.hasMessageQueueForAuth(authIndex)) {
+            return true;
+        }
+
+        const initialCount = this.getActiveQueueCount(authIndex);
+        this.logger.info(
+            `[Registry] ⏳ Waiting for ${initialCount} in-flight parallel request(s) on account #${authIndex} to complete before switching (timeout: ${timeoutMs / 1000}s)...`
+        );
+
+        return new Promise(resolve => {
+            let timer = null;
+
+            const onDrained = drainedIndex => {
+                if (drainedIndex === authIndex) {
+                    if (timer) clearTimeout(timer);
+                    this.off("authQueuesDrained", onDrained);
+                    this.logger.info(`[Registry] ✅ All parallel requests on account #${authIndex} completed cleanly.`);
+                    resolve(true);
+                }
+            };
+
+            this.on("authQueuesDrained", onDrained);
+
+            timer = setTimeout(() => {
+                this.off("authQueuesDrained", onDrained);
+                const remaining = this.getActiveQueueCount(authIndex);
+                this.logger.warn(
+                    `[Registry] ⚠️ Timeout waiting for parallel requests on account #${authIndex} to drain (${remaining} remaining after ${timeoutMs / 1000}s). Proceeding with switch.`
+                );
+                resolve(false);
+            }, timeoutMs);
+
+            // Double check race condition right after listener attached
+            if (!this.hasMessageQueueForAuth(authIndex)) {
+                if (timer) clearTimeout(timer);
+                this.off("authQueuesDrained", onDrained);
+                resolve(true);
+            }
+        });
+    }
+
+    /**
      * Close all message queues belonging to a specific account
      * @param {number} authIndex - The account whose queues should be closed
      * @param {string} [reason="auth_context_closed"] - The reason for closing the queues (e.g., "reconnect_cleanup", "page_closed", "grace_period_timeout")

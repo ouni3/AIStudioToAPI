@@ -199,7 +199,8 @@ class BrowserManager {
                     concurrentUpdates:
                         bodyText.includes("There are concurrent updates") || bodyText.includes("concurrent updates"),
                     snapshotFailed:
-                        bodyText.includes("Failed to create snapshot") || bodyText.includes("Please try again"),
+                        bodyText.includes("Failed to create snapshot") ||
+                        (bodyText.includes("Page not found") && bodyText.includes("Go to Build")),
                 };
             });
         } catch (e) {
