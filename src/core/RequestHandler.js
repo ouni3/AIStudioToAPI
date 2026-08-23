@@ -267,6 +267,17 @@ class RequestHandler {
         return false;
     }
 
+    _isModelNotFoundError(error) {
+        if (!error) return false;
+        const msgStr = String(error.message || error).toUpperCase();
+        return (
+            msgStr.includes("MODELS/") ||
+            msgStr.includes("NOT FOUND") ||
+            msgStr.includes("NOT_FOUND") ||
+            msgStr.includes("IS NOT FOUND FOR API VERSION")
+        );
+    }
+
     _logGeminiNativeChunkDebug(googleChunk, mode = "stream") {
         this.logger.debug(`[Proxy] Debug: Received Google chunk for Gemini native ${mode}: ${googleChunk}`);
     }
@@ -1302,6 +1313,15 @@ class RequestHandler {
                             afterRetries: false,
                         });
 
+                        const isModelNotFound = this._isModelNotFoundError(initialMessage);
+                        if (isModelNotFound) {
+                            initialMessage.skipAccountSwitch = true;
+                            skipFinalFailureSwitch = true;
+                            this.logger.warn(
+                                `[Request] Upstream reported model not found error (OpenAI Real Stream). Directing response without account switch retry.`
+                            );
+                        }
+
                         // Send standard HTTP error response
                         this._sendErrorResponse(res, initialMessage.status || 500, initialMessage.message);
 
@@ -1310,7 +1330,7 @@ class RequestHandler {
                             await this.authSwitcher.handleRequestFailureAndSwitch(initialMessage, null);
                         } else if (skipFinalFailureSwitch) {
                             this.logger.info(
-                                "[Request] Immediate-switch retries exhausted, skipping additional account switch."
+                                "[Request] Immediate-switch retries exhausted or non-retryable model error, skipping additional account switch."
                             );
                         } else {
                             this.logger.info(
@@ -1712,6 +1732,15 @@ class RequestHandler {
                             afterRetries: false,
                         });
 
+                        const isModelNotFound = this._isModelNotFoundError(initialMessage);
+                        if (isModelNotFound) {
+                            initialMessage.skipAccountSwitch = true;
+                            skipFinalFailureSwitch = true;
+                            this.logger.warn(
+                                `[Request] Upstream reported model not found error (OpenAI Response API Real Stream). Directing response without account switch retry.`
+                            );
+                        }
+
                         // Send standard HTTP error response
                         this._sendErrorResponse(res, initialMessage.status || 500, initialMessage.message);
 
@@ -1720,7 +1749,7 @@ class RequestHandler {
                             await this.authSwitcher.handleRequestFailureAndSwitch(initialMessage, null);
                         } else if (skipFinalFailureSwitch) {
                             this.logger.info(
-                                "[Request] Immediate-switch retries exhausted, skipping additional account switch."
+                                "[Request] Immediate-switch retries exhausted or non-retryable model error, skipping additional account switch."
                             );
                         } else {
                             this.logger.info(
@@ -2090,12 +2119,22 @@ class RequestHandler {
                         this._logFinalRequestFailure(initialMessage, "Claude real stream", requestId, {
                             afterRetries: false,
                         });
+
+                        const isModelNotFound = this._isModelNotFoundError(initialMessage);
+                        if (isModelNotFound) {
+                            initialMessage.skipAccountSwitch = true;
+                            skipFinalFailureSwitch = true;
+                            this.logger.warn(
+                                `[Request] Upstream reported model not found error (Claude Real Stream). Directing response without account switch retry.`
+                            );
+                        }
+
                         this._sendErrorResponse(res, initialMessage.status || 500, initialMessage.message, "api_error");
                         if (!skipFinalFailureSwitch && !this._isConnectionResetError(initialMessage)) {
                             await this.authSwitcher.handleRequestFailureAndSwitch(initialMessage, null);
                         } else if (skipFinalFailureSwitch) {
                             this.logger.info(
-                                "[Request] Immediate-switch retries exhausted, skipping additional account switch."
+                                "[Request] Immediate-switch retries exhausted or non-retryable model error, skipping additional account switch."
                             );
                         }
                         return;
@@ -3043,12 +3082,22 @@ class RequestHandler {
                 this._logFinalRequestFailure(headerMessage, "Gemini real stream", proxyRequest.request_id, {
                     afterRetries: false,
                 });
+
+                const isModelNotFound = this._isModelNotFoundError(headerMessage);
+                if (isModelNotFound) {
+                    headerMessage.skipAccountSwitch = true;
+                    skipFinalFailureSwitch = true;
+                    this.logger.warn(
+                        `[Request] Upstream reported model not found error (Real Stream). Directing 404/400 response without account switch retry.`
+                    );
+                }
+
                 // Avoid switching account if the error is just a connection reset
                 if (!skipFinalFailureSwitch && !this._isConnectionResetError(headerMessage)) {
                     await this.authSwitcher.handleRequestFailureAndSwitch(headerMessage, null);
                 } else if (skipFinalFailureSwitch) {
                     this.logger.info(
-                        "[Request] Immediate-switch retries exhausted, skipping additional account switch."
+                        "[Request] Immediate-switch retries exhausted or non-retryable model error, skipping additional account switch."
                     );
                 } else {
                     this.logger.info(
@@ -3057,7 +3106,10 @@ class RequestHandler {
                 }
                 let downstreamStatus = headerMessage.status;
                 let errorMessage = headerMessage.message;
-                if (headerMessage.status === 403 || (headerMessage.status === 404 && proxyRequest.is_generative)) {
+                if (
+                    !isModelNotFound &&
+                    (headerMessage.status === 403 || (headerMessage.status === 404 && proxyRequest.is_generative))
+                ) {
                     downstreamStatus = 503;
                     this.logger.warn(
                         `[Request] Mapping upstream ${headerMessage.status} to 503 for streaming request #${proxyRequest.request_id} (account index: ${currentQueueAuthIndex}) to trigger client-side retry.`
@@ -3426,6 +3478,16 @@ class RequestHandler {
                 this._cancelCurrentAttemptBeforeRetry(proxyRequest, currentQueueAuthIndex);
 
                 const errorStatus = Number(errorPayload?.status);
+
+                const isModelNotFound = this._isModelNotFoundError(errorPayload);
+                if (isModelNotFound) {
+                    lastError = { ...errorPayload, skipAccountSwitch: true };
+                    this.logger.warn(
+                        `[Request] Upstream reported model not found error (status ${errorPayload.status}, message: ${errorPayload.message}). Skipping retries and account switches.`
+                    );
+                    break;
+                }
+
                 const isNonRetryableEmbeddingClientError =
                     (errorStatus === 400 || errorStatus === 404) &&
                     this._categorizeRequest(proxyRequest?.path, "request") === "embedding";

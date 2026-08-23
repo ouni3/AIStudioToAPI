@@ -1184,14 +1184,22 @@ class FormatConverter {
                         googleResponse.promptFeedback
                     )}`
                 );
-                const errorText = `[ProxySystem Error] Request blocked due to safety settings. Finish Reason: ${googleResponse.promptFeedback.blockReason}`;
-                return `data: ${JSON.stringify({
-                    choices: [{ delta: { content: errorText }, finish_reason: "stop", index: 0 }],
+                const errorText = `[ProxySystem Error] Request blocked due to safety settings. Block Reason: ${googleResponse.promptFeedback.blockReason}`;
+
+                // Let's send a safety block with correct delta structure & finish_reason content_filter
+                const responseChunk = `data: ${JSON.stringify({
+                    choices: [
+                        { delta: { content: errorText, role: "assistant" }, finish_reason: "content_filter", index: 0 },
+                    ],
                     created,
                     id: streamId,
                     model: modelName,
                     object: "chat.completion.chunk",
                 })}\n\n`;
+
+                streamState.roleSent = true;
+                streamState.contentSent = true;
+                return responseChunk;
             }
             return null;
         }
@@ -1253,6 +1261,9 @@ class FormatConverter {
                         delta.role = "assistant";
                         streamState.roleSent = true;
                     }
+                    if (delta.content !== undefined) {
+                        streamState.contentSent = true;
+                    }
 
                     const openaiResponse = {
                         choices: [
@@ -1276,10 +1287,59 @@ class FormatConverter {
         if (candidate.finishReason) {
             // Determine the correct finish_reason for OpenAI format
             let finishReason;
-            if (streamState.hasFunctionCall) {
+            if (candidate.finishReason === "SAFETY") {
+                finishReason = "content_filter";
+                // If we didn't output any content or role yet, make sure we do so now
+                if (!streamState.contentSent) {
+                    const safetyDelta = { content: "[Content omitted due to safety filter]" };
+                    if (!streamState.roleSent) {
+                        safetyDelta.role = "assistant";
+                        streamState.roleSent = true;
+                    }
+                    const safetyResponse = {
+                        choices: [
+                            {
+                                delta: safetyDelta,
+                                finish_reason: null,
+                                index: 0,
+                            },
+                        ],
+                        created,
+                        id: streamId,
+                        model: modelName,
+                        object: "chat.completion.chunk",
+                    };
+                    chunksToSend.push(`data: ${JSON.stringify(safetyResponse)}\n\n`);
+                    streamState.contentSent = true;
+                }
+            } else if (streamState.hasFunctionCall) {
                 finishReason = "tool_calls";
             } else {
                 finishReason = this._mapFinishReason(candidate.finishReason);
+                // Ensure delta.content is emitted if we never emitted any text (even empty) but role has been sent
+                // Lower downstream clients crash if choices[0].delta is entirely empty or missing content if they expect content string.
+                if (!streamState.contentSent && !streamState.hasFunctionCall) {
+                    const fallbackDelta = { content: "" };
+                    if (!streamState.roleSent) {
+                        fallbackDelta.role = "assistant";
+                        streamState.roleSent = true;
+                    }
+                    const fallbackResponse = {
+                        choices: [
+                            {
+                                delta: fallbackDelta,
+                                finish_reason: null,
+                                index: 0,
+                            },
+                        ],
+                        created,
+                        id: streamId,
+                        model: modelName,
+                        object: "chat.completion.chunk",
+                    };
+                    chunksToSend.push(`data: ${JSON.stringify(fallbackResponse)}\n\n`);
+                    streamState.contentSent = true;
+                }
             }
 
             const finalResponse = {
@@ -1813,12 +1873,21 @@ class FormatConverter {
 
         if (!candidate) {
             this.logger.warn("[Adapter] No candidate found in Google response");
+
+            // Check for promptFeedback blocks
+            let blockMessage = "";
+            let finishReason = "stop";
+            if (googleResponse.promptFeedback && googleResponse.promptFeedback.blockReason) {
+                blockMessage = `[Blocked due to safety settings: ${googleResponse.promptFeedback.blockReason}]`;
+                finishReason = "content_filter";
+            }
+
             return {
                 choices: [
                     {
-                        finish_reason: "stop",
+                        finish_reason: finishReason,
                         index: 0,
-                        message: { content: "", role: "assistant" },
+                        message: { content: blockMessage, role: "assistant" },
                     },
                 ],
                 created: Math.floor(Date.now() / 1000),
@@ -1866,20 +1935,25 @@ class FormatConverter {
             }
         }
 
-        const message = { content, role: "assistant" };
+        // If safety block occurred on candidate level, or empty content but finishReason is SAFETY
+        let finishReason;
+        if (candidate.finishReason === "SAFETY") {
+            finishReason = "content_filter";
+            if (!content) {
+                content = "[Content omitted due to safety filter]";
+            }
+        } else if (tool_calls.length > 0) {
+            finishReason = "tool_calls";
+        } else {
+            finishReason = this._mapFinishReason(candidate.finishReason);
+        }
+
+        const message = { content: content || "", role: "assistant" };
         if (reasoning_content) {
             message.reasoning_content = reasoning_content;
         }
         if (tool_calls.length > 0) {
             message.tool_calls = tool_calls;
-        }
-
-        // Determine finish_reason
-        let finishReason;
-        if (tool_calls.length > 0) {
-            finishReason = "tool_calls";
-        } else {
-            finishReason = this._mapFinishReason(candidate.finishReason);
         }
 
         return {
@@ -2897,6 +2971,49 @@ class FormatConverter {
                 streamState.thinkingBlockStopped = true;
             }
 
+            // Ensure we never output completely empty blocks if no text block was started, or if we had safety.
+            // Under safety, or empty response, ensure we send a valid content block so client doesn't crash on empty/missing content arrays.
+            if (candidate.finishReason === "SAFETY") {
+                if (!streamState.textBlockStarted) {
+                    events.push({
+                        content_block: { text: "[Content omitted due to safety filter]", type: "text" },
+                        index: streamState.contentBlockIndex,
+                        type: "content_block_start",
+                    });
+                    events.push({
+                        delta: { text: "[Content omitted due to safety filter]", type: "text_delta" },
+                        index: streamState.contentBlockIndex,
+                        type: "content_block_delta",
+                    });
+                    events.push({
+                        index: streamState.contentBlockIndex,
+                        type: "content_block_stop",
+                    });
+                    streamState.textBlockStarted = true;
+                    streamState.textBlockStopped = true;
+                    streamState.contentBlockIndex++;
+                }
+            } else if (!streamState.textBlockStarted && !streamState.thinkingBlockStarted && !streamState.hasToolUse) {
+                // If it's a completely empty message, emit an empty text block
+                events.push({
+                    content_block: { text: "", type: "text" },
+                    index: streamState.contentBlockIndex,
+                    type: "content_block_start",
+                });
+                events.push({
+                    delta: { text: "", type: "text_delta" },
+                    index: streamState.contentBlockIndex,
+                    type: "content_block_delta",
+                });
+                events.push({
+                    index: streamState.contentBlockIndex,
+                    type: "content_block_stop",
+                });
+                streamState.textBlockStarted = true;
+                streamState.textBlockStopped = true;
+                streamState.contentBlockIndex++;
+            }
+
             // Determine stop reason
             let stopReason = "end_turn";
             if (streamState.hasToolUse) {
@@ -2904,6 +3021,8 @@ class FormatConverter {
             } else if (candidate.finishReason === "MAX_TOKENS") {
                 stopReason = "max_tokens";
             } else if (candidate.finishReason === "STOP") {
+                stopReason = "end_turn";
+            } else if (candidate.finishReason === "SAFETY") {
                 stopReason = "end_turn";
             }
 
@@ -3001,12 +3120,18 @@ class FormatConverter {
 
         // Determine stop reason
         let stopReason = "end_turn";
-        if (hasToolUse) {
+        if (candidate.finishReason === "SAFETY") {
+            stopReason = "end_turn";
+            if (content.length === 0) {
+                content.push({
+                    text: "[Content omitted due to safety filter]",
+                    type: "text",
+                });
+            }
+        } else if (hasToolUse) {
             stopReason = "tool_use";
         } else if (candidate.finishReason === "MAX_TOKENS") {
             stopReason = "max_tokens";
-        } else if (candidate.finishReason === "SAFETY") {
-            stopReason = "end_turn"; // Claude doesn't have a direct equivalent
         }
 
         return {

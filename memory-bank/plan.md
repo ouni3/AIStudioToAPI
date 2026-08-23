@@ -16,13 +16,12 @@
 
 ---
 
-## 2. 活跃 Phase 1 状态与施工记录
+## 2. 活跃 Phase 2 状态与施工记录
 
-### 2.1 Phase 1 目标
-- 完成 104 服务器双容器拓扑部署（8317 源码定制容器 + 8318 稳定镜像容器）。
-- 攻克 Google AI Studio 403 区域受限与 404 畸形模型路径自愈。
-- 修复代理死锁、黏性代理隔离与前端 UI 交互问题。
-- 完成 Memory-Bank 7 大核心文件建库与体系化沉淀。
+### 2.1 Phase 2 目标 (Model 404/503 Switch Loop & Empty Response Fault Tolerance)
+- 修复模型名称错误被误判为 503 从而频繁切号卡死的缺陷，实现 `_isModelNotFoundError` 精准识别与非重试 404 直通。
+- 修复模型空返回（空 Candidate / Safety 拦截 / 纯 Thinking 无正文）导致下游客户端 JSON 解析崩溃的问题，完善 OpenAI 与 Claude 流式/非流式响应转换保障。
+- 补充单元测试与逻辑断言，确保全协议高可用。
 
 ### 2.2 双容器验证明细 (Dual-Container Verification)
 - **8317 源码定制容器 (`aistudio-to-api`)**:
@@ -64,11 +63,14 @@
 - [x] 并发在途请求排空切号与 Google 页面错误误杀修复 (`438d776`)
 - [x] 双容器 API 推理接口 200 OK 实测闭环
 - [x] Memory-Bank 核心资产建库与更新 (productContext / systemPatterns / plan / profit / assets / aes-history / mermaid)
+- [x] 修复模型名错误触发 503 频繁切号卡死问题 (`RequestHandler.js`)
+- [x] 修复模型空返回 / Safety 过滤 / Thinking-only 导致下游自动化中断问题 (`FormatConverter.js`)
+- [x] 补充单测与自动化验证 (`tests/test_request_handler_validation.mjs`, `tests/test_format_converter_validation.mjs`)
 
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
-- Primary Phase: `Phase 1 (Dual-Container Refactoring & Memory-Bank Setup)` [ACTIVE]
+- Primary Phase: `Phase 2 (Model 404/503 Switch Loop & Empty Response Fault Tolerance)` [ACTIVE]
 - Secondary Phases: 无
 
 ---
