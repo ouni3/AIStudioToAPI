@@ -2930,11 +2930,15 @@ class RequestHandler {
                         }
                         this.logger.debug(`[Request] Sent ${contentParts.length} content part(s).`);
                     } else if (candidate.finishReason) {
-                        // If there's no content but a finish reason, send an empty content message with it
+                        // If there's no content but a finish reason, send mock content if thinking occurred
+                        const finalParts =
+                            thinkingParts.length > 0
+                                ? [{ text: FormatConverter.MOCK_EMPTY_THINKING_RESPONSE }]
+                                : [];
                         const finalResponse = {
                             candidates: [
                                 {
-                                    content: { parts: [], role },
+                                    content: { parts: finalParts, role },
                                     finishReason: candidate.finishReason,
                                 },
                             ],

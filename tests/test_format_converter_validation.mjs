@@ -48,7 +48,7 @@ const openaiCandidateSafetyResult = fc.convertGoogleToOpenAINonStream(candidateS
 assert.strictEqual(openaiCandidateSafetyResult.choices[0].finish_reason, "content_filter");
 assert.strictEqual(openaiCandidateSafetyResult.choices[0].message.content, "[Content omitted due to safety filter]");
 
-// 1.4 Thinking-only candidate (Gemini thought parts)
+// 1.4 Thinking-only candidate (Gemini thought parts) -> should provide mock thinking complete response
 const thinkingOnlyCandidate = {
     candidates: [{
         finishReason: "STOP",
@@ -60,7 +60,7 @@ const thinkingOnlyCandidate = {
 };
 const openaiThinkingResult = fc.convertGoogleToOpenAINonStream(thinkingOnlyCandidate, "gemini-2.5-flash");
 assert.strictEqual(openaiThinkingResult.choices[0].message.role, "assistant");
-assert.strictEqual(openaiThinkingResult.choices[0].message.content, "");
+assert.strictEqual(openaiThinkingResult.choices[0].message.content, FormatConverter.MOCK_EMPTY_THINKING_RESPONSE);
 assert.strictEqual(openaiThinkingResult.choices[0].message.reasoning_content, "Analyzing query...");
 assert.strictEqual(openaiThinkingResult.choices[0].finish_reason, "stop");
 
@@ -117,11 +117,13 @@ assert.strictEqual(claudeSafetyResult.content.length, 1);
 assert.strictEqual(claudeSafetyResult.content[0].type, "text");
 assert.strictEqual(claudeSafetyResult.content[0].text, "[Content omitted due to safety filter]");
 
-// 3.2 Thinking-only in Claude Non-stream
+// 3.2 Thinking-only in Claude Non-stream -> should include thinking block + mock text block
 const claudeThinkingResult = fc.convertGoogleToClaudeNonStream(thinkingOnlyCandidate, "claude-3-5-sonnet");
-assert.strictEqual(claudeThinkingResult.content.length, 1);
+assert.strictEqual(claudeThinkingResult.content.length, 2);
 assert.strictEqual(claudeThinkingResult.content[0].type, "thinking");
 assert.strictEqual(claudeThinkingResult.content[0].thinking, "Analyzing query...");
+assert.strictEqual(claudeThinkingResult.content[1].type, "text");
+assert.strictEqual(claudeThinkingResult.content[1].text, FormatConverter.MOCK_EMPTY_THINKING_RESPONSE);
 
 console.log("✔ Claude Non-Stream tests passed!");
 

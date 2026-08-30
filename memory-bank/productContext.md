@@ -1,12 +1,23 @@
 # Product Context: aistudio-to-api
 
-> **[EVOLUTION_CONTRIBUTION]** (Phase 1 测算声明 / `00-evolution-law.md §1.6`)
+> **[EVOLUTION_CONTRIBUTION]** (Phase 2 测算声明 / `00-evolution-law.md §1.6`)
 > - $F_{System}$: **+** 将 Google AI Studio 逆向并包装为 OpenAI / Claude 兼容标准 API，提供高并发多账号轮询与自动故障转移，最大化算力利用效率并降低商业 LLM API 支出。
 > - $L_{User}$: **+** 提供 Web 管理后台与统一网关端点，用户无需手动管理多 Key/多 Cookie 与代理故障切换，实现认知负担降维。
 > - $S_{total}$: **+** 规范模型名映射、403/404 智能容错降级与双容器部署模式，消除畸形请求与无效重试带来的系统状态熵增。
 > - $Value_{Delivered}$: **+** 为全系 Agent 与外部客户端提供 7x24 高可用 Gemini 算力网关，护航各类开发与生产推理场景。
 > - `ect`: **S** (count(+)=4, count(-)=0, Value_Delivered=+, S_total=+)
 > - `verdict`: **KEEP** (核心 memory-bank 资产)
+
+## 0. 评级与商业化基准 (Project Rating & Stage)
+- **当前等级**: **SR (Super Rare - 系统枢纽级)**
+- **商业生命周期**: **S2 (极客验证期) / 基础设施算力赋能网关**
+- **定级判定指标**:
+  - $x_1$ (Wealth): 年化赋能 $IAV + C_{saved} \ge \$15,000$, 赋能全系 $\ge 8$ 个核心 Agent 与外部应用，得分 $100$
+  - $x_2$ (Compute): 具备 $O(1)$ 级派单与 100% 自托管自愈架构，得分 $95$
+  - $x_3$ (Infra): 局域网 104 双容器 7x24 高可用常驻与自动切号，SLA $\ge 99.5\%$, 得分 $95$
+  - $x_4$ (Entropy): $H_{entropy} \ge 90$，无僵尸代码与冗余资产
+  - $L_{User\_rate} \le 0.05$ (免人工干预自愈)
+  - 综合得分: $S_{total} \ge 95.0$ (通过 SR 级强制门禁)
 
 ## 1. 项目愿景 (Vision)
 `aistudio-to-api` 旨在将 Google AI Studio 提供的 Gemini 官方模型能力转化为标准 OpenAI / Claude 兼容的 HTTP / WebSocket API 服务。通过多账号凭据池管理、智能负载均衡、自动化故障切换与容错降级机制，打造稳定、高效、开箱即用的私有 AI 算力中继网关。

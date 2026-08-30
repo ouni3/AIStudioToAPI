@@ -12,6 +12,7 @@
 - **项目**: `AIStudioToAPI`
 - **活跃 Phase**: `Phase 1 (Dual-Container Refactoring & Memory-Bank Setup)`
 - **职责范围**: Tier 0/1/2 核心架构资产设计、双容器部署模式规范化与 Memory-Bank 7 大白名单文件建库。
+- **最新巡检**: 完成 `src/core/FormatConverter.js` 与 `src/core/RequestHandler.js` 深度架构与异常容错代码质量审计。
 
 ## 2. 架构决策与拓扑记录 (Architectural Decisions)
 - `[ARCH_DECISION_01]`: 固化 104 局域网服务器 (192.168.0.104) 双容器主备部署模式：

@@ -11,6 +11,7 @@
         "predev": "npm run build:ui && npm run prepare",
         "build:ui": "vite build",
         "preview:ui": "vite preview",
+        "test": "node --test tests/*.mjs",
         "start": "cross-env NODE_ENV=production node main.js",
         "quick-start": "cross-env NODE_ENV=production node main.js",
         "prestart": "npm run build:ui",

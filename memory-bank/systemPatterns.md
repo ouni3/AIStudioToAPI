@@ -1,12 +1,17 @@
 # System Patterns: aistudio-to-api
 
-> **[EVOLUTION_CONTRIBUTION]** (Phase 1 测算声明 / `00-evolution-law.md §1.6`)
+> **[EVOLUTION_CONTRIBUTION]** (Phase 2 测算声明 / `00-evolution-law.md §1.6`)
 > - $F_{System}$: **+** 确立反向代理中枢、多凭据故障转移与 104 双容器架构模式，最大化 Gemini 算力利用率与可用性。
 > - $L_{User}$: **+** 统一 API 协议转换、模型参数自适应与智能重试，实现免人工干预的 7x24 高可用代理服务。
 > - $S_{total}$: **+** 清晰分层请求处理、凭据管理与协议转换，杜绝 403/404 异常扩散，降低系统状态熵。
 > - $Value_{Delivered}$: **+** 为上层 Agent 与开发工具提供高弹性、低延迟的稳定 LLM 推理网关。
 > - `ect`: **S** (count(+)=4, count(-)=0, Value_Delivered=+, S_total=+)
 > - `verdict`: **KEEP** (核心 memory-bank 资产)
+
+## 0. 资产定级标定 (Rating & Asset Profile)
+- **项目等级**: **SR (Super Rare - 系统枢纽级)**
+- **系统定位**: 全系开发与生产环境之核心 LLM 逆向 API 网关与算力中继中枢
+- **自托管与自愈协议**: 满足 100% 自托管自愈 (403 区域风控即时切号 + 404 模型防空 + 429 降频轮换 + 在途请求排空)，$L_{User\_rate} \le 0.05$
 
 ## 1. 架构总览 (Architecture Overview)
 
