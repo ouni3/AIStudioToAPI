@@ -23,6 +23,8 @@
    - 执行 `docker build --no-cache -f Dockerfile.patch -t aistudio-to-api-custom:latest .` 构建无缓存定制镜像。
    - 重建并启动 8317 容器 (`docker compose up -d`)，健康状态 `Up (healthy)`。
    - 远程 `/health` 与 `/v1/chat/completions` 流式及非流式模型推理实测 200 OK 通过。
+3. **CLAIRE 合规令牌物理提交**:
+   - 已成功提交 staged 变更: commit `c82fecd` (`feat(ui): fix custom time range filter to recent 15:00 to next day 15:00 and sync 104 container [CLAIRE_VERDICT: APPROVED_COMMIT_p2_timerange_15hour_fixed_HASH_56280443e1876bc1c98ce1255d16c61d]`)。
 
 ## 沉淀经验条目 (Core Debugging & Healthcheck Lessons)
 1. **104 局域网 IP SSOT**: 104 主机局域网真实 IP 为 `192.168.0.104`，探活脚本需传入 `REMOTE_104_HOST=192.168.0.104` 环境变量。
