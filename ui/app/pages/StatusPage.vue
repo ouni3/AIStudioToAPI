@@ -2872,27 +2872,28 @@ const loadInitialTimeRange = () => {
     return "all";
 };
 
+// Calculate fixed custom time range: Most recent past 15:00 to the next day's 15:00
+const getFixed15HourTimeRange = (now = new Date()) => {
+    const start = new Date(now);
+    // If current time is before 15:00 today, the most recent 15:00 was yesterday at 15:00
+    if (now.getHours() < 15) {
+        start.setDate(start.getDate() - 1);
+    }
+    start.setHours(15, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+
+    return [start, end];
+};
+
 const isValidCustomTimeRange = range =>
     Array.isArray(range) &&
     range.length === 2 &&
     range.every(item => item instanceof Date && !Number.isNaN(item.getTime()));
 
 const loadInitialCustomTimeRange = () => {
-    try {
-        const saved = localStorage.getItem("aistudio_stats_custom_time_range");
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length === 2) {
-                const range = [new Date(parsed[0]), new Date(parsed[1])];
-                if (isValidCustomTimeRange(range)) {
-                    return range;
-                }
-            }
-        }
-    } catch (e) {
-        console.error("Failed to load customTimeRange from localStorage", e);
-    }
-    return [];
+    return getFixed15HourTimeRange();
 };
 
 const timeRange = ref(loadInitialTimeRange());
@@ -2964,7 +2965,7 @@ const TIME_RANGE_MS = {
     all: 0,
 };
 const DEFAULT_CUSTOM_TIME_RANGE = "24h";
-const DATE_PICKER_DEFAULT_TIME = [new Date(2000, 0, 1, 0, 0, 0), new Date(2000, 0, 1, 23, 59, 59)];
+const DATE_PICKER_DEFAULT_TIME = [new Date(2000, 0, 1, 15, 0, 0), new Date(2000, 0, 1, 15, 0, 0)];
 
 const buildRelativeTimeRange = rangeKey => {
     const duration = TIME_RANGE_MS[rangeKey];
@@ -3569,7 +3570,7 @@ const showAttemptsDetail = record => {
 
 const resetRecordFilters = () => {
     timeRange.value = "all";
-    customTimeRange.value = [];
+    customTimeRange.value = getFixed15HourTimeRange();
     recordFilters.apiFormat = [""];
     recordFilters.attemptCount = [""];
     recordFilters.clientIp = [""];
@@ -3595,9 +3596,7 @@ watch(
             console.error("Failed to save timeRange to localStorage", e);
         }
         if (newValue !== "custom") return;
-        if (normalizedCustomTimeRange.value) return;
-        customTimeRange.value =
-            buildRelativeTimeRange(oldValue) || buildRelativeTimeRange(DEFAULT_CUSTOM_TIME_RANGE) || [];
+        customTimeRange.value = getFixed15HourTimeRange();
     },
     { flush: "sync" }
 );
