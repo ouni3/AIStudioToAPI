@@ -61,3 +61,138 @@ assert.strictEqual(resD.isModelNotFound, false);
 assert.strictEqual(resD.downstreamStatus, 503, "403 error should map to 503");
 
 console.log("✔ Status mapping tests passed!");
+
+// 3. Test _isValidModelName validation
+console.log("--- 3. Testing _isValidModelName ---");
+const validModels = [
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-3-pro-preview",
+    "claude-3-5-sonnet",
+    "gpt-4o",
+    "a1",
+    "model_name",
+    "gemini-3-flash(minimal)-real-search",
+    "m-1"
+];
+
+const invalidModels = [
+    "-",
+    "--",
+    "---",
+    " ",
+    "",
+    "   ",
+    ".",
+    "..",
+    "-.-",
+    "undefined",
+    "null",
+    "UNDEFINED",
+    "NULL",
+    null,
+    undefined,
+    123,
+    {},
+    [],
+    "a" // single char < 2
+];
+
+for (const m of validModels) {
+    assert.strictEqual(rh._isValidModelName(m), true, `Should accept valid model name: "${m}"`);
+}
+
+for (const m of invalidModels) {
+    assert.strictEqual(rh._isValidModelName(m), false, `Should reject invalid model name: "${m}"`);
+}
+
+console.log("✔ _isValidModelName tests passed!");
+
+// 4. Test _sendInvalidModelError response payload and status codes across formats
+console.log("--- 4. Testing _sendInvalidModelError for model: '-' across formats ---");
+
+// 4.1 OpenAI format error payload
+let openaiStatus = null;
+let openaiBody = null;
+const mockOpenAiRes = {
+    headersSent: false,
+    __proxyApiFormat: "openai",
+    status(code) {
+        openaiStatus = code;
+        return this;
+    },
+    type(t) {
+        return this;
+    },
+    send(bodyStr) {
+        openaiBody = JSON.parse(bodyStr);
+        return this;
+    }
+};
+
+rh._sendInvalidModelError(mockOpenAiRes, "-");
+assert.strictEqual(openaiStatus, 400, "OpenAI invalid model should return HTTP 400");
+assert.strictEqual(openaiBody?.error?.code, "invalid_model");
+assert.strictEqual(openaiBody?.error?.type, "invalid_request_error");
+assert.strictEqual(openaiBody?.error?.message.includes('Invalid model: "-"'), true);
+
+// 4.2 Claude format error payload
+let claudeStatus = null;
+let claudeBody = null;
+const mockClaudeRes = {
+    headersSent: false,
+    __proxyApiFormat: "claude",
+    status(code) {
+        claudeStatus = code;
+        return this;
+    },
+    type(t) {
+        return this;
+    },
+    json(obj) {
+        claudeStatus = obj.status || claudeStatus;
+        claudeBody = obj;
+        return this;
+    },
+    send(bodyStr) {
+        claudeBody = typeof bodyStr === "string" ? JSON.parse(bodyStr) : bodyStr;
+        return this;
+    }
+};
+// RequestHandler._sendErrorResponse calls res.status(code).json(...)
+rh._sendErrorResponse = (res, code, message, type) => {
+    res.status(code).json({
+        type: "error",
+        error: {
+            type: type || "invalid_request_error",
+            message
+        }
+    });
+};
+
+rh._sendInvalidModelError(mockClaudeRes, "-");
+assert.strictEqual(claudeStatus, 400, "Claude invalid model should return HTTP 400");
+assert.strictEqual(claudeBody?.type, "error");
+assert.strictEqual(claudeBody?.error?.type, "invalid_request_error");
+assert.strictEqual(claudeBody?.error?.message.includes('Invalid model: "-"'), true);
+
+// 4.3 Google format error payload
+let googleStatus = null;
+let googleBody = null;
+const mockGoogleRes = {
+    headersSent: false,
+    __proxyApiFormat: "gemini",
+    status(code) {
+        googleStatus = code;
+        return this;
+    },
+    json(obj) {
+        googleBody = obj;
+        return this;
+    }
+};
+rh._sendInvalidModelError(mockGoogleRes, "-");
+assert.strictEqual(googleStatus, 400, "Google invalid model should return HTTP 400");
+assert.strictEqual(googleBody?.error?.message.includes('Invalid model: "-"'), true);
+
+console.log("✔ _sendInvalidModelError regression tests passed for model '-' across all formats!");

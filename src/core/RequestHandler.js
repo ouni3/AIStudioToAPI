@@ -89,6 +89,36 @@ class RequestHandler {
         return match?.[1] || null;
     }
 
+    _isValidModelName(model) {
+        return FormatConverter.isValidModelName(model);
+    }
+
+    _sendInvalidModelError(res, model) {
+        const message = `Invalid model: "${model}". Model name must be a valid identifier containing letters or digits.`;
+        const resolvedFormat = this._resolveErrorFormat(res);
+        if (resolvedFormat === "claude") {
+            return this._sendErrorResponse(res, 400, message, "invalid_request_error");
+        }
+        if (resolvedFormat === "response_api") {
+            return this._sendErrorResponse(res, 400, message, "invalid_model");
+        }
+        if (resolvedFormat === "openai") {
+            if (!res.headersSent) {
+                const errorPayload = {
+                    error: {
+                        code: "invalid_model",
+                        message,
+                        type: "invalid_request_error",
+                    },
+                };
+                this._markTrackedResponseError(res, message, 400);
+                return res.status(400).type("application/json").send(JSON.stringify(errorPayload));
+            }
+            return;
+        }
+        return this._sendErrorResponse(res, 400, message, "invalid_request_error");
+    }
+
     _convertEmbedContentBodyToBatch(bodyObj, modelName) {
         return {
             requests: [
@@ -930,6 +960,16 @@ class RequestHandler {
         this._setResponseApiFormat(res, "gemini");
         res.__proxyResponseStreamMode = null;
 
+        const rawModelInPath = this._extractModelFromPath(req.path);
+        if (rawModelInPath !== null && rawModelInPath !== undefined && rawModelInPath.trim() !== "") {
+            if (!this._isValidModelName(rawModelInPath)) {
+                this.logger.warn(
+                    `[Request] Rejected invalid model name "${rawModelInPath}" in Google request path: ${req.path}, request ID: ${requestId}`
+                );
+                return this._sendInvalidModelError(res, rawModelInPath);
+            }
+        }
+
         try {
             if (!(await this._ensureBrowserBackedRequestReady(res))) {
                 return;
@@ -951,6 +991,16 @@ class RequestHandler {
                     if (this.authSwitcher.shouldSwitchByUsage()) {
                         this.needsSwitchingAfterRequest = true;
                     }
+                }
+            }
+
+            const rawModelInPath = this._extractModelFromPath(req.path);
+            if (rawModelInPath !== null && rawModelInPath !== undefined && rawModelInPath.trim() !== "") {
+                if (!this._isValidModelName(rawModelInPath)) {
+                    this.logger.warn(
+                        `[Request] Rejected invalid model name "${rawModelInPath}" in Google request path: ${req.path}, request ID: ${requestId}`
+                    );
+                    return this._sendInvalidModelError(res, rawModelInPath);
                 }
             }
 
@@ -1029,6 +1079,17 @@ class RequestHandler {
         try {
             if (!(await this._ensureBrowserBackedRequestReady(res, { waitErrorType: "service_unavailable" }))) {
                 return;
+            }
+
+            // Handle raw model validation for OpenAI embeddings request
+            const rawModel = req.body?.model;
+            if (rawModel !== undefined && rawModel !== null && String(rawModel).trim() !== "") {
+                if (!this._isValidModelName(rawModel)) {
+                    this.logger.warn(
+                        `[Request] Rejected invalid model name "${rawModel}" in OpenAI embeddings request, request ID: ${requestId}`
+                    );
+                    return this._sendInvalidModelError(res, rawModel);
+                }
             }
 
             const { cleanModelName, googleRequest, path } = this.formatConverter.translateOpenAIEmbeddingsToGoogle(
@@ -1175,6 +1236,17 @@ class RequestHandler {
         this._setResponseApiFormat(res, "openai");
         res.__proxyResponseStreamMode = null;
 
+        // Handle raw model validation for OpenAI generation request before browser readiness check
+        const rawModel = req.body?.model;
+        if (rawModel !== undefined && rawModel !== null && String(rawModel).trim() !== "") {
+            if (!this._isValidModelName(rawModel)) {
+                this.logger.warn(
+                    `[Request] Rejected invalid model name "${rawModel}" in OpenAI request, request ID: ${requestId}`
+                );
+                return this._sendInvalidModelError(res, rawModel);
+            }
+        }
+
         try {
             if (!(await this._ensureBrowserBackedRequestReady(res, { waitErrorType: "service_unavailable" }))) {
                 return;
@@ -1196,6 +1268,17 @@ class RequestHandler {
                 }
             }
 
+            // Handle raw model validation for OpenAI generation request
+            const rawModel = req.body?.model;
+            if (rawModel !== undefined && rawModel !== null && String(rawModel).trim() !== "") {
+                if (!this._isValidModelName(rawModel)) {
+                    this.logger.warn(
+                        `[Request] Rejected invalid model name "${rawModel}" in OpenAI request, request ID: ${requestId}`
+                    );
+                    return this._sendInvalidModelError(res, rawModel);
+                }
+            }
+
             // Translate OpenAI format to Google format (also handles model name suffix parsing)
             let googleBody, model, modelStreamingMode;
             try {
@@ -1212,9 +1295,14 @@ class RequestHandler {
 
             if (!model || model.trim() === "" || model === "undefined" || model === "null") {
                 this.logger.warn(
-                    `[Proxy] Invalid model name "${model}" extracted from OpenAI request. Falling back to default model.`
+                    `[Proxy] Missing model name extracted from OpenAI request. Falling back to default model.`
                 );
                 model = "gemini-2.5-flash-lite";
+            } else if (!this._isValidModelName(model)) {
+                this.logger.warn(
+                    `[Proxy] Cleaned model name "${model}" is invalid in OpenAI request, request ID: ${requestId}`
+                );
+                return this._sendInvalidModelError(res, model);
             }
 
             const effectiveStreamMode = modelStreamingMode || systemStreamMode;
@@ -1532,12 +1620,23 @@ class RequestHandler {
         const requestId = this._generateRequestId();
         this._startTrackedRequest(requestId, req, {
             apiFormat: "response_api",
-            isStreaming: req.body.stream === true,
+            isStreaming: isStream,
             requestCategory: "generation",
-            streamMode: req.body.stream === true ? this.config.streamingMode : null,
+            streamMode: isStream ? this.config.streamingMode : null,
         });
         this._setResponseApiFormat(res, "response_api");
         res.__proxyResponseStreamMode = null;
+
+        // Handle raw model validation for OpenAI Response request before browser readiness check
+        const rawModel = req.body?.model;
+        if (rawModel !== undefined && rawModel !== null && String(rawModel).trim() !== "") {
+            if (!this._isValidModelName(rawModel)) {
+                this.logger.warn(
+                    `[Request] Rejected invalid model name "${rawModel}" in OpenAI Response request, request ID: ${requestId}`
+                );
+                return this._sendInvalidModelError(res, rawModel);
+            }
+        }
 
         try {
             if (!(await this._ensureBrowserBackedRequestReady(res, { waitErrorType: "service_unavailable" }))) {
@@ -1609,6 +1708,17 @@ class RequestHandler {
                 }
             }
 
+            // Handle raw model validation for OpenAI Response request
+            const rawModel = req.body?.model;
+            if (rawModel !== undefined && rawModel !== null && String(rawModel).trim() !== "") {
+                if (!this._isValidModelName(rawModel)) {
+                    this.logger.warn(
+                        `[Request] Rejected invalid model name "${rawModel}" in OpenAI Response request, request ID: ${requestId}`
+                    );
+                    return this._sendInvalidModelError(res, rawModel);
+                }
+            }
+
             // Translate OpenAI Response format to Google format
             let googleBody, model, modelStreamingMode;
             try {
@@ -1630,9 +1740,14 @@ class RequestHandler {
 
             if (!model || model.trim() === "" || model === "undefined" || model === "null") {
                 this.logger.warn(
-                    `[Proxy] Invalid model name "${model}" extracted from OpenAI Response request. Falling back to default model.`
+                    `[Proxy] Missing model name extracted from OpenAI Response request. Falling back to default model.`
                 );
                 model = "gemini-2.5-flash-lite";
+            } else if (!this._isValidModelName(model)) {
+                this.logger.warn(
+                    `[Proxy] Cleaned model name "${model}" is invalid in OpenAI Response request, request ID: ${requestId}`
+                );
+                return this._sendInvalidModelError(res, model);
             }
 
             const effectiveStreamMode = modelStreamingMode || systemStreamMode;
@@ -1981,6 +2096,17 @@ class RequestHandler {
         this._setResponseApiFormat(res, "claude");
         res.__proxyResponseStreamMode = null;
 
+        // Handle raw model validation for Claude request before browser readiness check
+        const rawModel = req.body?.model;
+        if (rawModel !== undefined && rawModel !== null && String(rawModel).trim() !== "") {
+            if (!this._isValidModelName(rawModel)) {
+                this.logger.warn(
+                    `[Request] Rejected invalid model name "${rawModel}" in Claude request, request ID: ${requestId}`
+                );
+                return this._sendInvalidModelError(res, rawModel);
+            }
+        }
+
         try {
             if (!(await this._ensureBrowserBackedRequestReady(res, { waitErrorType: "overloaded_error" }))) {
                 return;
@@ -2002,6 +2128,17 @@ class RequestHandler {
                 }
             }
 
+            // Handle raw model validation for Claude request
+            const rawModel = req.body?.model;
+            if (rawModel !== undefined && rawModel !== null && String(rawModel).trim() !== "") {
+                if (!this._isValidModelName(rawModel)) {
+                    this.logger.warn(
+                        `[Request] Rejected invalid model name "${rawModel}" in Claude request, request ID: ${requestId}`
+                    );
+                    return this._sendInvalidModelError(res, rawModel);
+                }
+            }
+
             // Translate Claude format to Google format
             let googleBody, model, modelStreamingMode;
             try {
@@ -2018,9 +2155,14 @@ class RequestHandler {
 
             if (!model || model.trim() === "" || model === "undefined" || model === "null") {
                 this.logger.warn(
-                    `[Proxy] Invalid model name "${model}" extracted from Claude request. Falling back to default model.`
+                    `[Proxy] Missing model name extracted from Claude request. Falling back to default model.`
                 );
                 model = "gemini-2.5-flash-lite";
+            } else if (!this._isValidModelName(model)) {
+                this.logger.warn(
+                    `[Proxy] Cleaned model name "${model}" is invalid in Claude request, request ID: ${requestId}`
+                );
+                return this._sendInvalidModelError(res, model);
             }
 
             const effectiveStreamMode = modelStreamingMode || systemStreamMode;
@@ -2336,9 +2478,31 @@ class RequestHandler {
         });
         this._setResponseApiFormat(res, "claude");
 
+        // Handle raw model validation for Claude count tokens request before browser readiness check
+        const rawModel = req.body?.model;
+        if (rawModel !== undefined && rawModel !== null && String(rawModel).trim() !== "") {
+            if (!this._isValidModelName(rawModel)) {
+                this.logger.warn(
+                    `[Request] Rejected invalid model name "${rawModel}" in Claude count tokens request, request ID: ${requestId}`
+                );
+                return this._sendInvalidModelError(res, rawModel);
+            }
+        }
+
         try {
             if (!(await this._ensureBrowserBackedRequestReady(res, { waitErrorType: "overloaded_error" }))) {
                 return;
+            }
+
+            // Handle raw model validation for Claude count tokens request
+            const rawModel = req.body?.model;
+            if (rawModel !== undefined && rawModel !== null && String(rawModel).trim() !== "") {
+                if (!this._isValidModelName(rawModel)) {
+                    this.logger.warn(
+                        `[Request] Rejected invalid model name "${rawModel}" in Claude count tokens request, request ID: ${requestId}`
+                    );
+                    return this._sendInvalidModelError(res, rawModel);
+                }
             }
 
             // Translate Claude format to Google format
@@ -2352,6 +2516,18 @@ class RequestHandler {
                     `❌ [Adapter] Claude request translation failed: ${error.message}, request ID: ${requestId}`
                 );
                 return this._sendErrorResponse(res, 400, "Invalid Claude request format.", "invalid_request_error");
+            }
+
+            if (!model || model.trim() === "" || model === "undefined" || model === "null") {
+                this.logger.warn(
+                    `[Proxy] Missing model name extracted from Claude count tokens request. Falling back to default model.`
+                );
+                model = "gemini-2.5-flash-lite";
+            } else if (!this._isValidModelName(model)) {
+                this.logger.warn(
+                    `[Proxy] Cleaned model name "${model}" is invalid in Claude count tokens request, request ID: ${requestId}`
+                );
+                return this._sendInvalidModelError(res, model);
             }
 
             // Build countTokens request
@@ -2474,9 +2650,31 @@ class RequestHandler {
         });
         this._setResponseApiFormat(res, "response_api");
 
+        // Handle raw model validation for OpenAI Response input_tokens request before browser readiness check
+        const rawModel = req.body?.model;
+        if (rawModel !== undefined && rawModel !== null && String(rawModel).trim() !== "") {
+            if (!this._isValidModelName(rawModel)) {
+                this.logger.warn(
+                    `[Request] Rejected invalid model name "${rawModel}" in OpenAI Response input_tokens request, request ID: ${requestId}`
+                );
+                return this._sendInvalidModelError(res, rawModel);
+            }
+        }
+
         try {
             if (!(await this._ensureBrowserBackedRequestReady(res, { waitErrorType: "service_unavailable" }))) {
                 return;
+            }
+
+            // Handle raw model validation for OpenAI Response input_tokens request
+            const rawModel = req.body?.model;
+            if (rawModel !== undefined && rawModel !== null && String(rawModel).trim() !== "") {
+                if (!this._isValidModelName(rawModel)) {
+                    this.logger.warn(
+                        `[Request] Rejected invalid model name "${rawModel}" in OpenAI Response input_tokens request, request ID: ${requestId}`
+                    );
+                    return this._sendInvalidModelError(res, rawModel);
+                }
             }
 
             // Translate OpenAI Response format to Google format (so we can use Gemini countTokens)
@@ -2495,6 +2693,18 @@ class RequestHandler {
                     "Invalid OpenAI Response request format.",
                     "invalid_request_error"
                 );
+            }
+
+            if (!model || model.trim() === "" || model === "undefined" || model === "null") {
+                this.logger.warn(
+                    `[Proxy] Missing model name extracted from OpenAI Response input_tokens request. Falling back to default model.`
+                );
+                model = "gemini-2.5-flash-lite";
+            } else if (!this._isValidModelName(model)) {
+                this.logger.warn(
+                    `[Proxy] Cleaned model name "${model}" is invalid in OpenAI Response input_tokens request, request ID: ${requestId}`
+                );
+                return this._sendInvalidModelError(res, model);
             }
 
             // Gemini countTokens accepts either:
@@ -4297,7 +4507,7 @@ class RequestHandler {
                 rawModelName === "null"
             ) {
                 this.logger.warn(
-                    `[Proxy] Invalid model name "${rawModelName}" detected in path. Falling back to default model.`
+                    `[Proxy] Missing model name "${rawModelName}" detected in path. Falling back to default model.`
                 );
                 rawModelName = "gemini-2.5-flash-lite";
             }

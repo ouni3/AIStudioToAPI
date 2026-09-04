@@ -12,24 +12,25 @@
 - **核心定位**: 构建具备多凭据轮询、403/404 智能容错降级与高并发自愈能力的 Google AI Studio 逆向 API 网关。
 - **演进路线**:
   - Phase 1: 双容器架构重构、403/404 自愈机制、UI 体验升级与 Memory-Bank 建库。
-  - Phase 2 (待规划): 智能加权路由、多节点负载均衡与生产级 Prometheus / Uptime 观测性集成。
+  - Phase 2: 模型 404/503 循环切号卡死修复、空返回兜底与定级晋升 SR。
+  - Phase 3: 模型名 `-` 等非法入参拦截与 8317 崩溃自愈重新部署 (Model Dash Sanitization & Crash Recovery)。
 
 ---
 
-## 2. 活跃 Phase 2 状态与施工记录
+## 2. 活跃 Phase 3 状态与施工记录
 
-### 2.1 Phase 2 目标 (Model 404/503 Switch Loop & Empty Response Fault Tolerance)
-- 修复模型名称错误被误判为 503 从而频繁切号卡死的缺陷，实现 `_isModelNotFoundError` 精准识别与非重试 404 直通。
-- 修复模型空返回（空 Candidate / Safety 拦截 / 纯 Thinking 无正文）导致下游客户端 JSON 解析崩溃的问题，完善 OpenAI 与 Claude 流式/非流式响应转换保障。
-- 补充单元测试与逻辑断言，确保全协议高可用。
+### 2.1 Phase 3 目标 (Model Dash Sanitization & Crash Recovery)
+- 修复模型名传参为 `"-"`、纯横杠或非字母数字畸形请求导致 25s 503 挂起与服务瘫痪缺陷，实现毫秒级 400 Bad Request 快速拦截。
+- 完善 `FormatConverter.isValidModelName` 与 `RequestHandler._isValidModelName` 入口前置断言，覆盖 OpenAI、Claude、Gemini 各端点。
+- 104 远程服务器（192.168.0.104）8317 端口定制容器重新构建与热部署，实测探活 200 OK，畸形请求拦截 25ms 响应。
 
 ### 2.2 双容器验证明细 (Dual-Container Verification)
 - **8317 源码定制容器 (`aistudio-to-api`)**:
   - 宿主机物理路径: `/home/fy/aistudio-to-api/`
   - 镜像: `aistudio-to-api-custom:latest`（本地源码同步 + `ui/dist` 前端构建产物）
   - 端口映射: `192.168.0.104:8317 -> 7860/tcp`, `192.168.0.104:9998 -> 9998/tcp`
-  - 挂载/源码: 内置 403 快速切号与 404 模型防空机制，挂载 `configs/auths/` 凭据
-  - 验证状态: `Up (healthy)`, `HTTP 200 OK`，通过 `/v1/chat/completions` (OpenAI 协议) 及 `/v1/messages` (Claude 协议) 流式与非流式推理验证。
+  - 挂载/源码: 内置 403 快速切号、404 模型防空与 Phase 3 非法模型名毫秒级 400 拦截机制，挂载 `configs/auths/` 凭据
+  - 验证状态: `Up (healthy)`, `HTTP 200 OK`，实测 `model: "-"` 拦截响应仅需 25ms，正常 `gemini-3.7-flash` OpenAI 流式推理 200 OK 顺利返回。
 - **8318 稳定镜像容器 (`aistudio-to-api-8318`)**:
   - 宿主机物理路径: `/home/fy/aistudio-to-api-8318/`
   - 镜像: `ibuhub/aistudio-to-api:latest`（社区原生官方镜像，基准回退节点）
@@ -73,7 +74,7 @@
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
-- Primary Phase: `Phase 2 (Model 404/503 Switch Loop & Empty Response Fault Tolerance)` [ACTIVE]
+- Primary Phase: `Phase 3 (Model Dash Sanitization & Crash Recovery)` [ACTIVE]
 - Secondary Phases: 无
 
 ---

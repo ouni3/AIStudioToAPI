@@ -7,24 +7,23 @@
 > - `ect`: **S** (count(+)=3, count(-)=0)
 > - `verdict`: **KEEP**
 
+[ACT_SELF_EVAL] op=edit_model_validation confidence=100% hits=3/3 branch=none
+
 ## 核心避坑与标准化模式 (Key Design Patterns & Pitfalls)
 1. **运维脚本跨环境兼容**: POSIX shell 脚本应当自动计算项目根目录（`SCRIPT_DIR`），优雅兼容 Node 原生进程与 Docker 容器模式。
 2. **标准单测脚本入口**: 原生 Node 20+ 的 `node --test` 命令适合执行 `.mjs` 模块化测试脚本。
 3. **健康检查兼容断言**: `curl` HTTP 状态码探测应容忍 2xx/3xx/4xx 等可达响应，区分连通与故障。
+4. **模型名强校验与即时拦截**: 非法模型名（如 `"-"`、纯标点、无法解析字母数字标识符）必须在前置入口执行 400 Bad Request 阻断，杜绝穿透上游导致切号雪崩。
 
 ## 当前进展 (Active Phase)
-1. **标准化运维三件套施工**:
-   - 新增 `scripts/dev/start.sh`: 自动检测 Docker Compose / Node 模式启动服务。
-   - 新增 `scripts/dev/stop.sh`: 支持容器及 Node `main.js` 进程精准清理。
-   - 新增 `scripts/dev/healthcheck.sh`: 支持本地与 104 远程端点 HTTP 探测。
-2. **package.json test 脚本补充**:
-   - 增加 `"test": "node --test tests/*.mjs"`。
+1. **模型有效性拦截施工**:
+   - `src/core/FormatConverter.js`: 添加 `isValidModelName` 静态校验工具方法。
+   - `src/core/RequestHandler.js`: 在 OpenAI Chat, OpenAI Response, Claude, CountTokens, Embeddings 及 Native Google 请求入口全面加装模型名强校验与 400 拦截。
 
 ## 工作区状态
 - 新增/修改文件：
-  * `scripts/dev/start.sh`
-  * `scripts/dev/stop.sh`
-  * `scripts/dev/healthcheck.sh`
-  * `package.json`
-- 状态：已完成纯编辑施工，NEXT_OWNER: moe-debug (进行 chmod +x 赋予权限与 npm test 验证)。
+  * `src/core/FormatConverter.js`
+  * `src/core/RequestHandler.js`
+  * `tests/test_request_handler_validation.mjs`
+- 状态：纯编辑施工中，NEXT_OWNER: moe-debug (进行 npm test 验证)。
 

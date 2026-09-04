@@ -39,6 +39,34 @@ class FormatConverter {
     };
 
     /**
+     * Assert whether a model name string is a valid identifier.
+     * Valid model names must:
+     * 1. Be a non-empty string.
+     * 2. Have trimmed length >= 2 and not consist solely of hyphens or punctuation.
+     * 3. Contain at least one letter or digit (/[a-zA-Z0-9]/).
+     * 4. Not be literal "undefined" or "null".
+     *
+     * @param {*} model - The model name candidate
+     * @returns {boolean} true if valid, false otherwise
+     */
+    static isValidModelName(model) {
+        if (typeof model !== "string") {
+            return false;
+        }
+        const trimmed = model.trim();
+        if (trimmed.length < 2) {
+            return false;
+        }
+        if (trimmed.toLowerCase() === "undefined" || trimmed.toLowerCase() === "null") {
+            return false;
+        }
+        if (!/[a-zA-Z0-9]/.test(trimmed)) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Parse web search suffix from model name.
      * Only supports the LAST hyphen token: `-search` (case-insensitive).
      *

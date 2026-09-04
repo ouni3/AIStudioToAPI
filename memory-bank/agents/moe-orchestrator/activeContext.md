@@ -19,3 +19,4 @@
 3. **正常响应防误触**: 严格保障当模型有正常 text 输出或 functionCall/toolCall 时，Mock 兜底完全不介入，保留模型原生内容与完整 reasoning_content。
 4. **多协议状态机统一**: OpenAI SSE 流、Claude SSE 流、OpenAI Response API 以及 Gemini Native 分块均需在 `finishReason` 到达且正文未发送时统一触发 Mock 补齐。
 5. **基础设施三件套标准化**: 统一在 `scripts/dev/` 沉淀 `start.sh`, `stop.sh`, `healthcheck.sh`，实现运维自托管。
+6. **8317 自动切号挂起自愈**: 40次轮询触发后台切号时若遭遇浏览器/网络并发锁死，可通过 104 Docker Compose 平滑重启重置 ContextPool 与 WebSocket 连接。
