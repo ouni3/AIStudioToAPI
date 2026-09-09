@@ -85,7 +85,9 @@ class RequestHandler {
     _extractModelFromPath(pathValue) {
         if (typeof pathValue !== "string") return null;
 
-        const match = pathValue.match(/\/models\/([^:/?]+)(?::|$)/);
+        // Clean up malformed repeated models/ prefix first
+        const normalized = pathValue.replace(/\/models\/(?:models\/)+/g, "/models/");
+        const match = normalized.match(/\/models\/([^:/?]+)(?::|$)/);
         return match?.[1] || null;
     }
 
@@ -2575,7 +2577,7 @@ class RequestHandler {
                     this._getAccountNameForIndex(messageQueueAuthIndex)
                 );
                 this._forwardRequest(proxyRequest, messageQueueAuthIndex);
-                const response = await messageQueue.dequeue();
+                const response = await messageQueue.dequeue(this.timeouts.STREAM_CHUNK);
 
                 if (response.event_type === "error") {
                     this.logger.error(
@@ -2594,7 +2596,7 @@ class RequestHandler {
                     if (response.data) fullBody += response.data;
                     // eslint-disable-next-line no-constant-condition
                     while (true) {
-                        const message = await messageQueue.dequeue();
+                        const message = await messageQueue.dequeue(this.timeouts.STREAM_CHUNK);
                         if (message.type === "STREAM_END") {
                             break;
                         }
@@ -2750,7 +2752,7 @@ class RequestHandler {
                     this._getAccountNameForIndex(messageQueueAuthIndex)
                 );
                 this._forwardRequest(proxyRequest, messageQueueAuthIndex);
-                const response = await messageQueue.dequeue();
+                const response = await messageQueue.dequeue(this.timeouts.STREAM_CHUNK);
 
                 if (response.event_type === "error") {
                     this.logger.error(
@@ -2776,7 +2778,7 @@ class RequestHandler {
                     if (response.data) fullBody += response.data;
                     // eslint-disable-next-line no-constant-condition
                     while (true) {
-                        const message = await messageQueue.dequeue();
+                        const message = await messageQueue.dequeue(this.timeouts.STREAM_CHUNK);
                         if (message.type === "STREAM_END") {
                             break;
                         }
@@ -4477,6 +4479,8 @@ class RequestHandler {
     _buildProxyRequest(req, requestId) {
         const fullPath = req.path;
         let cleanPath = fullPath.replace(/^\/proxy/, "");
+        // Clean up malformed repeated models/ prefix (e.g. /v1beta/models/models/gemini... -> /v1beta/models/gemini...)
+        cleanPath = cleanPath.replace(/\/models\/(?:models\/)+/g, "/models/");
         const bodyObj = req.body;
         let requestBodyObj = bodyObj;
         let responseTransform = null;

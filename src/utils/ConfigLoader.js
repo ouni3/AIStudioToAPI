@@ -34,7 +34,7 @@ class ConfigLoader {
             forceWebSearch: false,
             host: "0.0.0.0",
             httpPort: 7860,
-            immediateSwitchStatusCodes: [403, 404, 429, 503], // 403 & 404 added due to occasional upstream Google AI Studio false positives (PERMISSION_DENIED / Region not supported / Ambiguous request service routing) requiring account switching and auto-healing
+            immediateSwitchStatusCodes: [403, 404, 429, 500, 502, 503, 504], // Upstream Google AI Studio error codes (403 region, 404 missing route, 429 rate limit, 500/502/503/504 server/gateway errors) requiring account switching and auto-healing
             maxContexts: 1,
             maxRetries: 3,
             retryDelay: 2000,

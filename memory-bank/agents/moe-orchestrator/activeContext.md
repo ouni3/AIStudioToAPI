@@ -9,9 +9,9 @@
 > - `verdict`: **KEEP**
 
 ## 1. 当前会话状态 (Current Session State)
-- **Active Phase**: `Phase 5 (CI/CD Gates Convergence: G1, G2, G3, G6, G10 Compliance 100%)`
-- **Task Goal**: Phase 5 完整结算闭环与全量 CI/CD 缺陷门禁 100% 达标就绪。
-- **Status**: [PHASE_5_SETTLED_PENDING_COMMIT|v1.3.5-p5|CI=PASS|DevState=100.0%|AuditExpert=PASS_PENDING_AUDIT|2026-09-09T12:20:00+08:00]
+- **Active Phase**: `Phase 6 (Core LLM Inference Engine SR Elevation & Comprehensive Rectification)`
+- **Task Goal**: 对标 SR 枢纽级标准全方位加固代码容错、超时看门狗、路径清洗与测试覆盖，完成 Phase 6 终审闭环。
+- **Status**: [PHASE_6_SETTLED_PENDING_COMMIT|v1.3.6-p6|CI=PASS|DevState=100.0%|AuditExpert=PASS_PENDING_AUDIT|2026-09-09T14:52:00+08:00]
 
 ## 2. 核心架构与编排经验 (Orchestration Insights)
 1. **统计筛选固定时间窗口**: 自定义时间范围收敛为最近经过的 15:00 至次日 15:00，保持全局 24 小时对齐。
@@ -21,3 +21,4 @@
 5. **双节点状态感知健康检查**: 8317 主节点强校验 HTTP 200，8318 冷备节点在端口未监听时识别为 `[STANDBY]` 合规放行，避免误报。
 6. **轻量化 CI 门禁矩阵**: 在 Node.js 仓库引入标准 Python CI 门禁（Canary 校验、ECT 格式断言、ADVG 部署物对齐与 AES 总结校验），通过 `npm run verify` 实现 100% 自动化闭环。
 7. **DevState 探针 100% 合规闭环**: 精准对齐全景控制台 10 大门禁抽取规则，通过零依赖脚本实现 G1 (Token限制)、G2 (Memory-Bank纯净度)、G3 (Git Gate工作流)、G6 (UI对比度) 与 G10 (重构文档同步)，消除所有 UNWIRED 债务。
+8. **SR 级核心容错与看门狗模式**: 将 500/502/504 纳入即时切号自愈，辅助接口消费注入 `STREAM_CHUNK` 超时控制，消除网络挂起死锁。

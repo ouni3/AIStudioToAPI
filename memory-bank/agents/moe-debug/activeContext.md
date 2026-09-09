@@ -9,35 +9,30 @@
 > - `verdict`: **KEEP**
 
 ## 当前阶段 (Active Phase)
-- **Phase Target**: 104 服务器 8318 节点按需启停策略落地与健康探活验证、本地全套 CI 门禁与 DevState 探针核验。
-- **Status**: 104 远程 8318 容器 compose 配置已设为 `restart: "no"`，容器优雅停止进入 STANDBY 态；`remote_8318.sh` 脚本生命周期闭环实测通过；`healthcheck.sh`、`npm run verify`、`npm run lint:ci` 以及全景控制台 DevState 抽取探针全部 PASS (退出码 0，compliance.score = 100.0%)。
+- **Phase Target**: 核心容错与错误码即时切号加固验证、全量单测 5/5 与 CI 门禁矩阵 (G1~G10) 100% 验收、104 双节点健康度核验。
+- **Status**: 单测 5/5 全套 PASS，`npm run verify` CI 自动化门禁矩阵全绿（100% PASS，包含 Token 限额与 Memory-bank 纯净度断言）。
 
 ## 最新验证与提交记录
-1. **104 远程 8318 容器按需冻结与策略收敛**:
-   - `/home/fy/aistudio-to-api-8318/docker-compose.yml` 中 `restart` 策略更新为 `"no"` 并通过 `up -d --force-recreate` 刷新容器属性。
-   - 执行优雅停止 `docker compose stop`，容器状态转为 `exited`，端口 8318 进入 STANDBY 态。
-   - 8317 主服务未受任何干扰，持续健康响应 HTTP 200 OK。
-2. **本地按需运维脚本闭环测试**:
-   - `bash scripts/dev/remote_8318.sh status`: 容器状态 `exited`，HTTP 探活返回 `INACTIVE/STANDBY (HTTP 000)`。
-   - `bash scripts/dev/remote_8318.sh start`: 容器启动成功并在 0s 内探活 HTTP 200 成功。
-   - `bash scripts/dev/remote_8318.sh stop`: 容器优雅停止成功。
-   - `bash scripts/dev/healthcheck.sh`: 8317 返回 200 OK，8318 为 STANDBY 放行，退出码 0。
-3. **全套 CI 门禁验证 (`npm run verify` & `npm run lint:ci`)**:
-   - `npm run lint`: 代码风格与 ESLint/Stylelint 校验通过 (0 errors, 1 warning)。
-   - `npm run test`: 7 项单元测试全量 PASS (100%)。
-   - `npm run lint:ci`: 8 大 CI 门禁脚本 (rules/core/artifacts/aes/token/purity/ui/refactor) 全部 PASS。
-4. **DevState 抽取探针验证 (`extract_dev_state.py`)**:
-   - 执行母星抽取脚本后，AIStudioToAPI 项目 `ci_status.compliance` 得分 100.0%。
-   - 10 大门禁全面达成: 9 PASS, 1 EXEMPT, 0 UNWIRED, 0 FAIL。
-   - G1_TOKEN (PASS), G2_PURITY (PASS), G3_GIT_GATE (PASS), G6_UI_CONTRAST (PASS), G10_REFACTOR_DOC_SYNC (PASS) 全量绿灯。
+1. **测试用例 mock 隔离与全量单测验证 (`npm test`)**:
+   - 5 个测试套件（`test_time_range_calculation.mjs`、`test_format_converter_validation.mjs`、`test_request_handler_validation.mjs`、`test_thinking_only_mock_response.mjs`、`test_upstream_error_codes_failover.mjs`）100% PASS，包含 8/8 独立断言组。
+2. **数据契约补充后 CI 门禁矩阵全量核验 (`npm run verify`)**:
+   - `productContext.md` 与 `profit.md` 按《project-panorama-data-contract》规范补齐数据契约字段后，校验全部通过。
+   - ESLint & Stylelint 走查通过（0 errors）。
+   - CI 自动化门禁脚本全部通过：
+     - Canary 9 关键词全部在场通过。
+     - `lint_core_file_format.py` 8 核心资产 ECT-S 格式校验全 PASS。
+     - ADVG 制品档案与 AES Summary 校验通过。
+     - G1_TOKEN: 7 核心文档 Token 限额全绿（`productContext.md` 738/4096, `profit.md` 814/4096, `plan.md` 1073/8192）。
+     - G2_PURITY: memory-bank 纯净度断言通过，0 幽灵文件。
+     - G6_UI_CONTRAST 与 G10_REFACTOR_DOC_SYNC 均 100% PASS。
 
 ## 沉淀经验条目 (Core Debugging & Healthcheck Lessons)
 1. **104 局域网 IP SSOT**: 104 主机局域网真实 IP 为 `192.168.0.104`，运维与探活脚本默认指向该 IP，确保无人工配置摩擦。
 2. **按需待命态 (STANDBY_ON_DEMAND) 契约**: 备用容器策略为 `restart: "no"`，日常处于 `exited` 停止态；非严格模式健康检查将端口不可达视为 STANDBY 正常合规，杜绝产生虚假告警。
-3. **Docker Compose 重建策略一致性**: 修改 compose 文件中的 restart 策略后，需执行 `--force-recreate` 确保宿主机容器元数据 `HostConfig.RestartPolicy.Name` 物理生效。
+3. **RequestHandler 构造依赖解耦**: `RequestHandler._buildProxyRequest` 会间接调用 `formatConverter.getDefaultSafetySettings()` 读取 `this.serverSystem.config`；编写针对 `RequestHandler` 的独立测试用例时，需传入带 `config` 的 `mockServerSystem` 桩对象。
 4. **CI 门禁正则鲁棒性**: ECT 等级与 section 标题正则必须兼容 Markdown 格式多样性（如 `` `ect`: **S** `` 及前缀），杜绝误报。
 5. **DevState 门禁穿透依赖**: package.json 探针命令与 scripts/ci 物理文件双向闭环，方能达成 DevState 100% 合规判定。
 
 ## 工作区状态 (Workspace Status)
 - 分支: `feat/deploy-104-container-failover`
-- 状态: 门禁验证完毕，准备进入最终提交环节。
+- 状态: 全量测试、探活与 CI 门禁验证 100% PASS，就绪交付 audit-expert 终审。

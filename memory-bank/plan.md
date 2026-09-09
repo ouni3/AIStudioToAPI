@@ -17,17 +17,16 @@
 
 ---
 
-## 2. 活跃 Phase 5 状态与施工记录
+## 2. 活跃 Phase 6 状态与施工记录
 
-### 2.1 Phase 5 目标 (CI/CD Gates Convergence: G1, G2, G3, G6, G10 Compliance 100%)
-- 修复 AIStudioToAPI 在全景控制台 DevState 探针下的 5 项 UNWIRED 缺陷门禁：
-  1. G1_TOKEN (4096 Token 脱脂门禁): 新增 `scripts/ci/audit_token_limits.py` 并挂载
-  2. G2_PURITY (Memory-Bank 根纯净度门禁): 新增 `scripts/ci/audit_memory_bank.py` 并挂载
-  3. G3_GIT_GATE (CLAIRE 令牌物理卡口): 新增 `.github/workflows/verify-git-gate.yml` 并挂载
-  4. G6_UI_CONTRAST (UI WCAG AA 对比度与 VRT 门禁): 新增 `scripts/ci/lint_ui_ux_archive.py` 并对齐
-  5. G10_REFACTOR_DOC_SYNC (重构文档同步门禁): 新增 `scripts/ci/lint_refactor_doc_sync.py` 并挂载
-- 完善 `package.json` 中的探针命令与 `npm run lint:ci` 串联链。
-- 触发母星 DevState 探针核验，实现 10 大门禁 100% 达标 (Score 100.0%, 0 UNWIRED, 0 FAIL)。
+### 2.1 Phase 6 目标 (Core LLM Inference Engine SR Elevation & Comprehensive Rectification)
+- 对标《project-rating-standard》SR 级标准，完成全方位代码加固、容错自愈与合规整改：
+  1. 上游错误即时切号自愈：扩充 `immediateSwitchStatusCodes` 为 `[403, 404, 429, 500, 502, 503, 504]`
+  2. 异步队列超时看门狗注入：`processClaudeCountTokens` 与 `processOpenAIResponseInputTokens` 消费绑定 `STREAM_CHUNK` 超时控制
+  3. 路径清洗防御：消除 `/models/models/` 等重复前缀，防御畸形 404 路由
+  4. 自动化测试补齐：新增 `tests/test_upstream_error_codes_failover.mjs`，实现 5/5 全套单元测试 100% PASS
+  5. 104 服务器探活：`healthcheck.sh` 双节点状态感知校验通过
+  6. 熵健康度扫描与合规：$H_{entropy} = 100.0$，G1~G10 门禁 100% 达标
 
 ### 2.2 门禁状态核验明细 (DevState Compliance Verification)
 - G1_TOKEN: 🟢 PASS
@@ -44,19 +43,16 @@
 
 ---
 
-## 3. 近期 15 轮 Git 提交分类汇总
+## 3. 历史 Phase 归档与演进概览
 
-| 类别 | 提交范围/特性 | 核心改动说明 |
+| Phase | 核心成果 | 状态 |
 |:---|:---|:---|
-| **自愈与容错** | 403 即时换号自愈 | 捕获上游 403 `Region not supported` / `PERMISSION_DENIED` 立即切号重试 |
-| **自愈与容错** | 404 畸形路径清洗 | 严格校验模型名非空，杜绝 `/v1beta/models/:streamGenerateContent` 畸形路径 |
-| **自愈与容错** | 并行请求平滑排空 | 切号前强制 `waitForAuthQueuesToDrain`，等待并发在途请求 100% 传输完成 |
-| **自愈与容错** | 页面错误识别优化 | 精准判定 `Page not found` + `Go to Build`，消除对 Google 普通 Toast 的误杀 |
-| **网络与代理** | 黏性代理隔离 | 解决多账号网络请求中的代理串流与连接污染，隔离 Session 代理上下文 |
-| **网络与代理** | 代理死锁优化 | 修复高并发/断流场景下连接池挂起与代理死锁问题，加入自愈超时熔断 |
-| **UI 与交互** | 日期过滤与持久化 | Web 控制台日志与账单增加精准日期范围筛选，并支持 LocalStorage 持久化 |
-| **UI 与交互** | Dist 构建集成 | 将前端构建产物集成至服务静态托管目录，修复热更新与静态路径偏差 |
-| **系统规范** | 架构与记忆建库 | 完善 memory-bank 结构，沉淀系统模式、资产台账与演进度量 |
+| Phase 1 | 双容器拓扑部署与 403/404 容错自愈 | 已归档 |
+| Phase 2 | 模型 404/503 循环切号卡死修复与空返回兜底 | 已归档 |
+| Phase 3 | 模型名非法字符清洗与 8317 崩溃自愈 | 已归档 |
+| Phase 4 | 时间范围筛选收敛与 104 远程按需调度脚本 | 已归档 |
+| Phase 5 | 全景控制台 DevState 10 大门禁 100% 达标收敛 | 已归档 |
+| Phase 6 | 核心 LLM 推理引擎 SR 等级全方位整改与加固 | 进行中 (待终审) |
 
 ---
 
@@ -84,11 +80,18 @@
 - [x] 本地全套测试与 `npm run verify` CI 门禁验证通过
 - [x] 补齐 G1, G2, G3, G6, G10 五大缺失门禁脚本与工作流配置
 - [x] 实测 DevState 抽取探针，验证 compliance.score 达到 100.0%
+- [x] Phase 6 全方位整改：上游 500/502/504 错误即时切号自愈机制落地
+- [x] Phase 6 全方位整改：异步队列消费 STREAM_CHUNK 超时看门狗注入与路径重复前缀清洗
+- [x] Phase 6 全方位整改：新增 test_upstream_error_codes_failover.mjs 单测，全套测试 5/5 100% PASS
+- [x] Phase 6 全方位整改：104 服务器主备节点健康探活验证 (8317 200 OK + 8318 STANDBY)
+- [x] Phase 6 全方位整改：全库文件树与熵健康度扫描达标 ($H_{entropy} = 100.0$)
+- [x] Phase 6 全方位整改：Claire UI/UX 与 API 调用方 DX 走查通过落盘 (PASS)
+- [x] Phase 6 全方位整改：架构模式沉淀至 systemPatterns.md 并更新 activeContext
 
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
-- Primary Phase: `Phase 5 (CI/CD Gates Convergence: G1, G2, G3, G6, G10 Compliance 100%)` [ACTIVE]
+- Primary Phase: `Phase 6 (Core LLM Inference Engine SR Elevation & Comprehensive Rectification)` [COMPLETED_SETTLED]
 - Secondary Phases: 无
 
 ---

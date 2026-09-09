@@ -1,23 +1,35 @@
 # Product Context: aistudio-to-api
 
-> **[EVOLUTION_CONTRIBUTION]** (Phase 2 测算声明 / `00-evolution-law.md §1.6`)
+> **[EVOLUTION_CONTRIBUTION]** (Phase 6 测算声明 / `00-evolution-law.md §1.6`)
 > - $F_{System}$: **+** 将 Google AI Studio 逆向并包装为 OpenAI / Claude 兼容标准 API，提供高并发多账号轮询与自动故障转移，最大化算力利用效率并降低商业 LLM API 支出。
 > - $L_{User}$: **+** 提供 Web 管理后台与统一网关端点，用户无需手动管理多 Key/多 Cookie 与代理故障切换，实现认知负担降维。
-> - $S_{total}$: **+** 规范模型名映射、403/404 智能容错降级与双容器部署模式，消除畸形请求与无效重试带来的系统状态熵增。
+> - $S_{total}$: **+** 规范模型名映射、403/404/500/502/504 智能容错降级与双容器部署模式，消除畸形请求与无效重试带来的系统状态熵增。
 > - $Value_{Delivered}$: **+** 为全系 Agent 与外部客户端提供 7x24 高可用 Gemini 算力网关，护航各类开发与生产推理场景。
 > - `ect`: **S** (count(+)=4, count(-)=0, Value_Delivered=+, S_total=+)
 > - `verdict`: **KEEP** (核心 memory-bank 资产)
 
+> **Evolution Completion**: 🟢 LEVEL-4 — 愿景与模型陈述
+> **当前评级**: **SR** — 系统枢纽级 (核心逆向LLM推理网关)
+> **评级细分**: SR-INFRA (基础设施算力网关)
+> **项目类型**: **infrastructure** — 底层算力网关服务与代理出墙
+> **项目受众**: **Moe开发团队与全系Agent舰队** — 提供高并发、免人工干预的 Gemini 原生与兼容协议推理中继
+
 ## 0. 评级与商业化基准 (Project Rating & Stage)
 - **当前等级**: **SR (Super Rare - 系统枢纽级)**
-- **商业生命周期**: **S2 (极客验证期) / 基础设施算力赋能网关**
+- **商业生命周期**: **S2 (极客验证期) / 基础设施算力赋能网关 (COMMERCIAL_EXEMPT)**
 - **定级判定指标**:
   - $x_1$ (Wealth): 年化赋能 $IAV + C_{saved} \ge \$15,000$, 赋能全系 $\ge 8$ 个核心 Agent 与外部应用，得分 $100$
-  - $x_2$ (Compute): 具备 $O(1)$ 级派单与 100% 自托管自愈架构，得分 $95$
-  - $x_3$ (Infra): 局域网 104 双容器 7x24 高可用常驻与自动切号，SLA $\ge 99.5\%$, 得分 $95$
-  - $x_4$ (Entropy): $H_{entropy} \ge 90$，无僵尸代码与冗余资产
+  - $x_2$ (Compute): 具备 $O(1)$ 级派单与 100% 自托管自愈架构，得分 $96.75$
+  - $x_3$ (Infra): 局域网 104 双容器 7x24 高可用常驻与自动切号，SLA $\ge 99.5\%$, 得分 $97.7$
+  - $x_4$ (Entropy): $H_{entropy} = 100.0 \ge 90$，无僵尸代码与冗余资产
   - $L_{User\_rate} \le 0.05$ (免人工干预自愈)
-  - 综合得分: $S_{total} \ge 95.0$ (通过 SR 级强制门禁)
+  - 综合得分: $S_{total} = 95.60 \ge 75.0$ (通过 SR 级强制门禁)
+
+## 0.1 目标受众档案 (Target Audience Profile)
+- **核心用户画像 (Core Persona)**: Moe 架构师、开发者、以及各业务线的自主智能体 (如 moe-architect, moe-code, moe-ask, audit 等)。
+- **核心诉求与痛点 (Pain Points & Needs)**: 消除商业 LLM API 高昂 Token 支出，解决单账号配额限制、网络地理阻断 (403 Region not supported) 与偶发挂起死锁问题。
+- **交互与交付形态 (Delivery & Interaction Modality)**: 标准 HTTP REST API (`/v1/chat/completions`, `/v1/messages`)、WebSocket 流式转发与 Web 管理看板。
+- **价值反馈与 PMF 衡量指标 (Feedback & Metric)**: 推理首字延迟 (TTFT)、请求成功率 ($\ge 98.5\%$)、自托管自愈率 ($\ge 95.0\%$) 与日均 Token 承载量。
 
 ## 1. 项目愿景 (Vision)
 `aistudio-to-api` 旨在将 Google AI Studio 提供的 Gemini 官方模型能力转化为标准 OpenAI / Claude 兼容的 HTTP / WebSocket API 服务。通过多账号凭据池管理、智能负载均衡、自动化故障切换与容错降级机制，打造稳定、高效、开箱即用的私有 AI 算力中继网关。

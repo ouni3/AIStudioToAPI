@@ -64,9 +64,13 @@
   - 无论自动触发还是手动切换账号，强制调用 `ConnectionRegistry.waitForAuthQueuesToDrain(authIndex)`。
   - 严格等待当前账号的每一个并发在途 WebSocket 请求 100% 流式传输完毕并关闭后，才正式执行切号与清理旧 Context，杜绝并发请求被腰斩。
 - **即时切号重试与页面错误精准感知 (Fast Failover & Page Error Detection)**:
-  - 遇到 HTTP 403 (`Region not supported` / `PERMISSION_DENIED`) 或 HTTP 429 时，立即将当前凭据标记异常，自动切至下一健康凭据并重放请求。
+  - **扩充即时切号契约**: `immediateSwitchStatusCodes` 囊括 403 区域受限 (`Region not supported` / `PERMISSION_DENIED`)、404、429 速率限制，以及上游服务端异常 500、502、503、504。遇此错误立即标记当前凭据异常并切至下一健康凭据重放，杜绝盲目重试导致客户端长时间阻塞。
   - 精准识别页面硬路由崩溃特征（如 `Page not found` + `Go to Build`），避免将 Google 偶发非阻塞 Toast 提示（如 `Please try again`）误判为致命错误。
   - 设定最大重试轮次（Max Retry Quorum），保障请求不陷入死循环，并在全部凭据耗尽时规范返回标准上游错误。
+
+### 2.3 异步队列超时看门狗与路径清洗模式 (Async Queue Watchdog & Sanitization)
+- **Token 计数异步队列超时注入**: 针对 Claude `countTokens` 与 OpenAI `inputTokens` 等辅助接口，底层的 `messageQueue.dequeue()` 显式绑定超时阈值（`this.timeouts.STREAM_CHUNK`），杜绝因上游连接中断无响应而导致的挂死死锁。
+- **代理路径防重规范化清洗**: 网关在 `_buildProxyRequest` 代理转发与 `_extractModelFromPath` 模型提取链路中，通过正则严格清洗 `/models/` 重复前缀（如 `/models/(?:models/)+/` 规范化为 `/models/`），杜绝畸形 404 扩散。
 
 ### 2.3 双容器主备协同拓扑 (Dual-Container Topology)
 在 104 局域网服务器 (192.168.0.104) 采用双容器并行部署模式：
