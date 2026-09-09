@@ -24,14 +24,14 @@
 
 ---
 
-## 2. 部署拓扑与容器资产 (Deployment Topology & Containers)
+## 2. 交付态部署物档案 (Deployment Artifact Registry — Phase 118 立法, P0)
 
-### 2.1 104 局域网服务器部署 SSOT (Host: 192.168.0.104)
+> **[SSOT 声明]**: 部署物具备强时效性与版本敏感度，必须显式标明版本编号；全系交付态部署物必须在此建档，并在每个 Phase 结算前（Step 6.5 ADVG）执行物理探活与档案同步更新。
 
-| 资产标识 | 容器名称 | 基础镜像 / 构建源 | 宿主机物理工作目录 | 宿主机端口映射 | 容器内目录与端口 | 健康状态 |
-|:---|:---|:---|:---|:---|:---|:---|
-| **Custom Node (主服务)** | `aistudio-to-api` | `aistudio-to-api-custom:latest` (源码同步+UI构建) | `/home/fy/aistudio-to-api/` | `192.168.0.104:8317->7860/tcp`<br/>`192.168.0.104:9998->9998/tcp` | `/app`<br/>`7860/tcp`, `9998/tcp` | `Up (healthy)` |
-| **Stable Node (备用/对照)** | `aistudio-to-api-8318` | `ibuhub/aistudio-to-api:latest` (社区官方镜像) | `/home/fy/aistudio-to-api-8318/` | `192.168.0.104:8318->7860/tcp` | `/app`<br/>`7860/tcp` | `Up (healthy)` |
+| 部署物 ID | 部署形态 | 版本编号 (Version Tag) | 访问链接 / 访问入口 | 运行时镜像/基线 | 绑定地址与端口 | 探活端点与契约 | 归属/更新 Phase | 部署状态 | 最新探活指纹 |
+|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|
+| ART-ASTOAPI-8317 | Docker 容器 (源码定制) | `v1.3.5-p4` (镜像: `aistudio-to-api-custom:latest`) | `http://192.168.0.104:8317` | Node.js 20 Alpine / Playwright | `192.168.0.104:8317->7860/tcp`<br/>`192.168.0.104:9998->9998/tcp` | `/` (200 OK) + `/v1/models` | Phase 4 | 🟢 DEPLOYED_HEALTHY | container: `aistudio-to-api`, port: 8317, version: `v1.3.5-p4`, restart: always, role: primary |
+| ART-ASTOAPI-8318 | Docker 容器 (按需热备) | `v1.3.5-p4` (镜像: `ibuhub/aistudio-to-api:latest`) | `http://192.168.0.104:8318` | Node.js 20 Alpine (官方稳定版) | `192.168.0.104:8318->7860/tcp` | `/` (200 OK) / 按需探针 | Phase 4 | ⚪ STANDBY_ON_DEMAND | container: `aistudio-to-api-8318`, port: 8318, version: `v1.3.5-p4`, restart: "no", role: standby_on_demand |
 
 ### 2.2 104 服务器关键路径与运维配置
 - **8317 源码定制容器物理工作目录**: `/home/fy/aistudio-to-api/` (包含源码、`ui/dist` 前端构建产物、403/404 自愈逻辑与 Dockerfile)

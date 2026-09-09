@@ -8,8 +8,10 @@
 > - `ect`: **S** | `verdict`: **KEEP**
 
 ## 1. 核心经验条目 (Max 8)
-1. **纯 API/网关 DX 走查标准**: 无 UI 项目重点关注调用心智、响应延迟降维及错误提示亲和度，确保畸形请求在协议入口毫秒级拦截。
-2. **错误提示去技术化**: 异常响应必须返回语义明确的 JSON 结构（如 `invalid_model` / `invalid_request_error`），绝不暴露堆栈或晦涩 code。
-3. **部署物同一性指纹**: 部署物档案版本号（如 `vX.Y.Z-p<Phase>`）必须与 Phase 强一致，且必须通过 `/health` HTTP 200 OK 探活与 API 实测。
-4. **主题豁免规范**: 纯后端与 API 项目声明 `theme_mode: none`，自动触发 UI 截图豁免 (`UI_ARTIFACT_REVIEW: EXEMPT`)，杜绝占位垃圾资产。
-5. **进化贡献四要素论证**: 体验审计报告必须显式推演 $\Delta F_{System}$ / $\Delta L_{User}$ / $\Delta S_{total}$ / $\Delta Value_{Delivered}$，断言 ECT 等级。
+1. **API / 网关 Caller DX 审查标准**: 重点关注调用心智、响应延迟降维及错误提示亲和度，确保畸形入参在协议入口毫秒级拦截。
+2. **错误提示去技术化与诊断亲和**: 异常响应必须返回语义明确的 JSON 结构或 CLI `[FAIL]` 违规清单，绝不暴露底层堆栈或晦涩 code。
+3. **CI/CD 门禁 DX 体验**: CI 门禁脚本必须毫秒级响应并输出直观状态表，`package.json` 需聚合暴露一键验证命令，降维调用摩擦。
+4. **部署物同一性指纹**: 部署物档案版本号（如 `vX.Y.Z-p<Phase>`）必须与 Phase 强一致，且必须通过探活端点与运行状态断言。
+5. **多节点与按需冻结态容错**: 健康检查与运维脚本应具备状态感知能力，对 `STANDBY_ON_DEMAND` 待命节点提供合规放行与 `[STANDBY]` 语义回显，防止假阳性报警。
+6. **主题与 DX 档案双轨合规**: 具备 Web 前端或双态视图的项目维护 Design Tokens 与页面图鉴；纯后端或混合网关必须深度走查 Caller DX 并落盘审计记录。
+7. **进化贡献四要素论证**: 体验审计报告必须显式推演 $\Delta F_{System}$ / $\Delta L_{User}$ / $\Delta S_{total}$ / $\Delta Value_{Delivered}$，断言 ECT 等级。

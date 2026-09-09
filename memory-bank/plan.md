@@ -17,25 +17,30 @@
 
 ---
 
-## 2. 活跃 Phase 3 状态与施工记录
+## 2. 活跃 Phase 5 状态与施工记录
 
-### 2.1 Phase 3 目标 (Model Dash Sanitization & Crash Recovery)
-- 修复模型名传参为 `"-"`、纯横杠或非字母数字畸形请求导致 25s 503 挂起与服务瘫痪缺陷，实现毫秒级 400 Bad Request 快速拦截。
-- 完善 `FormatConverter.isValidModelName` 与 `RequestHandler._isValidModelName` 入口前置断言，覆盖 OpenAI、Claude、Gemini 各端点。
-- 104 远程服务器（192.168.0.104）8317 端口定制容器重新构建与热部署，实测探活 200 OK，畸形请求拦截 25ms 响应。
+### 2.1 Phase 5 目标 (CI/CD Gates Convergence: G1, G2, G3, G6, G10 Compliance 100%)
+- 修复 AIStudioToAPI 在全景控制台 DevState 探针下的 5 项 UNWIRED 缺陷门禁：
+  1. G1_TOKEN (4096 Token 脱脂门禁): 新增 `scripts/ci/audit_token_limits.py` 并挂载
+  2. G2_PURITY (Memory-Bank 根纯净度门禁): 新增 `scripts/ci/audit_memory_bank.py` 并挂载
+  3. G3_GIT_GATE (CLAIRE 令牌物理卡口): 新增 `.github/workflows/verify-git-gate.yml` 并挂载
+  4. G6_UI_CONTRAST (UI WCAG AA 对比度与 VRT 门禁): 新增 `scripts/ci/lint_ui_ux_archive.py` 并对齐
+  5. G10_REFACTOR_DOC_SYNC (重构文档同步门禁): 新增 `scripts/ci/lint_refactor_doc_sync.py` 并挂载
+- 完善 `package.json` 中的探针命令与 `npm run lint:ci` 串联链。
+- 触发母星 DevState 探针核验，实现 10 大门禁 100% 达标 (Score 100.0%, 0 UNWIRED, 0 FAIL)。
 
-### 2.2 双容器验证明细 (Dual-Container Verification)
-- **8317 源码定制容器 (`aistudio-to-api`)**:
-  - 宿主机物理路径: `/home/fy/aistudio-to-api/`
-  - 镜像: `aistudio-to-api-custom:latest`（本地源码同步 + `ui/dist` 前端构建产物）
-  - 端口映射: `192.168.0.104:8317 -> 7860/tcp`, `192.168.0.104:9998 -> 9998/tcp`
-  - 挂载/源码: 内置 403 快速切号、404 模型防空与 Phase 3 非法模型名毫秒级 400 拦截机制，挂载 `configs/auths/` 凭据
-  - 验证状态: `Up (healthy)`, `HTTP 200 OK`，实测 `model: "-"` 拦截响应仅需 25ms，正常 `gemini-3.7-flash` OpenAI 流式推理 200 OK 顺利返回。
-- **8318 稳定镜像容器 (`aistudio-to-api-8318`)**:
-  - 宿主机物理路径: `/home/fy/aistudio-to-api-8318/`
-  - 镜像: `ibuhub/aistudio-to-api:latest`（社区原生官方镜像，基准回退节点）
-  - 端口映射: `192.168.0.104:8318 -> 7860/tcp`
-  - 验证状态: `Up (healthy)`, `HTTP 200 OK`，通过 `/v1/chat/completions` 标准推理验证。
+### 2.2 门禁状态核验明细 (DevState Compliance Verification)
+- G1_TOKEN: 🟢 PASS
+- G2_PURITY: 🟢 PASS
+- G3_GIT_GATE: 🟢 PASS
+- G4_E2E: 🟢 PASS
+- G5_ADVG: 🟢 PASS
+- G6_UI_CONTRAST: 🟢 PASS
+- G7_AI_ACCURACY: ⚪ EXEMPT (架构豁免)
+- G8_GITIGNORE_CREDENTIALS: 🟢 PASS
+- G9_ECT_REMEDIATION: 🟢 PASS
+- G10_REFACTOR_DOC_SYNC: 🟢 PASS
+- 综合合规得分: 100.0%
 
 ---
 
@@ -70,11 +75,20 @@
 - [x] 全局标准化改造：新增 `scripts/dev/` 启动/停止/健康检查运维三件套脚本并配置 `package.json` 标准化 `npm test` 入口
 - [x] 项目定级晋升为 SR 级别 (Super Rare - 系统枢纽级)，注入 Yuuka 评分模型与定级契约断言 (得分 95.60)
 - [x] 前端统计筛选自定义时间范围收敛为固定最近 15:00 至次日 15:00 跨日区间与 104 部署物同步验证
+- [x] 建立 CI 门禁矩阵脚本 (`scripts/ci/*`) 与 npm verify / lint:ci 工作流
+- [x] 实现 104 服务器 8318 按需启停控制脚本 `scripts/dev/remote_8318.sh` 与 package.json 运维命令
+- [x] 升级 `scripts/dev/healthcheck.sh` 状态感知机制 (8317 强活跃 + 8318 Standby 合规)
+- [x] 建立 `docs/design/ui_ux_archive.md` UI/UX 与 API 调用方 DX 体验走查档案
+- [x] 升级 `memory-bank/assets.md` 交付态部署物档案对齐 10 列 ADVG Schema (标注 8318 STANDBY_ON_DEMAND)
+- [x] 远程 104 执行 8318 compose 优雅停止与 restart: "no" 冻结实测
+- [x] 本地全套测试与 `npm run verify` CI 门禁验证通过
+- [x] 补齐 G1, G2, G3, G6, G10 五大缺失门禁脚本与工作流配置
+- [x] 实测 DevState 抽取探针，验证 compliance.score 达到 100.0%
 
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
-- Primary Phase: `Phase 3 (Model Dash Sanitization & Crash Recovery)` [ACTIVE]
+- Primary Phase: `Phase 5 (CI/CD Gates Convergence: G1, G2, G3, G6, G10 Compliance 100%)` [ACTIVE]
 - Secondary Phases: 无
 
 ---

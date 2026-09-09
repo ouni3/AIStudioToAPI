@@ -26,7 +26,20 @@
         "lint:js:fix": "eslint . --fix",
         "lint:css:fix": "stylelint \"ui/**/*.{css,less}\" --fix",
         "format": "prettier --write .",
-        "format:check": "prettier --check ."
+        "format:check": "prettier --check .",
+        "audit_token_limits": "python3 scripts/ci/audit_token_limits.py",
+        "audit_memory_bank": "python3 scripts/ci/audit_memory_bank.py",
+        "verify_git_gate": "python3 scripts/ci/lint_rules_section.py",
+        "lint_ui_ux_archive": "python3 scripts/ci/lint_ui_ux_archive.py",
+        "lint_refactor_doc_sync": "python3 scripts/ci/lint_refactor_doc_sync.py",
+        "lint:ci": "python3 scripts/ci/lint_rules_section.py && python3 scripts/ci/lint_core_file_format.py && python3 scripts/ci/lint_deployment_artifacts.py && python3 scripts/ci/lint_aes_summary_format.py && python3 scripts/ci/audit_token_limits.py && python3 scripts/ci/audit_memory_bank.py && python3 scripts/ci/lint_ui_ux_archive.py && python3 scripts/ci/lint_refactor_doc_sync.py",
+        "verify": "npm run lint && npm run test && npm run lint:ci",
+        "artifact:sync": "python3 scripts/ci/sync_deployment_version.py",
+        "remote:8318:start": "bash scripts/dev/remote_8318.sh start",
+        "remote:8318:stop": "bash scripts/dev/remote_8318.sh stop",
+        "remote:8318:status": "bash scripts/dev/remote_8318.sh status",
+        "remote:8318:logs": "bash scripts/dev/remote_8318.sh logs",
+        "healthcheck": "bash scripts/dev/healthcheck.sh"
     },
     "dependencies": {
         "archiver": "^7.0.1",

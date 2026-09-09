@@ -2964,15 +2964,7 @@ const TIME_RANGE_MS = {
     "30d": 30 * 24 * 60 * 60 * 1000,
     all: 0,
 };
-const DEFAULT_CUSTOM_TIME_RANGE = "24h";
 const DATE_PICKER_DEFAULT_TIME = [new Date(2000, 0, 1, 15, 0, 0), new Date(2000, 0, 1, 15, 0, 0)];
-
-const buildRelativeTimeRange = rangeKey => {
-    const duration = TIME_RANGE_MS[rangeKey];
-    if (!duration) return null;
-    const end = new Date();
-    return [new Date(end.getTime() - duration), end];
-};
 
 const normalizedCustomTimeRange = computed(() => {
     if (!isValidCustomTimeRange(customTimeRange.value)) return null;
@@ -3589,7 +3581,7 @@ const resetRecordFilters = () => {
 
 watch(
     timeRange,
-    (newValue, oldValue) => {
+    newValue => {
         try {
             localStorage.setItem("aistudio_stats_time_range", newValue);
         } catch (e) {

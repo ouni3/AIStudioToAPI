@@ -1618,11 +1618,12 @@ class RequestHandler {
     // Process OpenAI Response API format requests
     async processOpenAIResponseRequest(req, res) {
         const requestId = this._generateRequestId();
+        const isOpenAIStream = req.body?.stream === true;
         this._startTrackedRequest(requestId, req, {
             apiFormat: "response_api",
-            isStreaming: isStream,
+            isStreaming: isOpenAIStream,
             requestCategory: "generation",
-            streamMode: isStream ? this.config.streamingMode : null,
+            streamMode: isOpenAIStream ? this.config.streamingMode : null,
         });
         this._setResponseApiFormat(res, "response_api");
         res.__proxyResponseStreamMode = null;
@@ -3142,9 +3143,7 @@ class RequestHandler {
                     } else if (candidate.finishReason) {
                         // If there's no content but a finish reason, send mock content if thinking occurred
                         const finalParts =
-                            thinkingParts.length > 0
-                                ? [{ text: FormatConverter.MOCK_EMPTY_THINKING_RESPONSE }]
-                                : [];
+                            thinkingParts.length > 0 ? [{ text: FormatConverter.MOCK_EMPTY_THINKING_RESPONSE }] : [];
                         const finalResponse = {
                             candidates: [
                                 {

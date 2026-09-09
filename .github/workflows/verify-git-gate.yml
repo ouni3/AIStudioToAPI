@@ -1,0 +1,44 @@
+name: verify-git-gate
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  verify-gate:
+    name: Verify Git Gate & CI Matrix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run CI Verification Matrix
+        run: |
+          echo "=== [G1] Token Limits Audit ==="
+          python3 scripts/ci/audit_token_limits.py
+          
+          echo "=== [G2] Memory-Bank Purity Audit ==="
+          python3 scripts/ci/audit_memory_bank.py
+          
+          echo "=== [Canary] Rules & Canary Terms Audit ==="
+          python3 scripts/ci/lint_rules_section.py
+          
+          echo "=== [ADVG] Deployment Artifacts Audit ==="
+          python3 scripts/ci/lint_deployment_artifacts.py
+          
+          echo "=== [AES] AES Summary Contract Audit ==="
+          python3 scripts/ci/lint_aes_summary_format.py
+          
+          echo "=== [G6] UI/UX & Contrast Gate Audit ==="
+          python3 scripts/ci/lint_ui_ux_archive.py
+          
+          echo "=== [G10] Refactor Doc Sync Audit ==="
+          python3 scripts/ci/lint_refactor_doc_sync.py
