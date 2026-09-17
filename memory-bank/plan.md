@@ -52,7 +52,8 @@
 | Phase 3 | 模型名非法字符清洗与 8317 崩溃自愈 | 已归档 |
 | Phase 4 | 时间范围筛选收敛与 104 远程按需调度脚本 | 已归档 |
 | Phase 5 | 全景控制台 DevState 10 大门禁 100% 达标收敛 | 已归档 |
-| Phase 6 | 核心 LLM 推理引擎 SR 等级全方位整改与加固 | 进行中 (待终审) |
+| Phase 6 | 核心 LLM 推理引擎 SR 等级全方位整改与加固 | 已归档 |
+| Phase 7 | Thinking-Only 注入无害 Kilocode glob 操作防进程中断 | 进行中 |
 
 ---
 
@@ -87,11 +88,18 @@
 - [x] Phase 6 全方位整改：全库文件树与熵健康度扫描达标 ($H_{entropy} = 100.0$)
 - [x] Phase 6 全方位整改：Claire UI/UX 与 API 调用方 DX 走查通过落盘 (PASS)
 - [x] Phase 6 全方位整改：架构模式沉淀至 systemPatterns.md 并更新 activeContext
+- [x] Phase 7 核心改造：Thinking-Only 兜底由纯文本升级为标准无害 `glob` 工具调用 (`FormatConverter.js`)
+- [x] Phase 7 核心改造：OpenAI / Claude / Response API 流式与非流式统一生成 `glob` tool_call / tool_use 载荷
+- [x] Phase 7 自动化测试：更新并补充 OpenAI 与 Claude 的 Thinking-Only 流式与非流式单测用例 (8/8 PASS)
+- [x] Phase 7 体验审查：Claire 调用方 DX 体验走查与黑盒业务载荷切片审查完成 (PASS)
+- [x] Phase 7 服务器更新：固化 `remote_8317_deploy.sh` 脚本，代码增量推送到 104 并完成定制镜像重建与平滑重启
+- [x] Phase 7 生产探活：104 容器 8317 活跃健康检查 (HTTP 200 OK) 与 `/v1/models` 业务端点验证通过
+- [x] Phase 7 资产登记：更新 `memory-bank/assets.md` 部署物档案为 `v1.3.5-p7` (DEPLOYED_HEALTHY)
 
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
-- Primary Phase: `Phase 6 (Core LLM Inference Engine SR Elevation & Comprehensive Rectification)` [COMPLETED_SETTLED]
+- Primary Phase: `Phase 7 (Kilocode Harmless Operation Fallback on Thinking-Only Stream)` [IN_PROGRESS]
 - Secondary Phases: 无
 
 ---

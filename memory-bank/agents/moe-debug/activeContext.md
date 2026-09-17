@@ -9,30 +9,30 @@
 > - `verdict`: **KEEP**
 
 ## 当前阶段 (Active Phase)
-- **Phase Target**: 核心容错与错误码即时切号加固验证、全量单测 5/5 与 CI 门禁矩阵 (G1~G10) 100% 验收、104 双节点健康度核验。
-- **Status**: 单测 5/5 全套 PASS，`npm run verify` CI 自动化门禁矩阵全绿（100% PASS，包含 Token 限额与 Memory-bank 纯净度断言）。
+- **Phase Target**: 增加 finalizeOpenAIStream 与 finalizeClaudeStream 意外断流补发 glob 单测，执行完整校验，并部署 104 服务器 8317 节点完成健康探活。
+- **Status**: 单测与 `npm run verify` 100% 通过；104 远程 8317 容器完成增量重构与重启，状态 Up (healthy)，`scripts/dev/healthcheck.sh` 退出码 0，HTTP 200 探活验证 PASS。
 
 ## 最新验证与提交记录
-1. **测试用例 mock 隔离与全量单测验证 (`npm test`)**:
-   - 5 个测试套件（`test_time_range_calculation.mjs`、`test_format_converter_validation.mjs`、`test_request_handler_validation.mjs`、`test_thinking_only_mock_response.mjs`、`test_upstream_error_codes_failover.mjs`）100% PASS，包含 8/8 独立断言组。
-2. **数据契约补充后 CI 门禁矩阵全量核验 (`npm run verify`)**:
-   - `productContext.md` 与 `profit.md` 按《project-panorama-data-contract》规范补齐数据契约字段后，校验全部通过。
-   - ESLint & Stylelint 走查通过（0 errors）。
-   - CI 自动化门禁脚本全部通过：
-     - Canary 9 关键词全部在场通过。
-     - `lint_core_file_format.py` 8 核心资产 ECT-S 格式校验全 PASS。
-     - ADVG 制品档案与 AES Summary 校验通过。
-     - G1_TOKEN: 7 核心文档 Token 限额全绿（`productContext.md` 738/4096, `profit.md` 814/4096, `plan.md` 1073/8192）。
-     - G2_PURITY: memory-bank 纯净度断言通过，0 幽灵文件。
-     - G6_UI_CONTRAST 与 G10_REFACTOR_DOC_SYNC 均 100% PASS。
+1. **单测用例扩充 (`tests/test_format_converter_validation.mjs`)**:
+   - 增加 `finalizeOpenAIStream` 在仅输出思考过程（thinking-only）、流意外提前结束（从未收到 finishReason）时的单元测试断言，验证其正确补发 `glob` 工具调用与 `finish_reason: "tool_calls"` SSE 数据块，并验证幂等性。
+   - 增加 `finalizeClaudeStream` 在无 finishReason 时流式收尾补发 `glob` 工具调用（`type: "tool_use"`）及 `stop_reason: "tool_use"` 结构断言与幂等性断言。
+2. **本地全量校验与格式合规 (`npm run verify`)**:
+   - `npm test` 8 个测试套件/文件全部通过 (0 failed)。
+   - `npm run lint:ci` 8 项门禁（Canary 规则、核心文档 ECT、部署物 Schema、AES 总结格式、Token 限制、内存库纯净度、UI 对比度、Refactor 文档同步）100% 通过。
+3. **远程 104 容器增量构建与健康探活 (`npm run deploy:8317`)**:
+   - 本地构建 UI 产物并同步代码至 104 远程主机。
+   - 远程增量构建 `aistudio-to-api-custom:latest` 并通过 `docker compose` 重启容器。
+   - `scripts/dev/healthcheck.sh` 校验通过，8317 节点响应 HTTP 200 OK。
 
 ## 沉淀经验条目 (Core Debugging & Healthcheck Lessons)
 1. **104 局域网 IP SSOT**: 104 主机局域网真实 IP 为 `192.168.0.104`，运维与探活脚本默认指向该 IP，确保无人工配置摩擦。
-2. **按需待命态 (STANDBY_ON_DEMAND) 契约**: 备用容器策略为 `restart: "no"`，日常处于 `exited` 停止态；非严格模式健康检查将端口不可达视为 STANDBY 正常合规，杜绝产生虚假告警。
-3. **RequestHandler 构造依赖解耦**: `RequestHandler._buildProxyRequest` 会间接调用 `formatConverter.getDefaultSafetySettings()` 读取 `this.serverSystem.config`；编写针对 `RequestHandler` 的独立测试用例时，需传入带 `config` 的 `mockServerSystem` 桩对象。
-4. **CI 门禁正则鲁棒性**: ECT 等级与 section 标题正则必须兼容 Markdown 格式多样性（如 `` `ect`: **S** `` 及前缀），杜绝误报。
-5. **DevState 门禁穿透依赖**: package.json 探针命令与 scripts/ci 物理文件双向闭环，方能达成 DevState 100% 合规判定。
+2. **增量镜像更新策略**: 104 远程主机已具备基础环境与 Camoufox 二进制时，应采用本地预构建前端产物 + 增量层 `COPY` 覆盖方式构建，避免在容器内重复触发全量 apt/npm 安装。
+3. **按需待命态 (STANDBY_ON_DEMAND) 契约**: 备用容器策略为 `restart: "no"`，日常处于 `exited` 停止态；非严格模式健康检查将端口不可达视为 STANDBY 正常合规，杜绝产生虚假告警。
+4. **RequestHandler 构造依赖解耦**: `RequestHandler._buildProxyRequest` 会间接调用 `formatConverter.getDefaultSafetySettings()` 读取 `this.serverSystem.config`；编写独立用例需传入桩对象。
+5. **Thinking-Only 兜底契约验证**: Gemini 模型仅输出思考过程（thought: true）而无正文时，OpenAI 格式返回 `tool_calls`（name: `glob`, arguments: `{"pattern":"*"}`，finish_reason: `tool_calls`，content: `null`）；Claude 格式返回 `tool_use`（name: `glob`, input: `{ pattern: "*" }`，stop_reason: `tool_use`）。
+6. **FinalizeStream 兜底防断流**: 当流式响应因上游中断或异常只输出了 thinking 块却未到达包含 finishReason 的尾包时，调用 `finalizeOpenAIStream` / `finalizeClaudeStream` 可兜底补发 `glob` 工具调用与完成状态，避免客户端挂起。
+7. **CI 门禁与 Lint 格式统一**: 涉及代码变更后必须同步执行 `npm run lint:fix` 保证 Prettier/ESLint 格式一致，确保 `npm run verify` 全流程绿标通过。
 
 ## 工作区状态 (Workspace Status)
 - 分支: `feat/deploy-104-container-failover`
-- 状态: 全量测试、探活与 CI 门禁验证 100% PASS，就绪交付 audit-expert 终审。
+- 状态: 104 远程 8317 容器已成功部署最新 Thinking-Only 逻辑，服务探活验证全部正常。

@@ -35,6 +35,7 @@
         "lint:ci": "python3 scripts/ci/lint_rules_section.py && python3 scripts/ci/lint_core_file_format.py && python3 scripts/ci/lint_deployment_artifacts.py && python3 scripts/ci/lint_aes_summary_format.py && python3 scripts/ci/audit_token_limits.py && python3 scripts/ci/audit_memory_bank.py && python3 scripts/ci/lint_ui_ux_archive.py && python3 scripts/ci/lint_refactor_doc_sync.py",
         "verify": "npm run lint && npm run test && npm run lint:ci",
         "artifact:sync": "python3 scripts/ci/sync_deployment_version.py",
+        "deploy:8317": "bash scripts/dev/remote_8317_deploy.sh",
         "remote:8318:start": "bash scripts/dev/remote_8318.sh start",
         "remote:8318:stop": "bash scripts/dev/remote_8318.sh stop",
         "remote:8318:status": "bash scripts/dev/remote_8318.sh status",

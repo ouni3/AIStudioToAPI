@@ -57,6 +57,7 @@
 ### 2.1 协议转换适配器模式 (Protocol Adapter Pattern)
 - **FormatConverter**: 负责将标准 OpenAI Completion / Claude Messages 结构转换为 Google AI Studio 原生 `generateContent` / `streamGenerateContent` 载荷。
 - **前置路径与模型断言**: 强校验模型标识合法性，过滤前后缀空白与非法字符，严格杜绝模型名为空时拼接出 `/v1beta/models/:streamGenerateContent` 畸形 404 URL。
+- **Thinking-Only 兜底注入无害 Kilocode 操作 (Phase 7)**: 当上游模型仅生成 `thought`/`reasoning` 过程而无正文文本回复或原生工具调用时，系统在流式与非流式中自动注入标准的无害 `glob` 工具调用（`name: "glob"`, `arguments: {"pattern":"*"}`），并将结束原因置为 `tool_calls` (OpenAI) / `tool_use` (Claude)，彻底阻断下游 Kilocode 客户端因空文本或无 tool_call 引发的进程崩溃与未捕获中断。
 
 ### 2.2 凭据轮询与故障转移状态机 (Failover State Machine)
 - **Account State Tracking**: 动态维护凭据健康状态（`HEALTHY`, `COOLING_DOWN`, `REGION_BLOCKED`, `RATE_LIMITED`）。

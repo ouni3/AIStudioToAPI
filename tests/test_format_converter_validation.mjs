@@ -48,7 +48,7 @@ const openaiCandidateSafetyResult = fc.convertGoogleToOpenAINonStream(candidateS
 assert.strictEqual(openaiCandidateSafetyResult.choices[0].finish_reason, "content_filter");
 assert.strictEqual(openaiCandidateSafetyResult.choices[0].message.content, "[Content omitted due to safety filter]");
 
-// 1.4 Thinking-only candidate (Gemini thought parts) -> should provide mock thinking complete response
+// 1.4 Thinking-only candidate (Gemini thought parts) -> should inject fallback harmless glob tool call
 const thinkingOnlyCandidate = {
     candidates: [{
         finishReason: "STOP",
@@ -60,9 +60,14 @@ const thinkingOnlyCandidate = {
 };
 const openaiThinkingResult = fc.convertGoogleToOpenAINonStream(thinkingOnlyCandidate, "gemini-2.5-flash");
 assert.strictEqual(openaiThinkingResult.choices[0].message.role, "assistant");
-assert.strictEqual(openaiThinkingResult.choices[0].message.content, FormatConverter.MOCK_EMPTY_THINKING_RESPONSE);
+assert.strictEqual(openaiThinkingResult.choices[0].message.content, null);
 assert.strictEqual(openaiThinkingResult.choices[0].message.reasoning_content, "Analyzing query...");
-assert.strictEqual(openaiThinkingResult.choices[0].finish_reason, "stop");
+assert.strictEqual(openaiThinkingResult.choices[0].finish_reason, "tool_calls");
+assert.strictEqual(Array.isArray(openaiThinkingResult.choices[0].message.tool_calls), true);
+assert.strictEqual(openaiThinkingResult.choices[0].message.tool_calls.length, 1);
+assert.strictEqual(openaiThinkingResult.choices[0].message.tool_calls[0].function.name, "glob");
+assert.strictEqual(openaiThinkingResult.choices[0].message.tool_calls[0].function.arguments, '{"pattern":"*"}');
+assert.strictEqual(openaiThinkingResult.choices[0].message.tool_calls[0].type, "function");
 
 console.log("✔ OpenAI Non-Stream tests passed!");
 
@@ -102,6 +107,60 @@ assert.strictEqual(parsedEmptyChunks[0].choices[0].delta.content, "");
 assert.strictEqual(parsedEmptyChunks[0].choices[0].delta.role, "assistant");
 assert.strictEqual(parsedEmptyChunks[1].choices[0].finish_reason, "stop");
 
+// 2.4 Thinking-only candidate in OpenAI stream -> should inject fallback glob tool_call
+const streamState4 = {};
+const thinkingStreamChunk1 = fc.translateGoogleToOpenAIStream(`data: ${JSON.stringify({
+    candidates: [{
+        content: {
+            parts: [{ text: "Thinking deep thoughts...", thought: true }],
+            role: "model"
+        }
+    }]
+})}`, "gemini-2.5-flash", streamState4);
+const parsedThinkingChunk1 = parseSseChunks(thinkingStreamChunk1);
+assert.strictEqual(parsedThinkingChunk1.length, 1);
+assert.strictEqual(parsedThinkingChunk1[0].choices[0].delta.reasoning_content, "Thinking deep thoughts...");
+
+const thinkingStreamChunk2 = fc.translateGoogleToOpenAIStream(`data: ${JSON.stringify({
+    candidates: [{
+        finishReason: "STOP"
+    }]
+})}`, "gemini-2.5-flash", streamState4);
+const parsedThinkingChunk2 = parseSseChunks(thinkingStreamChunk2);
+assert.strictEqual(parsedThinkingChunk2.length, 2);
+assert.strictEqual(Array.isArray(parsedThinkingChunk2[0].choices[0].delta.tool_calls), true);
+assert.strictEqual(parsedThinkingChunk2[0].choices[0].delta.tool_calls[0].function.name, "glob");
+assert.strictEqual(parsedThinkingChunk2[0].choices[0].delta.tool_calls[0].function.arguments, '{"pattern":"*"}');
+assert.strictEqual(parsedThinkingChunk2[1].choices[0].finish_reason, "tool_calls");
+
+// 2.5 Unexpected stream end fallback in OpenAI stream (finalizeOpenAIStream when thinking sent but never received finishReason)
+const streamState5 = {};
+const unfinChunk1 = fc.translateGoogleToOpenAIStream(`data: ${JSON.stringify({
+    candidates: [{
+        content: {
+            parts: [{ text: "Contemplating the universe without finishReason...", thought: true }],
+            role: "model"
+        }
+    }]
+})}`, "gemini-2.5-flash", streamState5);
+const parsedUnfinChunk1 = parseSseChunks(unfinChunk1);
+assert.strictEqual(parsedUnfinChunk1.length, 1);
+assert.strictEqual(parsedUnfinChunk1[0].choices[0].delta.reasoning_content, "Contemplating the universe without finishReason...");
+
+// Stream ends abruptly; invoke finalizeOpenAIStream
+const finalizeOpenAIOutput = fc.finalizeOpenAIStream(streamState5, "gemini-2.5-flash");
+assert.ok(finalizeOpenAIOutput, "finalizeOpenAIStream should return fallback SSE payload");
+const parsedFinalizeOpenAIChunks = parseSseChunks(finalizeOpenAIOutput);
+assert.strictEqual(parsedFinalizeOpenAIChunks.length, 2);
+assert.strictEqual(Array.isArray(parsedFinalizeOpenAIChunks[0].choices[0].delta.tool_calls), true);
+assert.strictEqual(parsedFinalizeOpenAIChunks[0].choices[0].delta.tool_calls[0].function.name, "glob");
+assert.strictEqual(parsedFinalizeOpenAIChunks[0].choices[0].delta.tool_calls[0].function.arguments, '{"pattern":"*"}');
+assert.strictEqual(parsedFinalizeOpenAIChunks[1].choices[0].finish_reason, "tool_calls");
+
+// Calling finalizeOpenAIStream again should return null (idempotent / fallbackEmitted)
+const finalizeOpenAIOutputSecond = fc.finalizeOpenAIStream(streamState5, "gemini-2.5-flash");
+assert.strictEqual(finalizeOpenAIOutputSecond, null);
+
 console.log("✔ OpenAI Stream tests passed!");
 
 // ==========================================
@@ -117,13 +176,15 @@ assert.strictEqual(claudeSafetyResult.content.length, 1);
 assert.strictEqual(claudeSafetyResult.content[0].type, "text");
 assert.strictEqual(claudeSafetyResult.content[0].text, "[Content omitted due to safety filter]");
 
-// 3.2 Thinking-only in Claude Non-stream -> should include thinking block + mock text block
+// 3.2 Thinking-only in Claude Non-stream -> should include thinking block + fallback harmless glob tool_use block
 const claudeThinkingResult = fc.convertGoogleToClaudeNonStream(thinkingOnlyCandidate, "claude-3-5-sonnet");
 assert.strictEqual(claudeThinkingResult.content.length, 2);
 assert.strictEqual(claudeThinkingResult.content[0].type, "thinking");
 assert.strictEqual(claudeThinkingResult.content[0].thinking, "Analyzing query...");
-assert.strictEqual(claudeThinkingResult.content[1].type, "text");
-assert.strictEqual(claudeThinkingResult.content[1].text, FormatConverter.MOCK_EMPTY_THINKING_RESPONSE);
+assert.strictEqual(claudeThinkingResult.content[1].type, "tool_use");
+assert.strictEqual(claudeThinkingResult.content[1].name, "glob");
+assert.deepStrictEqual(claudeThinkingResult.content[1].input, { pattern: "*" });
+assert.strictEqual(claudeThinkingResult.stop_reason, "tool_use");
 
 console.log("✔ Claude Non-Stream tests passed!");
 
@@ -175,6 +236,70 @@ const emptyTypes = claudeEmptyEvents.map(e => e.type);
 assert.strictEqual(emptyTypes.includes("content_block_start"), true);
 assert.strictEqual(emptyTypes.includes("content_block_delta"), true);
 assert.strictEqual(emptyTypes.includes("content_block_stop"), true);
+
+// 4.3 Thinking-only in Claude Stream -> should emit thinking blocks then tool_use start/delta/stop
+const claudeStreamState3 = { messageId: "msg_req-c3" };
+const claudeThinkingChunk1 = fc.translateGoogleToClaudeStream(`data: ${JSON.stringify({
+    candidates: [{
+        content: {
+            parts: [{ text: "Analyzing code logic...", thought: true }],
+            role: "model"
+        }
+    }]
+})}`, "claude-3-5-sonnet", claudeStreamState3);
+const claudeEventsChunk1 = parseClaudeSseEvents(claudeThinkingChunk1);
+assert.strictEqual(claudeEventsChunk1.some(e => e.type === "content_block_start" && e.content_block?.type === "thinking"), true);
+
+const claudeThinkingChunk2 = fc.translateGoogleToClaudeStream(`data: ${JSON.stringify({
+    candidates: [{
+        finishReason: "STOP"
+    }]
+})}`, "claude-3-5-sonnet", claudeStreamState3);
+const claudeEventsChunk2 = parseClaudeSseEvents(claudeThinkingChunk2);
+const toolUseStart = claudeEventsChunk2.find(e => e.type === "content_block_start" && e.content_block?.type === "tool_use");
+assert.ok(toolUseStart, "Should emit tool_use start event");
+assert.strictEqual(toolUseStart.content_block.name, "glob");
+const toolUseDelta = claudeEventsChunk2.find(e => e.type === "content_block_delta" && e.delta?.type === "input_json_delta");
+assert.ok(toolUseDelta, "Should emit input_json_delta for tool_use");
+assert.strictEqual(toolUseDelta.delta.partial_json, '{"pattern":"*"}');
+const claudeMsgDelta = claudeEventsChunk2.find(e => e.type === "message_delta");
+assert.strictEqual(claudeMsgDelta.delta.stop_reason, "tool_use");
+
+// 4.4 Unexpected stream end fallback in Claude stream (finalizeClaudeStream when thinking sent but stream ends before finishReason)
+const claudeStreamState4 = { messageId: "msg_req-c4" };
+const claudeUnfinChunk1 = fc.translateGoogleToClaudeStream(`data: ${JSON.stringify({
+    candidates: [{
+        content: {
+            parts: [{ text: "Analyzing code logic without finishReason...", thought: true }],
+            role: "model"
+        }
+    }]
+})}`, "claude-3-5-sonnet", claudeStreamState4);
+const parsedClaudeUnfinEvents1 = parseClaudeSseEvents(claudeUnfinChunk1);
+assert.strictEqual(parsedClaudeUnfinEvents1.some(e => e.type === "content_block_start" && e.content_block?.type === "thinking"), true);
+
+// Stream ends abruptly; invoke finalizeClaudeStream
+const finalizeClaudeOutput = fc.finalizeClaudeStream(claudeStreamState4, "claude-3-5-sonnet");
+assert.ok(finalizeClaudeOutput, "finalizeClaudeStream should return fallback SSE payload");
+const parsedFinalizeClaudeEvents = parseClaudeSseEvents(finalizeClaudeOutput);
+
+const finalizeToolUseStart = parsedFinalizeClaudeEvents.find(e => e.type === "content_block_start" && e.content_block?.type === "tool_use");
+assert.ok(finalizeToolUseStart, "finalizeClaudeStream should emit tool_use start event");
+assert.strictEqual(finalizeToolUseStart.content_block.name, "glob");
+
+const finalizeToolUseDelta = parsedFinalizeClaudeEvents.find(e => e.type === "content_block_delta" && e.delta?.type === "input_json_delta");
+assert.ok(finalizeToolUseDelta, "finalizeClaudeStream should emit input_json_delta for tool_use");
+assert.strictEqual(finalizeToolUseDelta.delta.partial_json, '{"pattern":"*"}');
+
+const finalizeClaudeMsgDelta = parsedFinalizeClaudeEvents.find(e => e.type === "message_delta");
+assert.ok(finalizeClaudeMsgDelta, "finalizeClaudeStream should emit message_delta");
+assert.strictEqual(finalizeClaudeMsgDelta.delta.stop_reason, "tool_use");
+
+assert.strictEqual(parsedFinalizeClaudeEvents.some(e => e.type === "message_stop"), true);
+
+// Calling finalizeClaudeStream again should return null (idempotent / fallbackEmitted)
+const finalizeClaudeOutputSecond = fc.finalizeClaudeStream(claudeStreamState4, "claude-3-5-sonnet");
+assert.strictEqual(finalizeClaudeOutputSecond, null);
 
 console.log("✔ Claude Stream tests passed!");
 

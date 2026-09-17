@@ -30,7 +30,7 @@
 
 | 部署物 ID | 部署形态 | 版本编号 (Version Tag) | 访问链接 / 访问入口 | 运行时镜像/基线 | 绑定地址与端口 | 探活端点与契约 | 归属/更新 Phase | 部署状态 | 最新探活指纹 |
 |:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|
-| ART-ASTOAPI-8317 | Docker 容器 (源码定制) | `v1.3.5-p4` (镜像: `aistudio-to-api-custom:latest`) | `http://192.168.0.104:8317` | Node.js 20 Alpine / Playwright | `192.168.0.104:8317->7860/tcp`<br/>`192.168.0.104:9998->9998/tcp` | `/` (200 OK) + `/v1/models` | Phase 4 | 🟢 DEPLOYED_HEALTHY | container: `aistudio-to-api`, port: 8317, version: `v1.3.5-p4`, restart: always, role: primary |
+| ART-ASTOAPI-8317 | Docker 容器 (源码定制) | `v1.3.5-p7` (镜像: `aistudio-to-api-custom:latest`) | `http://192.168.0.104:8317` | Node.js 20 Alpine / Playwright | `192.168.0.104:8317->7860/tcp`<br/>`192.168.0.104:9998->9998/tcp` | `/` (200 OK) + `/v1/models` | Phase 7 | 🟢 DEPLOYED_HEALTHY | container: `aistudio-to-api`, port: 8317, version: `v1.3.5-p7`, restart: always, role: primary |
 | ART-ASTOAPI-8318 | Docker 容器 (按需热备) | `v1.3.5-p4` (镜像: `ibuhub/aistudio-to-api:latest`) | `http://192.168.0.104:8318` | Node.js 20 Alpine (官方稳定版) | `192.168.0.104:8318->7860/tcp` | `/` (200 OK) / 按需探针 | Phase 4 | ⚪ STANDBY_ON_DEMAND | container: `aistudio-to-api-8318`, port: 8318, version: `v1.3.5-p4`, restart: "no", role: standby_on_demand |
 
 ### 2.2 104 服务器关键路径与运维配置

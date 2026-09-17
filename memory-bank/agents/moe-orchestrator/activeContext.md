@@ -9,14 +9,14 @@
 > - `verdict`: **KEEP**
 
 ## 1. 当前会话状态 (Current Session State)
-- **Active Phase**: `Phase 6 (Core LLM Inference Engine SR Elevation & Comprehensive Rectification)`
-- **Task Goal**: 对标 SR 枢纽级标准全方位加固代码容错、超时看门狗、路径清洗与测试覆盖，完成 Phase 6 终审闭环。
-- **Status**: [PHASE_6_SETTLED_PENDING_COMMIT|v1.3.6-p6|CI=PASS|DevState=100.0%|AuditExpert=PASS_PENDING_AUDIT|2026-09-09T14:52:00+08:00]
+- **Active Phase**: `Phase 7 (Kilocode Harmless Operation Fallback on Thinking-Only Stream)`
+- **Task Goal**: 将 Thinking-only 兜底从静态文本升级为无害 Kilocode glob 操作答复，防止下游客户端异常中断。
+- **Status**: [PHASE_7_SETTLED_PENDING_COMMIT|CI=PASS|AuditExpert=PASS_PENDING_AUDIT|2026-09-17T11:15:00+08:00]
 
 ## 2. 核心架构与编排经验 (Orchestration Insights)
-1. **统计筛选固定时间窗口**: 自定义时间范围收敛为最近经过的 15:00 至次日 15:00，保持全局 24 小时对齐。
-2. **Thinking-Only 兜底契约**: 当模型仅输出 thought/reasoning 且未输出正文时注入 Mock，防止下游客户端空白。
-3. **多协议状态机统一**: OpenAI SSE 流、Claude SSE 流、OpenAI Response API 及 Gemini Native 均统一触发 Mock 补齐。
+1. **Thinking-Only 兜底契约升级**: 当模型仅输出 thought/reasoning 且未输出正文时注入无害 `glob` 工具调用（`{"pattern":"*"}`），并将 finish_reason 设为 tool_calls/tool_use，彻底阻断下游客户端解析崩溃。
+2. **多协议状态机统一**: OpenAI SSE 流、Claude SSE 流、OpenAI Response API 及非流式请求均统一注入 glob tool_call / tool_use。
+3. **统计筛选固定时间窗口**: 自定义时间范围收敛为最近经过的 15:00 至次日 15:00，保持全局 24 小时对齐。
 4. **基础设施三件套与远程按需化**: 统一在 `scripts/dev/` 沉淀运维工具，结合 `remote_8318.sh` 实现备用节点按需秒级拉起与停止。
 5. **双节点状态感知健康检查**: 8317 主节点强校验 HTTP 200，8318 冷备节点在端口未监听时识别为 `[STANDBY]` 合规放行，避免误报。
 6. **轻量化 CI 门禁矩阵**: 在 Node.js 仓库引入标准 Python CI 门禁（Canary 校验、ECT 格式断言、ADVG 部署物对齐与 AES 总结校验），通过 `npm run verify` 实现 100% 自动化闭环。

@@ -15,4 +15,4 @@
 5. **多节点与按需冻结态容错**: 健康检查与运维脚本应具备状态感知能力，对 `STANDBY_ON_DEMAND` 待命节点提供合规放行与 `[STANDBY]` 语义回显，防止假阳性报警。
 6. **主题与 DX 档案双轨合规**: 具备 Web 前端或双态视图的项目维护 Design Tokens 与页面图鉴；纯后端或混合网关必须深度走查 Caller DX 并落盘审计记录。
 7. **并发在途排空切号体验**: 切号时必须等待在途 WebSocket 请求排空 (`waitForAuthQueuesToDrain`)，确保并发流式连接零断流。
-8. **进化贡献四要素论证**: 体验审计报告必须显式推演 $\Delta F_{System}$ / $\Delta L_{User}$ / $\Delta S_{total}$ / $\Delta Value_{Delivered}$，断言 ECT 等级。
+8. **Thinking-only 兜底工具调用 DX**: 模型仅思考无正文时自动注入无害 glob 工具调用，驱动下游客户端无感多轮探针，彻底阻断空文本未捕获异常中断。

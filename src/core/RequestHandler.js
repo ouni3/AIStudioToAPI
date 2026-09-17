@@ -2843,6 +2843,18 @@ class RequestHandler {
                 const message = await messageQueue.dequeue(this.timeouts.STREAM_CHUNK);
 
                 if (message.type === "STREAM_END") {
+                    if (this._isResponseWritable(res)) {
+                        try {
+                            const fallbackChunk = this.formatConverter.finalizeClaudeStream(streamState, model);
+                            if (fallbackChunk) {
+                                res.write(fallbackChunk);
+                            }
+                        } catch (writeError) {
+                            this.logger.debug(
+                                `[Request] Failed to write fallback chunk to Claude stream: ${writeError.message}`
+                            );
+                        }
+                    }
                     this.logger.info(`✅ [Request] Response completed (Claude real stream), request ID: ${requestId}`);
                     break;
                 }
@@ -2854,6 +2866,10 @@ class RequestHandler {
                     // Check if response is still writable before attempting to write
                     if (this._isResponseWritable(res)) {
                         try {
+                            const fallbackChunk = this.formatConverter.finalizeClaudeStream(streamState, model);
+                            if (fallbackChunk) {
+                                res.write(fallbackChunk);
+                            }
                             res.write(
                                 `event: error\ndata: ${JSON.stringify({
                                     error: {
@@ -2900,6 +2916,18 @@ class RequestHandler {
                 }
             }
         } catch (error) {
+            // Attempt to finalize stream on unexpected error/timeout before handling or re-throwing
+            if (this._isResponseWritable(res)) {
+                try {
+                    const fallbackChunk = this.formatConverter.finalizeClaudeStream(streamState, model);
+                    if (fallbackChunk) {
+                        res.write(fallbackChunk);
+                    }
+                } catch (writeError) {
+                    this.logger.debug(`[Request] Failed to write fallback chunk on error: ${writeError.message}`);
+                }
+            }
+
             // Only handle connection reset errors here (client disconnect)
             // Let other errors (timeout, parsing, logic errors) propagate to outer catch
             if (this._isConnectionResetError(error)) {
@@ -3914,6 +3942,10 @@ class RequestHandler {
                 if (message.type === "STREAM_END") {
                     if (this._isResponseWritable(res)) {
                         try {
+                            const fallbackChunk = this.formatConverter.finalizeOpenAIStream(streamState, model);
+                            if (fallbackChunk) {
+                                res.write(fallbackChunk);
+                            }
                             res.write("data: [DONE]\n\n");
                         } catch (writeError) {
                             this.logger.debug(
@@ -3932,6 +3964,10 @@ class RequestHandler {
                     // Check if response is still writable before attempting to write
                     if (this._isResponseWritable(res)) {
                         try {
+                            const fallbackChunk = this.formatConverter.finalizeOpenAIStream(streamState, model);
+                            if (fallbackChunk) {
+                                res.write(fallbackChunk);
+                            }
                             res.write(
                                 `data: ${JSON.stringify({ error: { code: 500, message: message.message, type: "api_error" } })}\n\n`
                             );
@@ -3969,6 +4005,18 @@ class RequestHandler {
                 }
             }
         } catch (error) {
+            // Attempt to finalize stream on unexpected error/timeout before handling or re-throwing
+            if (this._isResponseWritable(res)) {
+                try {
+                    const fallbackChunk = this.formatConverter.finalizeOpenAIStream(streamState, model);
+                    if (fallbackChunk) {
+                        res.write(fallbackChunk);
+                    }
+                } catch (writeError) {
+                    this.logger.debug(`[Request] Failed to write fallback chunk on error: ${writeError.message}`);
+                }
+            }
+
             // Only handle connection reset errors here (client disconnect)
             // Let other errors (timeout, parsing, logic errors) propagate to outer catch
             if (this._isConnectionResetError(error)) {

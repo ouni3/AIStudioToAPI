@@ -36,7 +36,7 @@ function parseClaudeSseEvents(str) {
 // ==========================================
 console.log("--- 1. OpenAI Non-Stream Tests ---");
 
-// 1.1 Pure thinking candidate
+// 1.1 Pure thinking candidate -> inject harmless glob tool call
 const pureThinkingResponse = {
     candidates: [{
         finishReason: "STOP",
@@ -49,8 +49,11 @@ const pureThinkingResponse = {
 const resOpenAiNonStream = fc.convertGoogleToOpenAINonStream(pureThinkingResponse, "gemini-2.5-flash");
 assert.strictEqual(resOpenAiNonStream.choices[0].message.role, "assistant");
 assert.strictEqual(resOpenAiNonStream.choices[0].message.reasoning_content, "Step 1: Calculate result... Done.");
-assert.strictEqual(resOpenAiNonStream.choices[0].message.content, FormatConverter.MOCK_EMPTY_THINKING_RESPONSE);
-assert.strictEqual(resOpenAiNonStream.choices[0].finish_reason, "stop");
+assert.strictEqual(resOpenAiNonStream.choices[0].message.content, null);
+assert.strictEqual(resOpenAiNonStream.choices[0].finish_reason, "tool_calls");
+assert.strictEqual(Array.isArray(resOpenAiNonStream.choices[0].message.tool_calls), true);
+assert.strictEqual(resOpenAiNonStream.choices[0].message.tool_calls[0].function.name, "glob");
+assert.strictEqual(resOpenAiNonStream.choices[0].message.tool_calls[0].function.arguments, '{"pattern":"*"}');
 
 // 1.2 Normal candidate with both thinking and text
 const normalThinkingResponse = {
@@ -98,10 +101,12 @@ const streamChunk2 = fc.translateGoogleToOpenAIStream(`data: ${JSON.stringify({
     }]
 })}`, "gemini-2.5-flash", streamStateOpenAI);
 const parsedChunks2 = parseSseChunks(streamChunk2);
-// Should send fallback delta with Mock response, followed by final finish_reason chunk
+// Should send fallback delta with glob tool call, followed by final finish_reason chunk
 assert.strictEqual(parsedChunks2.length, 2);
-assert.strictEqual(parsedChunks2[0].choices[0].delta.content, FormatConverter.MOCK_EMPTY_THINKING_RESPONSE);
-assert.strictEqual(parsedChunks2[1].choices[0].finish_reason, "stop");
+assert.strictEqual(Array.isArray(parsedChunks2[0].choices[0].delta.tool_calls), true);
+assert.strictEqual(parsedChunks2[0].choices[0].delta.tool_calls[0].function.name, "glob");
+assert.strictEqual(parsedChunks2[0].choices[0].delta.tool_calls[0].function.arguments, '{"pattern":"*"}');
+assert.strictEqual(parsedChunks2[1].choices[0].finish_reason, "tool_calls");
 
 console.log("✔ OpenAI Stream tests passed!");
 
@@ -114,8 +119,10 @@ const resClaudeThinking = fc.convertGoogleToClaudeNonStream(pureThinkingResponse
 assert.strictEqual(resClaudeThinking.content.length, 2);
 assert.strictEqual(resClaudeThinking.content[0].type, "thinking");
 assert.strictEqual(resClaudeThinking.content[0].thinking, "Step 1: Calculate result... Done.");
-assert.strictEqual(resClaudeThinking.content[1].type, "text");
-assert.strictEqual(resClaudeThinking.content[1].text, FormatConverter.MOCK_EMPTY_THINKING_RESPONSE);
+assert.strictEqual(resClaudeThinking.content[1].type, "tool_use");
+assert.strictEqual(resClaudeThinking.content[1].name, "glob");
+assert.deepStrictEqual(resClaudeThinking.content[1].input, { pattern: "*" });
+assert.strictEqual(resClaudeThinking.stop_reason, "tool_use");
 
 const resClaudeNormal = fc.convertGoogleToClaudeNonStream(normalThinkingResponse, "claude-3-5-sonnet");
 assert.strictEqual(resClaudeNormal.content.length, 2);
@@ -151,10 +158,15 @@ const claudeChunk2 = fc.translateGoogleToClaudeStream(`data: ${JSON.stringify({
     }]
 })}`, "claude-3-5-sonnet", streamStateClaude);
 const claudeEvents2 = parseClaudeSseEvents(claudeChunk2);
-// Must emit content_block_start/delta for Mock text, then message_delta and message_stop
-const mockDelta = claudeEvents2.find(e => e.type === "content_block_delta" && e.delta?.type === "text_delta");
-assert.ok(mockDelta, "Should emit mock text delta");
-assert.strictEqual(mockDelta.delta.text, FormatConverter.MOCK_EMPTY_THINKING_RESPONSE);
+// Must emit content_block_start/delta for glob tool_use, then message_delta with stop_reason: tool_use and message_stop
+const globStart = claudeEvents2.find(e => e.type === "content_block_start" && e.content_block?.type === "tool_use");
+assert.ok(globStart, "Should emit tool_use start block");
+assert.strictEqual(globStart.content_block.name, "glob");
+const globDelta = claudeEvents2.find(e => e.type === "content_block_delta" && e.delta?.type === "input_json_delta");
+assert.ok(globDelta, "Should emit input_json_delta");
+assert.strictEqual(globDelta.delta.partial_json, '{"pattern":"*"}');
+const msgDelta = claudeEvents2.find(e => e.type === "message_delta");
+assert.strictEqual(msgDelta.delta.stop_reason, "tool_use");
 
 console.log("✔ Claude Stream tests passed!");
 
@@ -165,9 +177,10 @@ console.log("--- 5. Response API Tests ---");
 
 // Non-Stream
 const resResponseApi = fc.convertGoogleToResponseAPINonStream(pureThinkingResponse, "gemini-2.5-flash");
-const messageItem = resResponseApi.output.find(item => item.type === "message");
-assert.ok(messageItem, "Should have message item in output");
-assert.strictEqual(messageItem.content[0].text, FormatConverter.MOCK_EMPTY_THINKING_RESPONSE);
+const functionCallItem = resResponseApi.output.find(item => item.type === "function_call");
+assert.ok(functionCallItem, "Should have function_call item in output");
+assert.strictEqual(functionCallItem.name, "glob");
+assert.strictEqual(functionCallItem.arguments, '{"pattern":"*"}');
 
 // Stream
 const streamStateResp = {};
@@ -185,7 +198,8 @@ const respFinishEventsStr = fc.translateGoogleToResponseAPIStream(`data: ${JSON.
         finishReason: "STOP"
     }]
 })}`, "gemini-2.5-flash", streamStateResp);
-assert.ok(respFinishEventsStr.includes(FormatConverter.MOCK_EMPTY_THINKING_RESPONSE), "Stream should contain Mock response text");
+assert.ok(respFinishEventsStr.includes('"name":"glob"'), "Stream should contain fallback glob tool name");
+assert.ok(respFinishEventsStr.includes('{\\"pattern\\":\\"*\\"}'), "Stream should contain fallback glob args");
 
 console.log("✔ Response API tests passed!");
 
