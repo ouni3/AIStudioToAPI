@@ -1,0 +1,381 @@
+{
+    "$defs": {
+        "audit_event": {
+            "additionalProperties": false,
+            "description": "审计与体验走查事件",
+            "properties": {
+                "audit_type": {
+                    "description": "审计类型",
+                    "enum": ["UX_WALKTHROUGH", "CALLER_DX", "REPO_COMPLIANCE", "CANARY_INTEGRITY"],
+                    "type": "string"
+                },
+                "auditor": {
+                    "description": "执行审计的角色 (audit / audit-expert / chairman)",
+                    "type": "string"
+                },
+                "evidence_refs": {
+                    "description": "支撑该审计裁决的物理证据文件或快照路径列表",
+                    "items": { "type": "string" },
+                    "type": "array"
+                },
+                "round": {
+                    "description": "审计轮次 (1, 2, 3...)",
+                    "minimum": 1,
+                    "type": "integer"
+                },
+                "timestamp": {
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "verdict": {
+                    "description": "审计裁决",
+                    "enum": ["PASS", "VETO_REJECTED", "EXEMPT", "UNKNOWN"],
+                    "type": "string"
+                },
+                "veto_reason": {
+                    "description": "VETO 阻断原因字串 (如 VETO: RAW_EVIDENCE_MISSING, VETO: BLACK_BOX_OUTCOME_MISSING)",
+                    "type": "string"
+                }
+            },
+            "required": ["round", "auditor", "audit_type", "verdict", "timestamp"],
+            "type": "object"
+        },
+        "task_event": {
+            "additionalProperties": false,
+            "description": "子 Agent 执行实操事件",
+            "properties": {
+                "agent": {
+                    "description": "接手 Agent 名称",
+                    "type": "string"
+                },
+                "attempt_count": {
+                    "description": "实际执行尝试次数（1 表示首发单次，>1 表示发生重试）",
+                    "minimum": 1,
+                    "type": "integer"
+                },
+                "duration_minutes": {
+          "description": "耗时（分钟）",
+          "type": "number"
+                },
+        "error_details": {
+          "type": "string",
+          "description": "异常、截断或重试根因事实描述"
+        },
+        "grade": {
+          "type": "string",
+          "enum": ["S", "A", "B", "C"]
+        },
+        "recovered_by_task_id": {
+          "type": "boolean",
+          "description": "是否触发了基于 task_id 的断点恢复重试"
+        },
+        "status": {
+          "type": "string",
+          "description": "任务交付状态",
+          "enum": ["SUCCESS", "FAILED", "RECOVERED", "UNKNOWN"]
+        },
+                "step_id": {
+                    "description": "子任务标识 (如 Step 1, Sub-Task A)",
+                    "type": "string"
+                },
+                "task_goal": {
+                    "description": "任务目标描述",
+                    "type": "string"
+                }
+            },
+            "required": ["step_id", "agent", "task_goal", "attempt_count", "recovered_by_task_id", "status"],
+            "type": "object"
+        },
+        "verification_event": {
+            "additionalProperties": false,
+            "description": "验证门禁事件",
+            "properties": {
+                "check_name": {
+                    "description": "检查项名称 (如 unit_test, lint, e2e, type_check)",
+                    "type": "string"
+                },
+                "is_repair_attempt": {
+                    "description": "是否属于遭遇失败后的修补重测",
+                    "type": "boolean"
+                },
+                "outcome": {
+                    "description": "执行结果二值断言",
+                    "enum": ["PASS", "FAIL", "UNKNOWN"],
+                    "type": "string"
+                },
+                "raw_evidence_snippet": {
+                    "description": "原始日志、退出码或断言切片（证明 PASS/FAIL 的物理证据）",
+                    "type": "string"
+                },
+                "timestamp": {
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "tool_or_script": {
+                    "description": "执行工具或命令 (如 npm run verify, pytest)",
+                    "type": "string"
+                }
+            },
+            "required": ["check_name", "tool_or_script", "outcome", "timestamp"],
+            "type": "object"
+        }
+    },
+    "$id": "https://moe-or.local/schemas/phase_evidence.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Evidence-First Governance 体系下 Phase 唯一事实源核心数据契约。承载 L0 原始事实到 L1 证据包的规范化汇聚，供 L2 派生指标与 L3 审计判断消费。四层分离严格禁止跨层逆写；缺失字段二值化标记为 UNKNOWN，严禁默认 PASS/0/100%。",
+    "properties": {
+        "artifact_evidence": {
+            "additionalProperties": false,
+            "description": "交付态部署物、UI 档案及体验凭据审查事实",
+            "properties": {
+        "ui_artifact_exemption_evidence": {
+          "type": "string",
+          "description": "UI 豁免的物理证据说明（如纯后端/规则/CLI 改动）"
+        },
+        "caller_dx_report_path": {
+          "type": "string",
+          "description": "调用方 DX 体验走查报告落盘路径"
+        },
+        "claire_ux_report_path": {
+          "type": "string",
+          "description": "Claire UI/UX 体验走查报告落盘路径"
+        },
+        "deploy_artifact_exemption_evidence": {
+          "type": "string",
+          "description": "部署物豁免的物理证据说明（如未改动 src/**）"
+        },
+                "deploy_artifact_status": {
+          "description": "部署物审查二值状态",
+          "enum": ["PASS", "EXEMPT", "VETO", "UNKNOWN"],
+          "type": "string"
+                },
+        "ui_artifact_status": {
+          "type": "string",
+          "description": "UI/UX/DX 审查二值状态",
+          "enum": ["PASS", "EXEMPT", "VETO", "UNKNOWN"]
+        },
+                "black_box_feature_evidence": {
+                    "description": "黑盒业务结果二值断言物理证据（在视口渲染或响应载荷中捕获的 Phase 唯一特征标识）",
+                    "type": "string"
+                }
+            },
+            "required": ["deploy_artifact_status", "ui_artifact_status"],
+            "type": "object"
+        },
+        "audit_events": {
+            "description": "多轮审计与体验走查事件记录。包括 Claire 与 audit-expert 的每轮实操结果",
+            "items": {
+                "$ref": "#/$defs/audit_event"
+            },
+            "type": "array"
+        },
+        "created_at": {
+      "format": "date-time",
+      "description": "证据包生成时间戳 (ISO 8601)",
+      "type": "string"
+        },
+        "snapshot": {
+      "description": "代码与 Git 物理快照三元组，强绑定审计与测试同一性",
+      "required": [
+        "base_head",
+        "staged_tree_hash",
+        "manifest_hash"
+      ],
+      "properties": {
+        "base_head": {
+          "type": "string",
+          "description": "进入 Pre-Audit 前的 Git HEAD commit hash"
+        },
+        "staged_tree_hash": {
+          "type": "string",
+          "description": "Git staged index tree hash"
+        },
+        "manifest_hash": {
+          "type": "string",
+          "description": "File Scope 清单的 SHA256 指纹"
+        },
+        "status": {
+          "type": "string",
+          "description": "快照状态",
+          "enum": ["VALID", "SNAPSHOT_INVALIDATED"]
+        }
+      },
+      "type": "object",
+            "additionalProperties": false
+        },
+    "derived_metrics": {
+      "type": "object",
+      "description": "L2 派生指标层。由 L0/L1 物理事实自动计算导出，严禁手工伪造或直接写入未经证据计算的值",
+      "required": [
+        "task_first_attempt_pass",
+        "task_recovery_count",
+        "repair_count",
+        "audit_first_round_pass",
+        "phase_first_pass",
+        "phase_final_pass",
+        "evidence_coverage"
+      ],
+      "properties": {
+        "task_first_attempt_pass": {
+          "type": "boolean",
+          "description": "所有子任务是否全为首发即通过（未经历重试、截断、恢复）"
+        },
+        "task_recovery_count": {
+          "type": "integer",
+          "description": "基于 task_id 或网络中断恢复重试的总次数",
+          "minimum": 0
+        },
+        "repair_count": {
+          "type": "integer",
+          "description": "中途构建、编译、单测修复等修补动作总次数",
+          "minimum": 0
+        },
+        "audit_first_round_pass": {
+          "type": "boolean",
+          "description": "审计是否在 R1 轮次直接 PASS（未经历 VETO 打回）"
+        },
+        "audit_rounds_count": {
+          "type": "integer",
+          "description": "实际经历的审计轮次数",
+          "minimum": 1
+        },
+        "phase_first_pass": {
+          "type": "boolean",
+          "description": "全 Phase 真实首通二值断言。铁律：凡发生重试(task_recovery_count>0)、修补(repair_count>0)、R1打回(!audit_first_round_pass)或文件外溢(scope_creep_count>0)，强制为 false"
+        },
+        "phase_final_pass": {
+          "type": "boolean",
+          "description": "全 Phase 最终是否完全达标放行"
+        },
+        "evidence_coverage": {
+          "type": "number",
+          "description": "证据覆盖率 (0.0 ~ 1.0)。缺失关键证据包时被压制，严禁盲目置 1.0",
+          "minimum": 0.0,
+          "maximum": 1.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "phase": {
+      "type": "integer",
+      "description": "Phase 编号，必须大于等于 0",
+      "minimum": 0
+    },
+        "project": {
+      "description": "项目代号/名称",
+      "type": "string"
+        },
+    "schema_version": {
+      "type": "string",
+      "description": "Schema 规范版本号",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+        "scope": {
+            "additionalProperties": false,
+            "description": "变更文件范围物理审视，严查范围外溢",
+      "properties": {
+        "planned_files": {
+          "type": "array",
+          "description": "计划内文件列表",
+          "items": { "type": "string" }
+        },
+        "actual_files": {
+          "type": "array",
+          "description": "实际变更文件列表 (staged/unstaged 审视)",
+          "items": { "type": "string" }
+        },
+        "out_of_scope_files": {
+          "type": "array",
+          "description": "超出计划的变更文件列表 (计划外溢出项)",
+          "items": { "type": "string" }
+        },
+        "scope_creep_count": {
+          "type": "integer",
+          "description": "计划外文件数量 (out_of_scope_files.length)",
+          "minimum": 0
+        },
+        "scope_creep_rationale": {
+          "type": "string",
+          "description": "技术债外溢原因说明（若 scope_creep_count > 0 必填）"
+        }
+      },
+      "required": [
+        "planned_files",
+        "actual_files",
+        "out_of_scope_files",
+        "scope_creep_count"
+      ],
+            "type": "object"
+        },
+        "task_events": {
+            "description": "子 Agent 调度与执行实操事件流。凡发生思考截断、重试、空回传必须物理留痕",
+            "items": {
+                "$ref": "#/$defs/task_event"
+            },
+            "type": "array"
+        },
+        "task_grade": {
+      "description": "Phase 任务难度等级",
+      "enum": ["S", "A", "B", "C"],
+      "type": "string"
+        },
+        "theme": {
+            "description": "当前 Phase 研发主题",
+            "type": "string"
+        },
+        "verification_events": {
+            "description": "自动化验证与质量门禁物理事件记录（单测、构建、Lint、E2E、走查）",
+            "items": {
+                "$ref": "#/$defs/verification_event"
+            },
+            "type": "array"
+        },
+        "impact": {
+            "additionalProperties": false,
+            "description": "进化法则四要素量化影响",
+            "properties": {
+                "ect": {
+                    "enum": ["S", "A", "B", "C", "D"],
+                    "type": "string"
+                },
+                "f_system": {
+                    "enum": ["+", "-", "0"],
+                    "type": "string"
+                },
+                "l_user": {
+                    "enum": ["+", "-", "0"],
+                    "type": "string"
+                },
+                "s_total": {
+                    "enum": ["+", "-", "0"],
+                    "type": "string"
+                },
+                "value_delivered": {
+                    "enum": ["+", "-", "0"],
+                    "type": "string"
+                },
+                "verdict": {
+                    "enum": ["KEEP", "REMEDIATE", "KILL"],
+                    "type": "string"
+                }
+            },
+            "required": ["f_system", "l_user", "s_total", "value_delivered", "ect", "verdict"],
+            "type": "object"
+        }
+    },
+    "required": [
+        "schema_version",
+        "project",
+        "phase",
+        "theme",
+        "snapshot",
+        "scope",
+        "task_events",
+        "verification_events",
+        "audit_events",
+        "artifact_evidence",
+        "impact"
+    ],
+    "title": "PhaseEvidence",
+    "type": "object"
+}

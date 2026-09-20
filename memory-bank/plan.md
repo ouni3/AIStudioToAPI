@@ -17,16 +17,15 @@
 
 ---
 
-## 2. 活跃 Phase 6 状态与施工记录
+## 2. 活跃 Phase 8 状态与施工记录
 
-### 2.1 Phase 6 目标 (Core LLM Inference Engine SR Elevation & Comprehensive Rectification)
-- 对标《project-rating-standard》SR 级标准，完成全方位代码加固、容错自愈与合规整改：
-  1. 上游错误即时切号自愈：扩充 `immediateSwitchStatusCodes` 为 `[403, 404, 429, 500, 502, 503, 504]`
-  2. 异步队列超时看门狗注入：`processClaudeCountTokens` 与 `processOpenAIResponseInputTokens` 消费绑定 `STREAM_CHUNK` 超时控制
-  3. 路径清洗防御：消除 `/models/models/` 等重复前缀，防御畸形 404 路由
-  4. 自动化测试补齐：新增 `tests/test_upstream_error_codes_failover.mjs`，实现 5/5 全套单元测试 100% PASS
-  5. 104 服务器探活：`healthcheck.sh` 双节点状态感知校验通过
-  6. 熵健康度扫描与合规：$H_{entropy} = 100.0$，G1~G10 门禁 100% 达标
+### 2.1 Phase 8 目标 (Full CI/CD Defect Gates Wiring & Panorama DevState 100% Compliance)
+- 补齐修复全量 CI/CD 缺陷门禁，解决全景控制台探针扫描中存在的 4 项 UNWIRED 缺陷：
+  1. G11_ROUTINE_MAINTENANCE: 引入逢 0 Phase 例行维护状态断言门禁脚本 `scripts/ci/lint_routine_maintenance.py`
+  2. G12_PHASE_EVIDENCE: 引入标准证据包 Schema `schemas/phase_evidence.schema.json` 与校验脚本 `scripts/ci/lint_phase_evidence.py`
+  3. G15_LOGGING_STANDARDS: 引入结构化日志规范、同构 Logger 封装与静态拦截门禁 `scripts/ci/lint_logging_standards.py`
+  4. G16_SETTLEMENT_CONSISTENCY: 引入结算四账本一致性核验脚本 `scripts/ci/lint_settlement_evidence_consistency.py`
+  5. 挂载 `package.json` 中的 `verify:settlement` 与相关 CI 脚本命令，使 `npm run verify` 与全景 DevState 抽取 100% PASS
 
 ### 2.2 门禁状态核验明细 (DevState Compliance Verification)
 - G1_TOKEN: 🟢 PASS
@@ -39,7 +38,13 @@
 - G8_GITIGNORE_CREDENTIALS: 🟢 PASS
 - G9_ECT_REMEDIATION: 🟢 PASS
 - G10_REFACTOR_DOC_SYNC: 🟢 PASS
-- 综合合规得分: 100.0%
+- G11_ROUTINE_MAINTENANCE: 🟢 PASS
+- G12_PHASE_EVIDENCE: 🟢 PASS
+- G13_TRACK_DISCIPLINE: 🟢 PASS
+- G14_RULE_SYNC_DRIFT: 🟢 PASS
+- G15_LOGGING_STANDARDS: 🟢 PASS
+- G16_SETTLEMENT_CONSISTENCY: 🟢 PASS
+- 综合合规得分: 100.0% (15 PASS, 1 EXEMPT, 0 UNWIRED)
 
 ---
 
@@ -53,7 +58,8 @@
 | Phase 4 | 时间范围筛选收敛与 104 远程按需调度脚本 | 已归档 |
 | Phase 5 | 全景控制台 DevState 10 大门禁 100% 达标收敛 | 已归档 |
 | Phase 6 | 核心 LLM 推理引擎 SR 等级全方位整改与加固 | 已归档 |
-| Phase 7 | Thinking-Only 注入无害 Kilocode glob 操作防进程中断 | 进行中 |
+| Phase 7 | Thinking-Only 注入无害 Kilocode glob 操作防进程中断 | 已完成待提交 |
+| Phase 8 | 全量 CI/CD 缺陷门禁补齐与全景 DevState 100% 合规闭环 | 已完成待提交 |
 
 ---
 
@@ -99,7 +105,7 @@
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
-- Primary Phase: `Phase 7 (Kilocode Harmless Operation Fallback on Thinking-Only Stream)` [IN_PROGRESS]
+- Primary Phase: `Phase 8 (Full CI/CD Defect Gates Wiring & Panorama DevState 100% Compliance)` [IN_PROGRESS]
 - Secondary Phases: 无
 
 ---

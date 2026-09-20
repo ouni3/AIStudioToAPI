@@ -609,12 +609,14 @@ class BrowserManager {
                     window['_canvas_noise_${randomArtifact}'] = '${randomArtifact}';
 
                     if (window === window.top) {
+                        // @moe-logger-exempt - browser page context
                         console.log("[ProxyClient] Privacy protection layer active: ${profile.renderer}");
 
                         // PostMessage responder for authIndex requests from cross-origin iframes
                         // Injected via addInitScript so it's ready BEFORE any iframe loads (no race condition)
                         window.addEventListener('message', function(event) {
                             if (event.data && event.data.type === 'requestAuthIndex') {
+                                // @moe-logger-exempt - browser page context
                                 console.log('[BrowserManager] Received authIndex request, responding with: ${authIndex}');
                                 event.source.postMessage({
                                     type: 'authIndexResponse',
@@ -624,6 +626,7 @@ class BrowserManager {
                         });
                     }
                 } catch (err) {
+                    // @moe-logger-exempt - browser page context
                     console.error("[ProxyClient] Failed to inject privacy script", err);
                 }
             })();
@@ -804,6 +807,7 @@ class BrowserManager {
                         method: "GET",
                     });
                 } catch (e) {
+                    // @moe-logger-exempt - browser page context
                     console.log("[ProxyClient] Active trigger sent");
                 }
             })
@@ -1051,6 +1055,7 @@ class BrowserManager {
 
                                 // Match text or aria-label
                                 if (targetTexts.includes(text) || ariaLabel === "Close") {
+                                    // @moe-logger-exempt - browser page context
                                     console.log(`[ProxyClient] HealthMonitor clicking: ${text || "Close Button"}`);
                                     btn.click();
                                 }

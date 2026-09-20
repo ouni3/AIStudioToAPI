@@ -9,30 +9,26 @@
 > - `verdict`: **KEEP**
 
 ## 当前阶段 (Active Phase)
-- **Phase Target**: 增加 finalizeOpenAIStream 与 finalizeClaudeStream 意外断流补发 glob 单测，执行完整校验，并部署 104 服务器 8317 节点完成健康探活。
-- **Status**: 单测与 `npm run verify` 100% 通过；104 远程 8317 容器完成增量重构与重启，状态 Up (healthy)，`scripts/dev/healthcheck.sh` 退出码 0，HTTP 200 探活验证 PASS。
+- **Phase Target**: 补齐并全量验证 G11, G12, G15, G16 四大门禁，完成 `npm run verify`、`npm run verify:settlement` 及全景控制台 DevState 抽取探针验证。
+- **Status**: `npm run verify` 与 `npm run verify:settlement` 退出码均为 0 (100% 绿锁)；全景控制台 DevState 抽取探针合规得分 100.0% (15 PASS, 1 EXEMPT, 0 UNWIRED, 0 FAIL)。
 
 ## 最新验证与提交记录
-1. **单测用例扩充 (`tests/test_format_converter_validation.mjs`)**:
-   - 增加 `finalizeOpenAIStream` 在仅输出思考过程（thinking-only）、流意外提前结束（从未收到 finishReason）时的单元测试断言，验证其正确补发 `glob` 工具调用与 `finish_reason: "tool_calls"` SSE 数据块，并验证幂等性。
-   - 增加 `finalizeClaudeStream` 在无 finishReason 时流式收尾补发 `glob` 工具调用（`type: "tool_use"`）及 `stop_reason: "tool_use"` 结构断言与幂等性断言。
-2. **本地全量校验与格式合规 (`npm run verify`)**:
+1. **CI 全量与结算门禁物理执行 (`npm run verify` / `npm run verify:settlement`)**:
    - `npm test` 8 个测试套件/文件全部通过 (0 failed)。
-   - `npm run lint:ci` 8 项门禁（Canary 规则、核心文档 ECT、部署物 Schema、AES 总结格式、Token 限制、内存库纯净度、UI 对比度、Refactor 文档同步）100% 通过。
-3. **远程 104 容器增量构建与健康探活 (`npm run deploy:8317`)**:
-   - 本地构建 UI 产物并同步代码至 104 远程主机。
-   - 远程增量构建 `aistudio-to-api-custom:latest` 并通过 `docker compose` 重启容器。
-   - `scripts/dev/healthcheck.sh` 校验通过，8317 节点响应 HTTP 200 OK。
+   - `npm run lint:ci` 12 项门禁 (含 G11 例行维护、G12 PhaseEvidence、G15 Logging/FSM 标准、G16 结算派生一致性等) 100% 通过。
+   - `npm run verify:settlement` 轻量结算门禁 <0.5s 退出码 0。
+2. **全景控制台 DevState 抽取探针**:
+   - 运行 `/home/dev/moe-OR/scripts/dev_state/extract_dev_state.py --project /home/dev/AIStudioToAPI`。
+   - `AIStudioToAPI` 合规得分 `100.0%` (total_gates: 16, passed_gates: 15, exempt_gates: 1, unwired_gates: 0, failed_gates: 0)。
 
 ## 沉淀经验条目 (Core Debugging & Healthcheck Lessons)
 1. **104 局域网 IP SSOT**: 104 主机局域网真实 IP 为 `192.168.0.104`，运维与探活脚本默认指向该 IP，确保无人工配置摩擦。
 2. **增量镜像更新策略**: 104 远程主机已具备基础环境与 Camoufox 二进制时，应采用本地预构建前端产物 + 增量层 `COPY` 覆盖方式构建，避免在容器内重复触发全量 apt/npm 安装。
 3. **按需待命态 (STANDBY_ON_DEMAND) 契约**: 备用容器策略为 `restart: "no"`，日常处于 `exited` 停止态；非严格模式健康检查将端口不可达视为 STANDBY 正常合规，杜绝产生虚假告警。
-4. **RequestHandler 构造依赖解耦**: `RequestHandler._buildProxyRequest` 会间接调用 `formatConverter.getDefaultSafetySettings()` 读取 `this.serverSystem.config`；编写独立用例需传入桩对象。
-5. **Thinking-Only 兜底契约验证**: Gemini 模型仅输出思考过程（thought: true）而无正文时，OpenAI 格式返回 `tool_calls`（name: `glob`, arguments: `{"pattern":"*"}`，finish_reason: `tool_calls`，content: `null`）；Claude 格式返回 `tool_use`（name: `glob`, input: `{ pattern: "*" }`，stop_reason: `tool_use`）。
-6. **FinalizeStream 兜底防断流**: 当流式响应因上游中断或异常只输出了 thinking 块却未到达包含 finishReason 的尾包时，调用 `finalizeOpenAIStream` / `finalizeClaudeStream` 可兜底补发 `glob` 工具调用与完成状态，避免客户端挂起。
-7. **CI 门禁与 Lint 格式统一**: 涉及代码变更后必须同步执行 `npm run lint:fix` 保证 Prettier/ESLint 格式一致，确保 `npm run verify` 全流程绿标通过。
+4. **Thinking-Only 与 FinalizeStream 兜底契约**: Gemini 模型仅输出思考过程（thought: true）而无正文时，OpenAI / Claude 格式分别按协议要求补发 `glob` 工具调用与完成状态；流式意外断流时调用 finalizeStream 幂等补发尾包避免客户端挂起。
+5. **G15 日志门禁浏览器上下文注解**: `BrowserManager.js` 等向浏览器页面内注入的脚本（`addInitScript` / `evaluate`）包含控制台输出时，使用 `// @moe-logger-exempt - browser page context` 进行规范注解，避免被 G15 静态 AST 误判为 Node 服务端裸 console。
+6. **分级结算与全景 DevState 抽取契约**: 轻量结算门禁 `verify:settlement` 与 `verify` 双阶分离；`extract_dev_state.py` 严格校验 G1~G16 映射，无 UNWIRED 且达到 100% 满分。
 
 ## 工作区状态 (Workspace Status)
 - 分支: `feat/deploy-104-container-failover`
-- 状态: 104 远程 8317 容器已成功部署最新 Thinking-Only 逻辑，服务探活验证全部正常。
+- 状态: G11, G12, G15, G16 全套门禁与全景控制台 DevState 探针校验 100% 达标。

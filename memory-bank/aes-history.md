@@ -109,4 +109,30 @@
 
 
 
-(End of file - total 30 lines)
+---
+
+## 5. Phase 8 效能快照 (AES Summary)
+
+### [AES_SUMMARY_P8]
+- **Phase**: `Phase 8 (Full CI/CD Defect Gates Wiring & Panorama DevState 100% Compliance)`
+- **结算时间**: `2026-09-20T13:10:00+08:00`
+- **主要参与 Agent**:
+  - `moe-orchestrator` (小奏): 全局编排调度、立项快照与结算收口
+  - `moe-code` (诺诺): 施工补齐 G11, G12, G15, G16 四大门禁脚本、统一 Logger SDK 与 package.json 配置
+  - `moe-debug` (千夏): 全套单元测试与 CI 门禁物理校验，运行全景 DevState 探针
+  - `audit` (克莱尔): 调用方 DX 体验走查与双档案审查，签发 UI_UX_VERDICT: PASS
+  - `audit-expert` (克莱尔专家): 仓库级合规终审与幽灵资产扫描，签发 PASS_PENDING_AUDIT
+- **效能指标**:
+  - `avg_effectiveness`: 96.5%
+  - `first_pass_rate`: 100%
+  - `avg_rework`: 0
+  - `sentinel_triggered`: NONE
+  - `settlement_advice`: `[PASS_SETTLEMENT_RECOMMENDED]`
+- **门禁状态**:
+  - `G11_ROUTINE_MAINTENANCE`: 🟢 PASS
+  - `G12_PHASE_EVIDENCE`: 🟢 PASS
+  - `G15_LOGGING_STANDARDS`: 🟢 PASS
+  - `G16_SETTLEMENT_CONSISTENCY`: 🟢 PASS
+  - 全景 DevState 合规评分: **100.0%** (15/16 门禁 PASS, 1 EXEMPT, 0 UNWIRED, 0 FAIL)
+- **核心沉淀**: 消除全部 4 项未挂载门禁债务，实现全景控制台 16 大门禁 100% 达标；引入同构 Logger SDK 与 FSM 转移轨迹拦截能力；挂载极速结算验证卡口 `verify:settlement` (<0.5s)，大幅提升系统鲁棒性与开发体验。
+
