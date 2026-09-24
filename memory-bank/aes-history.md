@@ -111,28 +111,26 @@
 
 ---
 
-## 5. Phase 8 效能快照 (AES Summary)
+## 6. Phase 9 效能快照 (AES Summary)
 
-### [AES_SUMMARY_P8]
-- **Phase**: `Phase 8 (Full CI/CD Defect Gates Wiring & Panorama DevState 100% Compliance)`
-- **结算时间**: `2026-09-20T13:10:00+08:00`
+### [AES_SUMMARY_P9]
+- **Phase**: `Phase 9 (Model Dash Sanitization & Anti-Thrashing Guard)`
+- **结算时间**: `2026-09-24T16:15:00+08:00`
 - **主要参与 Agent**:
-  - `moe-orchestrator` (小奏): 全局编排调度、立项快照与结算收口
-  - `moe-code` (诺诺): 施工补齐 G11, G12, G15, G16 四大门禁脚本、统一 Logger SDK 与 package.json 配置
-  - `moe-debug` (千夏): 全套单元测试与 CI 门禁物理校验，运行全景 DevState 探针
-  - `audit` (克莱尔): 调用方 DX 体验走查与双档案审查，签发 UI_UX_VERDICT: PASS
-  - `audit-expert` (克莱尔专家): 仓库级合规终审与幽灵资产扫描，签发 PASS_PENDING_AUDIT
+  - `moe-orchestrator` (小奏): 全局编排调度、任务激活快照、Join 聚合与结算账本落盘
+  - `moe-ask` (栞): 104 容器日志现场排查与本地模型提取穿透根因定位
+  - `moe-code` (诺诺): 加固 FormatConverter 4 大后缀二次校验与 RequestHandler 404 优先中断切号雪崩
+  - `moe-debug` (千夏): 全套单元测试、CI 门禁与 104 容器增量重建热探活验证
+  - `audit` (克莱尔): 调用方 DX 体验走查与 104 部署物真实载荷核验
+  - `audit-expert` (克莱尔专家): 仓库级合规终审与四树快照校验，签发 PASS_PENDING_AUDIT
 - **效能指标**:
-  - `avg_effectiveness`: 96.5%
+  - `avg_effectiveness`: 97.0%
   - `first_pass_rate`: 100%
   - `avg_rework`: 0
   - `sentinel_triggered`: NONE
   - `settlement_advice`: `[PASS_SETTLEMENT_RECOMMENDED]`
-- **门禁状态**:
-  - `G11_ROUTINE_MAINTENANCE`: 🟢 PASS
-  - `G12_PHASE_EVIDENCE`: 🟢 PASS
-  - `G15_LOGGING_STANDARDS`: 🟢 PASS
-  - `G16_SETTLEMENT_CONSISTENCY`: 🟢 PASS
-  - 全景 DevState 合规评分: **100.0%** (15/16 门禁 PASS, 1 EXEMPT, 0 UNWIRED, 0 FAIL)
-- **核心沉淀**: 消除全部 4 项未挂载门禁债务，实现全景控制台 16 大门禁 100% 达标；引入同构 Logger SDK 与 FSM 转移轨迹拦截能力；挂载极速结算验证卡口 `verify:settlement` (<0.5s)，大幅提升系统鲁棒性与开发体验。
+- **双容器健康状态**:
+  - 8317 源码定制容器 (`aistudio-to-api`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, 畸形入参 400 Bad Request 快速拦截)
+  - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
+- **核心沉淀**: 根治客户端入参或剥离后缀为横杠 `"-"` 引发的穿透故障；将 `_isModelNotFoundError` 检测前置阻断立即切号状态机，彻底消除 404 引发的全账号轮换切号雪崩；104 容器热更新探活 200 OK，大幅加固逆向算力网关的韧性与调用方 DX。
 

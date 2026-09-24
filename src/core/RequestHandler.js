@@ -1360,38 +1360,48 @@ class RequestHandler {
                         if (
                             initialMessage.event_type === "error" &&
                             !isUserAbortedError(initialMessage) &&
-                            Number.isFinite(initialStatus) &&
-                            this._isImmediateSwitchStatus(initialStatus, initialMessage.message)
+                            Number.isFinite(initialStatus)
                         ) {
-                            this.logger.warn(
-                                `[Request] OpenAI real stream received ${initialStatus}, preparing retry...`
-                            );
-                            this._cancelCurrentAttemptBeforeRetry(proxyRequest, currentQueueAuthIndex);
-
-                            const retryPrepared = await this._prepareImmediateStatusRetry(
-                                initialMessage,
-                                requestId,
-                                immediateSwitchTracker,
-                                currentQueueAuthIndex
-                            );
-                            if (!retryPrepared) {
+                            if (this._isModelNotFoundError(initialMessage)) {
+                                initialMessage.skipAccountSwitch = true;
                                 skipFinalFailureSwitch = true;
+                                this.logger.warn(
+                                    `[Request] Upstream reported model not found error (status ${initialStatus}, message: ${initialMessage.message}) in OpenAI real stream. Skipping account switch retries.`
+                                );
                                 break;
                             }
 
-                            try {
-                                currentQueue.close(this._getImmediateStatusRetryCloseReason(initialStatus));
-                            } catch {
-                                /* empty */
+                            if (this._isImmediateSwitchStatus(initialStatus, initialMessage.message)) {
+                                this.logger.warn(
+                                    `[Request] OpenAI real stream received ${initialStatus}, preparing retry...`
+                                );
+                                this._cancelCurrentAttemptBeforeRetry(proxyRequest, currentQueueAuthIndex);
+
+                                const retryPrepared = await this._prepareImmediateStatusRetry(
+                                    initialMessage,
+                                    requestId,
+                                    immediateSwitchTracker,
+                                    currentQueueAuthIndex
+                                );
+                                if (!retryPrepared) {
+                                    skipFinalFailureSwitch = true;
+                                    break;
+                                }
+
+                                try {
+                                    currentQueue.close(this._getImmediateStatusRetryCloseReason(initialStatus));
+                                } catch {
+                                    /* empty */
+                                }
+                                this._advanceProxyRequestAttempt(proxyRequest);
+                                currentQueue = this.connectionRegistry.createMessageQueue(
+                                    requestId,
+                                    this.currentAuthIndex,
+                                    proxyRequest.request_attempt_id
+                                );
+                                currentQueueAuthIndex = this.currentAuthIndex;
+                                continue;
                             }
-                            this._advanceProxyRequestAttempt(proxyRequest);
-                            currentQueue = this.connectionRegistry.createMessageQueue(
-                                requestId,
-                                this.currentAuthIndex,
-                                proxyRequest.request_attempt_id
-                            );
-                            currentQueueAuthIndex = this.currentAuthIndex;
-                            continue;
                         }
 
                         break;
@@ -1807,38 +1817,48 @@ class RequestHandler {
                         if (
                             initialMessage.event_type === "error" &&
                             !isUserAbortedError(initialMessage) &&
-                            Number.isFinite(initialStatus) &&
-                            this._isImmediateSwitchStatus(initialStatus, initialMessage.message)
+                            Number.isFinite(initialStatus)
                         ) {
-                            this.logger.warn(
-                                `[Request] OpenAI Response API real stream received ${initialStatus}, preparing retry...`
-                            );
-                            this._cancelCurrentAttemptBeforeRetry(proxyRequest, currentQueueAuthIndex);
-
-                            const retryPrepared = await this._prepareImmediateStatusRetry(
-                                initialMessage,
-                                requestId,
-                                immediateSwitchTracker,
-                                currentQueueAuthIndex
-                            );
-                            if (!retryPrepared) {
+                            if (this._isModelNotFoundError(initialMessage)) {
+                                initialMessage.skipAccountSwitch = true;
                                 skipFinalFailureSwitch = true;
+                                this.logger.warn(
+                                    `[Request] Upstream reported model not found error (status ${initialStatus}, message: ${initialMessage.message}) in OpenAI Response API real stream. Skipping account switch retries.`
+                                );
                                 break;
                             }
 
-                            try {
-                                currentQueue.close(this._getImmediateStatusRetryCloseReason(initialStatus));
-                            } catch {
-                                /* empty */
+                            if (this._isImmediateSwitchStatus(initialStatus, initialMessage.message)) {
+                                this.logger.warn(
+                                    `[Request] OpenAI Response API real stream received ${initialStatus}, preparing retry...`
+                                );
+                                this._cancelCurrentAttemptBeforeRetry(proxyRequest, currentQueueAuthIndex);
+
+                                const retryPrepared = await this._prepareImmediateStatusRetry(
+                                    initialMessage,
+                                    requestId,
+                                    immediateSwitchTracker,
+                                    currentQueueAuthIndex
+                                );
+                                if (!retryPrepared) {
+                                    skipFinalFailureSwitch = true;
+                                    break;
+                                }
+
+                                try {
+                                    currentQueue.close(this._getImmediateStatusRetryCloseReason(initialStatus));
+                                } catch {
+                                    /* empty */
+                                }
+                                this._advanceProxyRequestAttempt(proxyRequest);
+                                currentQueue = this.connectionRegistry.createMessageQueue(
+                                    requestId,
+                                    this.currentAuthIndex,
+                                    proxyRequest.request_attempt_id
+                                );
+                                currentQueueAuthIndex = this.currentAuthIndex;
+                                continue;
                             }
-                            this._advanceProxyRequestAttempt(proxyRequest);
-                            currentQueue = this.connectionRegistry.createMessageQueue(
-                                requestId,
-                                this.currentAuthIndex,
-                                proxyRequest.request_attempt_id
-                            );
-                            currentQueueAuthIndex = this.currentAuthIndex;
-                            continue;
                         }
 
                         break;
@@ -2222,38 +2242,48 @@ class RequestHandler {
                         if (
                             initialMessage.event_type === "error" &&
                             !isUserAbortedError(initialMessage) &&
-                            Number.isFinite(initialStatus) &&
-                            this._isImmediateSwitchStatus(initialStatus, initialMessage.message)
+                            Number.isFinite(initialStatus)
                         ) {
-                            this.logger.warn(
-                                `[Request] Claude real stream received ${initialStatus}, preparing retry...`
-                            );
-                            this._cancelCurrentAttemptBeforeRetry(proxyRequest, currentQueueAuthIndex);
-
-                            const retryPrepared = await this._prepareImmediateStatusRetry(
-                                initialMessage,
-                                requestId,
-                                immediateSwitchTracker,
-                                currentQueueAuthIndex
-                            );
-                            if (!retryPrepared) {
+                            if (this._isModelNotFoundError(initialMessage)) {
+                                initialMessage.skipAccountSwitch = true;
                                 skipFinalFailureSwitch = true;
+                                this.logger.warn(
+                                    `[Request] Upstream reported model not found error (status ${initialStatus}, message: ${initialMessage.message}) in Claude real stream. Skipping account switch retries.`
+                                );
                                 break;
                             }
 
-                            try {
-                                currentQueue.close(this._getImmediateStatusRetryCloseReason(initialStatus));
-                            } catch {
-                                /* empty */
+                            if (this._isImmediateSwitchStatus(initialStatus, initialMessage.message)) {
+                                this.logger.warn(
+                                    `[Request] Claude real stream received ${initialStatus}, preparing retry...`
+                                );
+                                this._cancelCurrentAttemptBeforeRetry(proxyRequest, currentQueueAuthIndex);
+
+                                const retryPrepared = await this._prepareImmediateStatusRetry(
+                                    initialMessage,
+                                    requestId,
+                                    immediateSwitchTracker,
+                                    currentQueueAuthIndex
+                                );
+                                if (!retryPrepared) {
+                                    skipFinalFailureSwitch = true;
+                                    break;
+                                }
+
+                                try {
+                                    currentQueue.close(this._getImmediateStatusRetryCloseReason(initialStatus));
+                                } catch {
+                                    /* empty */
+                                }
+                                this._advanceProxyRequestAttempt(proxyRequest);
+                                currentQueue = this.connectionRegistry.createMessageQueue(
+                                    requestId,
+                                    this.currentAuthIndex,
+                                    proxyRequest.request_attempt_id
+                                );
+                                currentQueueAuthIndex = this.currentAuthIndex;
+                                continue;
                             }
-                            this._advanceProxyRequestAttempt(proxyRequest);
-                            currentQueue = this.connectionRegistry.createMessageQueue(
-                                requestId,
-                                this.currentAuthIndex,
-                                proxyRequest.request_attempt_id
-                            );
-                            currentQueueAuthIndex = this.currentAuthIndex;
-                            continue;
                         }
 
                         break;
@@ -2581,10 +2611,16 @@ class RequestHandler {
 
                 if (response.event_type === "error") {
                     this.logger.error(
-                        `❌ [Request] Received error from browser, will trigger switching logic. Status code: ${response.status}, message: ${response.message}`
+                        `❌ [Request] Received error from browser for count tokens, status code: ${response.status}, message: ${response.message}`
                     );
                     this._sendErrorResponse(res, response.status || 500, response.message, "api_error");
-                    if (!this._isConnectionResetError(response)) {
+
+                    const isModelNotFound = this._isModelNotFoundError(response);
+                    if (isModelNotFound) {
+                        this.logger.warn(
+                            `[Request] Upstream reported model not found error (count tokens). Skipping account switch.`
+                        );
+                    } else if (!this._isConnectionResetError(response)) {
                         await this.authSwitcher.handleRequestFailureAndSwitch(response, null);
                     }
                     return;
@@ -2756,13 +2792,17 @@ class RequestHandler {
 
                 if (response.event_type === "error") {
                     this.logger.error(
-                        `❌ [Request] Received error from browser for input_tokens, will trigger switching logic. Status code: ${response.status}, message: ${response.message}`
+                        `❌ [Request] Received error from browser for input_tokens. Status code: ${response.status}, message: ${response.message}`
                     );
 
                     this._sendErrorResponse(res, response.status || 500, response.message);
 
-                    // Avoid switching account if the error is just a connection reset
-                    if (!this._isConnectionResetError(response)) {
+                    const isModelNotFound = this._isModelNotFoundError(response);
+                    if (isModelNotFound) {
+                        this.logger.warn(
+                            `[Request] Upstream reported model not found error (input_tokens). Skipping account switch.`
+                        );
+                    } else if (!this._isConnectionResetError(response)) {
                         await this.authSwitcher.handleRequestFailureAndSwitch(response, null);
                     } else {
                         this.logger.info(
@@ -3279,37 +3319,47 @@ class RequestHandler {
                 headerMessage.event_type === "error" &&
                 proxyRequest.is_generative &&
                 !isUserAbortedError(headerMessage) &&
-                Number.isFinite(headerStatus) &&
-                this._isImmediateSwitchStatus(headerStatus, headerMessage.message)
+                Number.isFinite(headerStatus)
             ) {
-                this.logger.warn(`[Request] Gemini real stream received ${headerStatus}, preparing retry...`);
-                this._cancelCurrentAttemptBeforeRetry(proxyRequest, currentQueueAuthIndex);
-
-                const retryPrepared = await this._prepareImmediateStatusRetry(
-                    headerMessage,
-                    proxyRequest.request_id,
-                    immediateSwitchTracker,
-                    currentQueueAuthIndex
-                );
-                if (!retryPrepared) {
+                if (this._isModelNotFoundError(headerMessage)) {
+                    headerMessage.skipAccountSwitch = true;
                     skipFinalFailureSwitch = true;
+                    this.logger.warn(
+                        `[Request] Upstream reported model not found error (status ${headerStatus}, message: ${headerMessage.message}) in Gemini real stream. Skipping account switch retries.`
+                    );
                     break;
                 }
 
-                try {
-                    currentQueue.close(this._getImmediateStatusRetryCloseReason(headerStatus));
-                } catch {
-                    /* empty */
-                }
+                if (this._isImmediateSwitchStatus(headerStatus, headerMessage.message)) {
+                    this.logger.warn(`[Request] Gemini real stream received ${headerStatus}, preparing retry...`);
+                    this._cancelCurrentAttemptBeforeRetry(proxyRequest, currentQueueAuthIndex);
 
-                this._advanceProxyRequestAttempt(proxyRequest);
-                currentQueue = this.connectionRegistry.createMessageQueue(
-                    proxyRequest.request_id,
-                    this.currentAuthIndex,
-                    proxyRequest.request_attempt_id
-                );
-                currentQueueAuthIndex = this.currentAuthIndex;
-                continue;
+                    const retryPrepared = await this._prepareImmediateStatusRetry(
+                        headerMessage,
+                        proxyRequest.request_id,
+                        immediateSwitchTracker,
+                        currentQueueAuthIndex
+                    );
+                    if (!retryPrepared) {
+                        skipFinalFailureSwitch = true;
+                        break;
+                    }
+
+                    try {
+                        currentQueue.close(this._getImmediateStatusRetryCloseReason(headerStatus));
+                    } catch {
+                        /* empty */
+                    }
+
+                    this._advanceProxyRequestAttempt(proxyRequest);
+                    currentQueue = this.connectionRegistry.createMessageQueue(
+                        proxyRequest.request_id,
+                        this.currentAuthIndex,
+                        proxyRequest.request_attempt_id
+                    );
+                    currentQueueAuthIndex = this.currentAuthIndex;
+                    continue;
+                }
             }
 
             break;
@@ -3469,7 +3519,11 @@ class RequestHandler {
                 }
                 let downstreamStatus = result.error.status || 500;
                 let errorMessage = result.error.message;
-                if (result.error.status === 403 || (result.error.status === 404 && proxyRequest.is_generative)) {
+                const isModelNotFound = this._isModelNotFoundError(result.error);
+                if (
+                    !isModelNotFound &&
+                    (result.error.status === 403 || (result.error.status === 404 && proxyRequest.is_generative))
+                ) {
                     downstreamStatus = 503;
                     const authIndex =
                         this.connectionRegistry.getAuthIndexForRequest(proxyRequest.request_id) ??

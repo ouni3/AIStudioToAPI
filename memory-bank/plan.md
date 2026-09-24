@@ -17,34 +17,18 @@
 
 ---
 
-## 2. 活跃 Phase 8 状态与施工记录
+## 2. 活跃 Phase 9 状态与施工记录
 
-### 2.1 Phase 8 目标 (Full CI/CD Defect Gates Wiring & Panorama DevState 100% Compliance)
-- 补齐修复全量 CI/CD 缺陷门禁，解决全景控制台探针扫描中存在的 4 项 UNWIRED 缺陷：
-  1. G11_ROUTINE_MAINTENANCE: 引入逢 0 Phase 例行维护状态断言门禁脚本 `scripts/ci/lint_routine_maintenance.py`
-  2. G12_PHASE_EVIDENCE: 引入标准证据包 Schema `schemas/phase_evidence.schema.json` 与校验脚本 `scripts/ci/lint_phase_evidence.py`
-  3. G15_LOGGING_STANDARDS: 引入结构化日志规范、同构 Logger 封装与静态拦截门禁 `scripts/ci/lint_logging_standards.py`
-  4. G16_SETTLEMENT_CONSISTENCY: 引入结算四账本一致性核验脚本 `scripts/ci/lint_settlement_evidence_consistency.py`
-  5. 挂载 `package.json` 中的 `verify:settlement` 与相关 CI 脚本命令，使 `npm run verify` 与全景 DevState 抽取 100% PASS
+### 2.1 Phase 9 目标 (Model Dash Sanitization & Anti-Thrashing Guard)
+- 根除客户端传入模型名为 `"-"` 或后缀剥离后为横杠 `"-"` 引发的请求穿透与 404 切号雪崩问题：
+  1. `FormatConverter.js`: 加固 `parseModelWebSearchSuffix`、`parseModelBuiltInToolSuffixes`、`parseModelStreamingModeSuffix` 与 `parseModelThinkingLevel`，增加剥离后模型名合法性检验，非法自动回退；
+  2. `RequestHandler.js`: 将 `_isModelNotFoundError` 识别前置，针对模型不存在/畸形错误，标记 `skipAccountSwitch = true` 直接向客户端返回 404/400，严禁触发立即切号；
+  3. `tests/test_model_dash_sanitization.mjs`: 编写针对性单测，覆盖非法命名校验与防切号雪崩断言；
+  4. 104 服务器 8317 端口增量重建容器并平滑重启，现场 curl 真实探活验证 400 快速拦截。
 
-### 2.2 门禁状态核验明细 (DevState Compliance Verification)
-- G1_TOKEN: 🟢 PASS
-- G2_PURITY: 🟢 PASS
-- G3_GIT_GATE: 🟢 PASS
-- G4_E2E: 🟢 PASS
-- G5_ADVG: 🟢 PASS
-- G6_UI_CONTRAST: 🟢 PASS
-- G7_AI_ACCURACY: ⚪ EXEMPT (架构豁免)
-- G8_GITIGNORE_CREDENTIALS: 🟢 PASS
-- G9_ECT_REMEDIATION: 🟢 PASS
-- G10_REFACTOR_DOC_SYNC: 🟢 PASS
-- G11_ROUTINE_MAINTENANCE: 🟢 PASS
-- G12_PHASE_EVIDENCE: 🟢 PASS
-- G13_TRACK_DISCIPLINE: 🟢 PASS
-- G14_RULE_SYNC_DRIFT: 🟢 PASS
-- G15_LOGGING_STANDARDS: 🟢 PASS
-- G16_SETTLEMENT_CONSISTENCY: 🟢 PASS
-- 综合合规得分: 100.0% (15 PASS, 1 EXEMPT, 0 UNWIRED)
+### 2.2 门禁状态核验明细
+- G1~G16 门禁全绿，单测 9/9 100% PASS。
+- 终审状态: `[PASS_PENDING_COMMIT]`
 
 ---
 
@@ -58,8 +42,9 @@
 | Phase 4 | 时间范围筛选收敛与 104 远程按需调度脚本 | 已归档 |
 | Phase 5 | 全景控制台 DevState 10 大门禁 100% 达标收敛 | 已归档 |
 | Phase 6 | 核心 LLM 推理引擎 SR 等级全方位整改与加固 | 已归档 |
-| Phase 7 | Thinking-Only 注入无害 Kilocode glob 操作防进程中断 | 已完成待提交 |
-| Phase 8 | 全量 CI/CD 缺陷门禁补齐与全景 DevState 100% 合规闭环 | 已完成待提交 |
+| Phase 7 | Thinking-Only 注入无害 Kilocode glob 操作防进程中断 | 已归档 |
+| Phase 8 | 全量 CI/CD 缺陷门禁补齐与全景 DevState 100% 合规闭环 | 已归档 (`36ab57a`) |
+| Phase 9 | 模型名 '-' 防御清洗与 404 切号防雪崩状态机加固 | 已完成待提交 |
 
 ---
 

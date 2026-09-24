@@ -11,7 +11,7 @@
 ## 1. 当前会话状态 (Current Session State)
 - **Active Phase**: `Phase 8 (Full CI/CD Defect Gates Wiring & Panorama DevState 100% Compliance)`
 - **Task Goal**: 补齐修复全量 CI/CD 缺陷门禁 (G11_ROUTINE_MAINTENANCE, G12_PHASE_EVIDENCE, G15_LOGGING_STANDARDS, G16_SETTLEMENT_CONSISTENCY)，实现全景控制台 100% 达标。
-- **Status**: [PHASE_8_SETTLED_PENDING_COMMIT|CI=PASS|AuditExpert=PASS_PENDING_AUDIT|2026-09-20T13:12:00+08:00]
+- **Status**: [PHASE_8_SETTLED_COMMITTED|COMMIT=36ab57a|CI=PASS|AuditExpert=PASS_PENDING_AUDIT|2026-09-20T13:25:00+08:00]
 
 ## 2. 核心架构与编排经验 (Orchestration Insights)
 1. **Thinking-Only 兜底契约升级**: 当模型仅输出 thought/reasoning 且未输出正文时注入无害 `glob` 工具调用（`{"pattern":"*"}`），并将 finish_reason 设为 tool_calls/tool_use，彻底阻断下游客户端解析崩溃。

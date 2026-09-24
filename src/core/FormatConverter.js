@@ -90,7 +90,7 @@ class FormatConverter {
         }
 
         let cleanModelName = match[1];
-        if (!cleanModelName || cleanModelName.trim() === "") {
+        if (!cleanModelName || cleanModelName.trim() === "" || !FormatConverter.isValidModelName(cleanModelName)) {
             cleanModelName = modelName;
         }
 
@@ -122,6 +122,9 @@ class FormatConverter {
         while (match) {
             const nextClean = match[1];
             if (!nextClean || nextClean.trim() === "") {
+                break;
+            }
+            if (!FormatConverter.isValidModelName(nextClean)) {
                 break;
             }
             cleanModelName = nextClean;
@@ -163,7 +166,7 @@ class FormatConverter {
         }
 
         let cleanModelName = match[1];
-        if (!cleanModelName || cleanModelName.trim() === "") {
+        if (!cleanModelName || cleanModelName.trim() === "" || !FormatConverter.isValidModelName(cleanModelName)) {
             cleanModelName = modelName;
         }
 
@@ -192,7 +195,7 @@ class FormatConverter {
         const parenMatch = modelName.match(new RegExp(`^(.+)\\((${levels.join("|")})\\)$`, "i"));
         if (parenMatch) {
             let baseModel = parenMatch[1];
-            if (!baseModel || baseModel.trim() === "") {
+            if (!baseModel || baseModel.trim() === "" || !FormatConverter.isValidModelName(baseModel)) {
                 baseModel = modelName;
             }
             const levelKey = parenMatch[2].toLowerCase();
@@ -206,7 +209,7 @@ class FormatConverter {
         const hyphenMatch = modelName.match(new RegExp(`^(.+)-(${levels.join("|")})$`, "i"));
         if (hyphenMatch) {
             let baseModel = hyphenMatch[1];
-            if (!baseModel || baseModel.trim() === "") {
+            if (!baseModel || baseModel.trim() === "" || !FormatConverter.isValidModelName(baseModel)) {
                 baseModel = modelName;
             }
             const levelKey = hyphenMatch[2].toLowerCase();
