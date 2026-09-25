@@ -40,3 +40,5 @@ debug_*.png
 debug_*.html
 proxylist.txt
 proxy_mapping.json
+.husky/
+memory-bank/agents/moe-ask/

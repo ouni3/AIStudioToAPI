@@ -17,14 +17,14 @@
 
 ---
 
-## 2. 活跃 Phase 9 状态与施工记录
+## 2. 活跃 Phase 状态与施工记录
 
-### 2.1 Phase 9 目标 (Model Dash Sanitization & Anti-Thrashing Guard)
-- 根除客户端传入模型名为 `"-"` 或后缀剥离后为横杠 `"-"` 引发的请求穿透与 404 切号雪崩问题：
-  1. `FormatConverter.js`: 加固 `parseModelWebSearchSuffix`、`parseModelBuiltInToolSuffixes`、`parseModelStreamingModeSuffix` 与 `parseModelThinkingLevel`，增加剥离后模型名合法性检验，非法自动回退；
-  2. `RequestHandler.js`: 将 `_isModelNotFoundError` 识别前置，针对模型不存在/畸形错误，标记 `skipAccountSwitch = true` 直接向客户端返回 404/400，严禁触发立即切号；
-  3. `tests/test_model_dash_sanitization.mjs`: 编写针对性单测，覆盖非法命名校验与防切号雪崩断言；
-  4. 104 服务器 8317 端口增量重建容器并平滑重启，现场 curl 真实探活验证 400 快速拦截。
+### Phase 10: Anti-Thrashing Account Switch Guard & Client Error Isolation
+- 根除客户端传入畸形/错误参数引发全池账号高速死循环轮转与 Ambiguous Service 404 切号雪崩问题：
+  1. `src/auth/AuthSwitcher.js`: 400 客户端参数错误隔离不增加 `failureCount`，加入 5 秒全局防抖 (`minSwitchIntervalMs`) 与 60 秒故障账号惩罚冷却 (`accountCooldownMap`)，优先轮换调度健康可用账号；
+  2. `src/core/RequestHandler.js`: 新增 `_isClientParameterError` 识别函数并在各大流式/非流式响应中注入 `skipAccountSwitch: true`；将 Google `Ambiguous request for service ''` 识别为模型/端点错误，阻断换号重试；
+  3. `tests/test_model_dash_sanitization.mjs`: 补充 400 错误隔离、全局防抖、账号惩罚冷却与 Ambiguous Service 断言单测 (9/9 100% PASS)；
+  4. 104 服务器 8317 端口增量同步部署并重启，真实探活与黑盒 `/v1/chat/completions` 流式响应通过。
 
 ### 2.2 门禁状态核验明细
 - G1~G16 门禁全绿，单测 9/9 100% PASS。
@@ -44,7 +44,8 @@
 | Phase 6 | 核心 LLM 推理引擎 SR 等级全方位整改与加固 | 已归档 |
 | Phase 7 | Thinking-Only 注入无害 Kilocode glob 操作防进程中断 | 已归档 |
 | Phase 8 | 全量 CI/CD 缺陷门禁补齐与全景 DevState 100% 合规闭环 | 已归档 (`36ab57a`) |
-| Phase 9 | 模型名 '-' 防御清洗与 404 切号防雪崩状态机加固 | 已完成待提交 |
+| Phase 9 | 模型名 '-' 防御清洗与 404 切号防雪崩状态机加固 | 已归档 |
+| Phase 10 | 切号防抖、账号惩罚冷却、400 错误隔离与 Ambiguous Service 阻断 | 已完成待提交 |
 
 ---
 
@@ -90,7 +91,7 @@
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
-- Primary Phase: `Phase 8 (Full CI/CD Defect Gates Wiring & Panorama DevState 100% Compliance)` [IN_PROGRESS]
+- Primary Phase: `Phase 10 (Anti-Thrashing Account Switch Guard & Client Error Isolation)` [PASS_PENDING_COMMIT]
 - Secondary Phases: 无
 
 ---

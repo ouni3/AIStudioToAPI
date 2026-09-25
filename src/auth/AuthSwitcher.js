@@ -18,6 +18,10 @@ class AuthSwitcher {
         this.failureCount = 0;
         this.usageCount = 0;
         this.isSystemBusy = false;
+        this.lastSwitchTimestamp = 0;
+        this.minSwitchIntervalMs = this.config?.minSwitchIntervalMs || 5000;
+        this.accountCooldownMs = this.config?.accountCooldownMs || 60000;
+        this.accountCooldownMap = new Map();
     }
 
     get currentAuthIndex() {
@@ -49,11 +53,67 @@ class AuthSwitcher {
     //     return available[nextIndexInArray];
     // }
 
+    clearAccountCooldown(index) {
+        if (index !== undefined && index !== null) {
+            this.accountCooldownMap.delete(index);
+            this.logger.debug(`[Auth] Cleared cooldown for account #${index}`);
+        } else {
+            this.accountCooldownMap.clear();
+            this.logger.debug("[Auth] Cleared cooldown for all accounts");
+        }
+    }
+
+    setAccountCooldown(index, durationMs = this.accountCooldownMs) {
+        if (index === undefined || index === null || index < 0) return;
+        const until = Date.now() + durationMs;
+        this.accountCooldownMap.set(index, until);
+        this.logger.warn(
+            `⚠️ [Auth] Account #${index} put on cooldown for ${Math.round(durationMs / 1000)}s (until ${new Date(until).toISOString()})`
+        );
+    }
+
+    isAccountInCooldown(index) {
+        if (index === undefined || index === null || index < 0) return false;
+        const cooldownUntil = this.accountCooldownMap.get(index);
+        if (!cooldownUntil) return false;
+        if (Date.now() >= cooldownUntil) {
+            this.accountCooldownMap.delete(index);
+            return false;
+        }
+        return true;
+    }
+
+    getAccountRemainingCooldown(index) {
+        if (index === undefined || index === null || index < 0) return 0;
+        const cooldownUntil = this.accountCooldownMap.get(index);
+        if (!cooldownUntil) return 0;
+        const remaining = cooldownUntil - Date.now();
+        if (remaining <= 0) {
+            this.accountCooldownMap.delete(index);
+            return 0;
+        }
+        return remaining;
+    }
+
     async switchToNextAuth() {
         const available = this.authSource.getRotationIndices();
 
         if (available.length === 0) {
             throw new Error("No available authentication sources, cannot switch.");
+        }
+
+        // Global switch debounce check
+        const now = Date.now();
+        const elapsedSinceLastSwitch = now - this.lastSwitchTimestamp;
+        if (this.lastSwitchTimestamp > 0 && elapsedSinceLastSwitch < this.minSwitchIntervalMs) {
+            const waitRemaining = this.minSwitchIntervalMs - elapsedSinceLastSwitch;
+            this.logger.warn(
+                `⚠️ [Auth] Switch rejected by debounce: ${elapsedSinceLastSwitch}ms < ${this.minSwitchIntervalMs}ms (remaining: ${waitRemaining}ms). Skipping switch.`
+            );
+            return {
+                reason: `Switch debounced. Last switch was ${elapsedSinceLastSwitch}ms ago, minimum interval is ${this.minSwitchIntervalMs}ms.`,
+                success: false,
+            };
         }
 
         if (this.isSystemBusy) {
@@ -77,6 +137,7 @@ class AuthSwitcher {
                 try {
                     await this.browserManager.launchOrSwitchContext(singleIndex);
                     this.resetCounters();
+                    this.lastSwitchTimestamp = Date.now();
                     this.browserManager.rebalanceContextPool().catch(err => {
                         this.logger.error(`[Auth] Background rebalance failed: ${err.message}`);
                     });
@@ -106,6 +167,39 @@ class AuthSwitcher {
                 await this.browserManager.connectionRegistry.waitForAuthQueuesToDrain(this.currentAuthIndex, 25000);
             }
 
+            // Order candidate accounts: start from next account (or 0 if no current)
+            const startOffset = hasCurrentAccount ? 1 : 0;
+            const tryCount = hasCurrentAccount ? available.length - 1 : available.length;
+            const candidateIndices = [];
+            for (let i = startOffset; i < startOffset + tryCount; i++) {
+                const tryIndex = (startIndex + i) % available.length;
+                candidateIndices.push(available[tryIndex]);
+            }
+
+            // Account Cooldown filtering
+            // Separate candidates into ready accounts vs accounts on cooldown
+            const readyCandidates = candidateIndices.filter(idx => !this.isAccountInCooldown(idx));
+            const cooldownCandidates = candidateIndices.filter(idx => this.isAccountInCooldown(idx));
+
+            let orderedCandidates;
+            if (readyCandidates.length > 0) {
+                // Prioritize ready accounts first, followed by cooldown candidates as fallback
+                orderedCandidates = [...readyCandidates, ...cooldownCandidates];
+                if (cooldownCandidates.length > 0) {
+                    this.logger.info(
+                        `[Auth] Cooldown active for accounts [${cooldownCandidates.join(", ")}]; prioritizing ready accounts [${readyCandidates.join(", ")}]`
+                    );
+                }
+            } else {
+                // If ALL candidate accounts are in cooldown, sort by smallest remaining cooldown time
+                orderedCandidates = [...cooldownCandidates].sort(
+                    (a, b) => this.getAccountRemainingCooldown(a) - this.getAccountRemainingCooldown(b)
+                );
+                this.logger.warn(
+                    `⚠️ [Auth] All candidate accounts in cooldown [${cooldownCandidates.join(", ")}]; sorted by minimum remaining cooldown: [${orderedCandidates.join(", ")}]`
+                );
+            }
+
             this.logger.info("==================================================");
             this.logger.info(`🔄 [Auth] Multi-account mode: Starting intelligent account switching`);
             this.logger.info(`   • Current account: #${this.currentAuthIndex}`);
@@ -117,21 +211,17 @@ class AuthSwitcher {
             } else {
                 this.logger.info(`   • No current account, will try all available accounts`);
             }
+            this.logger.info(`   • Candidate order: [${orderedCandidates.join(", ")}]`);
             this.logger.info("==================================================");
 
             const failedAccounts = [];
-            // If no current account (currentAuthIndex=-1), start from i=0 to try all accounts
-            // If has current account, start from i=1 to skip current and try others
-            const startOffset = hasCurrentAccount ? 1 : 0;
-            const tryCount = hasCurrentAccount ? available.length - 1 : available.length;
+            const totalCandidates = orderedCandidates.length;
 
-            for (let i = startOffset; i < startOffset + tryCount; i++) {
-                const tryIndex = (startIndex + i) % available.length;
-                const accountIndex = available[tryIndex];
-
-                const attemptNumber = i - startOffset + 1;
+            for (let i = 0; i < totalCandidates; i++) {
+                const accountIndex = orderedCandidates[i];
+                const attemptNumber = i + 1;
                 this.logger.info(
-                    `🔄 [Auth] Attempting to switch to account #${accountIndex} (${attemptNumber}/${tryCount} accounts)...`
+                    `🔄 [Auth] Attempting to switch to account #${accountIndex} (${attemptNumber}/${totalCandidates} accounts)...`
                 );
 
                 try {
@@ -139,6 +229,7 @@ class AuthSwitcher {
                     await this.browserManager.preCleanupForSwitch(accountIndex);
                     await this.browserManager.switchAccount(accountIndex);
                     this.resetCounters();
+                    this.lastSwitchTimestamp = Date.now();
                     this.browserManager.rebalanceContextPool().catch(err => {
                         this.logger.error(`[Auth] Background rebalance failed: ${err.message}`);
                     });
@@ -174,6 +265,7 @@ class AuthSwitcher {
                     await this.browserManager.preCleanupForSwitch(originalStartAccount);
                     await this.browserManager.switchAccount(originalStartAccount);
                     this.resetCounters();
+                    this.lastSwitchTimestamp = Date.now();
                     this.browserManager.rebalanceContextPool().catch(err => {
                         this.logger.error(`[Auth] Background rebalance failed: ${err.message}`);
                     });
@@ -254,6 +346,19 @@ class AuthSwitcher {
     }
 
     async handleRequestFailureAndSwitch(errorDetails, sendErrorCallback) {
+        const status = Number(errorDetails?.status);
+
+        // 400 Bad Request or 4xx client parameter error isolation:
+        // Exclude 403 (forbidden/location unsupported) and 429 (rate limit) which are account-specific.
+        // Status 400 or other 4xx client parameter error indicates client-side payload issue.
+        const isClientError = status === 400 || (status >= 400 && status < 500 && status !== 403 && status !== 429);
+        if (isClientError) {
+            this.logger.warn(
+                `⚠️ [Auth] Client parameter error received (status ${status}, message: ${errorDetails?.message || "Client error"}). Skipping failure count increment and account switch.`
+            );
+            return;
+        }
+
         this.failureCount++;
         if (this.config.failureThreshold > 0) {
             this.logger.warn(
@@ -265,15 +370,18 @@ class AuthSwitcher {
             );
         }
 
-        const isImmediateSwitch = this.config.immediateSwitchStatusCodes.includes(errorDetails.status);
+        const isImmediateSwitch = this.config.immediateSwitchStatusCodes.includes(status);
         const isThresholdReached =
             this.config.failureThreshold > 0 && this.failureCount >= this.config.failureThreshold;
 
         if (isImmediateSwitch || isThresholdReached) {
+            // Apply cooldown penalty to current failing account if error is 403, 429, or 5xx
+            if (this.currentAuthIndex >= 0 && (status === 403 || status === 429 || status >= 500)) {
+                this.setAccountCooldown(this.currentAuthIndex, this.accountCooldownMs);
+            }
+
             if (isImmediateSwitch) {
-                this.logger.warn(
-                    `🔴 [Auth] Received status code ${errorDetails.status}, triggering immediate account switch...`
-                );
+                this.logger.warn(`🔴 [Auth] Received status code ${status}, triggering immediate account switch...`);
             } else {
                 this.logger.warn(
                     `🔴 [Auth] Failure threshold reached (${this.failureCount}/${this.config.failureThreshold})! Preparing to switch account...`

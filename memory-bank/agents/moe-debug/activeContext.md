@@ -9,18 +9,21 @@
 > - `verdict`: **KEEP**
 
 ## 当前阶段 (Active Phase)
-- **Phase Target**: 运行本地模型名 "-" 与畸形剥离单测及全套测试，执行 CI 门禁核验，同步代码至 104 并热重启 8317 容器，完成真实 HTTP 探活与非法模型 400 校验。
-- **Status**: 单测与全套 `npm test` 9 套件 100% PASS；`npm run verify` 退出码 0；104 8317 容器热重启完成且 HTTP 200 / 非法模型 400 断言全通。
+- **Phase Target**: 执行 104 服务器 8317 节点远程增量部署、Docker 容器平滑重启与黑盒探活。
+- **Status**: 部署脚本 `scripts/dev/remote_8317_deploy.sh` 与健康检查 `scripts/dev/healthcheck.sh` 运行完毕，`/v1/models` 黑盒接口探活 100% 成功。
 
 ## 最新验证与提交记录
-1. **测试与 CI 全门禁物理执行 (`npm test` / `npm run verify`)**:
-   - `node tests/test_model_dash_sanitization.mjs` 单测与 `npm test` 9 个测试文件全量通过 (0 failed, duration: ~457ms)。
-   - `npm run verify` 涵盖 ESLint、Stylelint、全套单测与 12 项 CI 门禁（Canary 9 项、ECT、ADVG、G1~G16）100% 绿锁。
-2. **104 8317 容器热重启与探活 (`scripts/dev/remote_8317_deploy.sh`)**:
-   - 本地 `npm run build:ui` 产物预编译并增量 rsync 同步至 104 (`192.168.0.104:/home/fy/aistudio-to-api/`)。
-   - 远程轻量 Dockerfile 增量层构建 `aistudio-to-api-custom:latest` 并热重启 `docker compose up -d`。
-   - `scripts/dev/healthcheck.sh` 响应 HTTP 200 OK。
-   - 发送 `model: "-"` 非法请求，网关正确返回 400 Bad Request (`invalid_request_error`)，无切号与雪崩行为。
+1. **104 节点 8317 服务增量部署与容器重启**:
+   - 本地 `npm run build:ui` 编译前端最新静态资产 (`ui/dist`)。
+   - `rsync` 增量同步源码至 `fy@192.168.0.104:/home/fy/aistudio-to-api/`。
+   - 远程采用 `Dockerfile.update` 轻量层完成 `aistudio-to-api-custom:latest` 镜像构建，并执行 `docker compose down && docker compose up -d` 平滑重启。
+2. **多维健康检查与黑盒探活**:
+   - `scripts/dev/healthcheck.sh`: 8317 节点响应 HTTP 200 OK，8318 节点符合按需 STANDBY 策略。
+   - `http://192.168.0.104:8317/v1/models`: 携带鉴权 Header 正常返回 OpenAI 兼容模型列表 (30+ 个最新模型)。
+   - `mcp_health_auditor_verify_artifact_payload`: 网页端点 UI HTML 载荷断言 PASS。
+3. **Phase 10 Pre-Audit Stage 暂存与快照生成**:
+   - 严格按清单精准暂存全部 12 个相关修改资产。
+   - `git write-tree` 派生 40 位 staged tree hash (Pre-Audit Snapshot ID)。
 
 ## 沉淀经验条目 (Core Debugging & Healthcheck Lessons)
 1. **104 局域网 IP SSOT**: 104 主机局域网真实 IP 为 `192.168.0.104`，运维与探活脚本默认指向该 IP，确保无人工配置摩擦。

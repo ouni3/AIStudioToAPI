@@ -110,6 +110,12 @@ const modelNotFoundPayload = {
 };
 assert.strictEqual(rh._isModelNotFoundError(modelNotFoundPayload), true, "Should identify model not found message");
 
+const ambiguousServicePayload = {
+    status: 404,
+    message: "Proxy browser error: Google API returned error: 404 NOT_FOUND {\"error\":{\"code\":404,\"message\":\"Ambiguous request for service '' and method '/GenerativeService.StreamGenerateContent'.  Please use fully qualified (unique) service and method names to call this method.\",\"status\":\"NOT_FOUND\"}}"
+};
+assert.strictEqual(rh._isModelNotFoundError(ambiguousServicePayload), true, "Should identify Ambiguous request for service error as model/service not found");
+
 // 3.2 Non-stream execute with retries simulation
 let fakeQueueClosed = false;
 const mockMessageQueue = {
@@ -166,5 +172,67 @@ switchCalledCount = 0;
 await rh._handleNonStreamResponse(proxyRequest, mockMessageQueue, {}, mockRes);
 assert.strictEqual(switchCalledCount, 0, "Account switch must be 0 (no avalanche switch on 404 Model Not Found)");
 assert.strictEqual(sentErrorStatus, 404, "Client should receive 404 error directly");
+
+// 4. Test 400 Client Error Isolation & Account Cooldown & Switch Debounce
+console.log("--- 4. Testing 400 Client Error Isolation & Account Cooldown & Switch Debounce ---");
+
+import AuthSwitcher from "../src/auth/AuthSwitcher.js";
+
+const mockAuthSource = {
+    availableIndices: [0, 1, 2],
+    getRotationIndices: () => [0, 1, 2],
+    getCanonicalIndex: idx => idx,
+};
+const mockBrowserManager = {
+    currentAuthIndex: 0,
+    launchOrSwitchContext: async () => {},
+    switchAccount: async idx => {
+        mockBrowserManager.currentAuthIndex = idx;
+    },
+    preCleanupForSwitch: async () => {},
+    rebalanceContextPool: async () => {},
+    connectionRegistry: {
+        waitForAuthQueuesToDrain: async () => {},
+    },
+};
+
+const switcher = new AuthSwitcher(
+    mockLogger,
+    { failureThreshold: 3, minSwitchIntervalMs: 5000, accountCooldownMs: 60000, immediateSwitchStatusCodes: [403, 404, 429, 500, 502, 503, 504] },
+    mockAuthSource,
+    mockBrowserManager
+);
+
+// 4.1 400 Bad Request isolation: failureCount does NOT increase and does NOT trigger switch
+assert.strictEqual(switcher.failureCount, 0);
+await switcher.handleRequestFailureAndSwitch({ status: 400, message: "Invalid argument: contents is required" }, null);
+assert.strictEqual(switcher.failureCount, 0, "400 error should not increment failureCount");
+await switcher.handleRequestFailureAndSwitch({ status: 422, message: "Unprocessable Entity" }, null);
+assert.strictEqual(switcher.failureCount, 0, "422 error should not increment failureCount");
+
+// 4.2 Debounce test
+switcher.lastSwitchTimestamp = Date.now();
+const debounceResult = await switcher.switchToNextAuth();
+assert.strictEqual(debounceResult.success, false, "Switch should be debounced within minSwitchIntervalMs");
+assert.strictEqual(debounceResult.reason.includes("debounced"), true);
+
+// 4.3 Cooldown test
+switcher.lastSwitchTimestamp = 0; // bypass debounce
+assert.strictEqual(switcher.isAccountInCooldown(1), false);
+switcher.setAccountCooldown(1, 60000);
+assert.strictEqual(switcher.isAccountInCooldown(1), true);
+assert.strictEqual(switcher.getAccountRemainingCooldown(1) > 0, true);
+
+// Cooldown filtering: Available accounts are [0, 1, 2]. Current is 0. 1 is in cooldown.
+// switchToNextAuth should pick 2 (ready) over 1 (in cooldown)
+const switchRes = await switcher.switchToNextAuth();
+assert.strictEqual(switchRes.success, true);
+assert.strictEqual(switchRes.newIndex, 2, "Should switch to account #2 because account #1 is in cooldown");
+
+// Clear cooldown
+switcher.clearAccountCooldown(1);
+assert.strictEqual(switcher.isAccountInCooldown(1), false);
+
+console.log("✔ 400 Client error isolation, cooldown, and debounce assertions passed!");
 
 console.log("✔ All dash sanitization and 404 model not found tests passed successfully!");

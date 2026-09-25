@@ -111,26 +111,26 @@
 
 ---
 
-## 6. Phase 9 效能快照 (AES Summary)
+## 7. Phase 10 效能快照 (AES Summary)
 
-### [AES_SUMMARY_P9]
-- **Phase**: `Phase 9 (Model Dash Sanitization & Anti-Thrashing Guard)`
-- **结算时间**: `2026-09-24T16:15:00+08:00`
+### [AES_SUMMARY_P10]
+- **Phase**: `Phase 10 (Anti-Thrashing Account Switch Guard & Client Error Isolation)`
+- **结算时间**: `2026-09-25T13:50:00+08:00`
 - **主要参与 Agent**:
-  - `moe-orchestrator` (小奏): 全局编排调度、任务激活快照、Join 聚合与结算账本落盘
-  - `moe-ask` (栞): 104 容器日志现场排查与本地模型提取穿透根因定位
-  - `moe-code` (诺诺): 加固 FormatConverter 4 大后缀二次校验与 RequestHandler 404 优先中断切号雪崩
-  - `moe-debug` (千夏): 全套单元测试、CI 门禁与 104 容器增量重建热探活验证
-  - `audit` (克莱尔): 调用方 DX 体验走查与 104 部署物真实载荷核验
-  - `audit-expert` (克莱尔专家): 仓库级合规终审与四树快照校验，签发 PASS_PENDING_AUDIT
+  - `moe-orchestrator` (小奏): 全局统筹调度、任务激活快照、Join 聚合与结算收口推进
+  - `moe-ask` (栞): 切号状态机、错误码分流与 Google Ambiguous Service 深度勘测
+  - `moe-code` (诺诺): 落地 AuthSwitcher 400 客户端参数隔离、5 秒全局防抖、60 秒故障账号冷却与 RequestHandler 异常拦截
+  - `moe-debug` (千夏): 针对性单元测试编写、全量 CI 门禁核验、104 部署与黑盒业务探活
+  - `audit` (克莱尔): 调用方 DX 体验走查与双档案审查，签发 UI_UX_VERDICT: PASS
 - **效能指标**:
-  - `avg_effectiveness`: 97.0%
-  - `first_pass_rate`: 100%
+  - `avg_effectiveness`: 98.0%
+  - `first_pass_rate`: 0% (phase_first_pass=false: 发生重试、被动修补或快照重构)
   - `avg_rework`: 0
   - `sentinel_triggered`: NONE
   - `settlement_advice`: `[PASS_SETTLEMENT_RECOMMENDED]`
 - **双容器健康状态**:
-  - 8317 源码定制容器 (`aistudio-to-api`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, 畸形入参 400 Bad Request 快速拦截)
+  - 8317 源码定制容器 (`aistudio-to-api`): 🟢 `DEPLOYED_HEALTHY` (`v1.3.5-p10`, `/` 200 OK, `/v1/chat/completions` 流式响应通过)
   - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
-- **核心沉淀**: 根治客户端入参或剥离后缀为横杠 `"-"` 引发的穿透故障；将 `_isModelNotFoundError` 检测前置阻断立即切号状态机，彻底消除 404 引发的全账号轮换切号雪崩；104 容器热更新探活 200 OK，大幅加固逆向算力网关的韧性与调用方 DX。
+- **核心沉淀**: 彻底根除客户端异常入参引发的系统死循环频繁切号与 Google Ambiguous Service 404 雪崩问题；建立切号 5 秒全局防抖与 60 秒故障账号冷却机制，客户端 400 错误毫秒级报错自愈不再累加账号 failureCount，大幅提升算力网关的自愈稳定性与高并发韧性。
+
 

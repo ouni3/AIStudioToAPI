@@ -66,6 +66,7 @@
   - 严格等待当前账号的每一个并发在途 WebSocket 请求 100% 流式传输完毕并关闭后，才正式执行切号与清理旧 Context，杜绝并发请求被腰斩。
 - **即时切号重试与页面错误精准感知 (Fast Failover & Page Error Detection)**:
   - **扩充即时切号契约**: `immediateSwitchStatusCodes` 囊括 403 区域受限 (`Region not supported` / `PERMISSION_DENIED`)、404、429 速率限制，以及上游服务端异常 500、502、503、504。遇此错误立即标记当前凭据异常并切至下一健康凭据重放，杜绝盲目重试导致客户端长时间阻塞。
+  - **切号全局防抖与账号惩罚冷却 (Anti-Thrashing Guard)**: 引入 5 秒全局切换防抖 (`minSwitchIntervalMs: 5000`) 与 60 秒故障账号冷却惩罚 (`accountCooldownMap`)，当发生异常切号时降权故障账号，优先轮询未受限账号；同时在 `handleRequestFailureAndSwitch` 与 `RequestHandler` 中对 400 客户端参数错误及 Google `Ambiguous request for service ''` 实施阻断拦截，杜绝全池账号高速轮转雪崩。
   - 精准识别页面硬路由崩溃特征（如 `Page not found` + `Go to Build`），避免将 Google 偶发非阻塞 Toast 提示（如 `Please try again`）误判为致命错误。
   - 设定最大重试轮次（Max Retry Quorum），保障请求不陷入死循环，并在全部凭据耗尽时规范返回标准上游错误。
 

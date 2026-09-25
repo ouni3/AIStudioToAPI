@@ -9,16 +9,18 @@
 > - `verdict`: **KEEP**
 
 ## 1. 当前会话状态 (Current Session State)
-- **Active Phase**: `Phase 8 (Full CI/CD Defect Gates Wiring & Panorama DevState 100% Compliance)`
-- **Task Goal**: 补齐修复全量 CI/CD 缺陷门禁 (G11_ROUTINE_MAINTENANCE, G12_PHASE_EVIDENCE, G15_LOGGING_STANDARDS, G16_SETTLEMENT_CONSISTENCY)，实现全景控制台 100% 达标。
-- **Status**: [PHASE_8_SETTLED_COMMITTED|COMMIT=36ab57a|CI=PASS|AuditExpert=PASS_PENDING_AUDIT|2026-09-20T13:25:00+08:00]
+- **Active Phase**: `Phase 10 (Anti-Thrashing Account Switch Guard & Client Error Isolation)`
+- **Task Goal**: 根除客户端传入畸形/错误参数引发全池账号高速死循环轮转与 Ambiguous Service 404 切号雪崩问题，加入切号全局防抖、账号惩罚冷却与 400 客户端参数错误隔离机制。
+- **Status**: [SETTLEMENT_PREPARATION|CODE_HEALTHY|8317_DEPLOYED|PENDING_AUDIT_EXPERT]
 
 ## 2. 核心架构与编排经验 (Orchestration Insights)
-1. **Thinking-Only 兜底契约升级**: 当模型仅输出 thought/reasoning 且未输出正文时注入无害 `glob` 工具调用（`{"pattern":"*"}`），并将 finish_reason 设为 tool_calls/tool_use，彻底阻断下游客户端解析崩溃。
-2. **多协议状态机统一**: OpenAI SSE 流、Claude SSE 流、OpenAI Response API 及非流式请求均统一注入 glob tool_call / tool_use。
-3. **统计筛选固定时间窗口**: 自定义时间范围收敛为最近经过的 15:00 至次日 15:00，保持全局 24 小时对齐。
-4. **基础设施三件套与远程按需化**: 统一在 `scripts/dev/` 沉淀运维工具，结合 `remote_8318.sh` 实现备用节点按需秒级拉起与停止。
-5. **双节点状态感知健康检查**: 8317 主节点强校验 HTTP 200，8318 冷备节点在端口未监听时识别为 `[STANDBY]` 合规放行，避免误报。
-6. **轻量化 CI 门禁矩阵**: 在 Node.js 仓库引入标准 Python CI 门禁（Canary 校验、ECT 格式断言、ADVG 部署物对齐与 AES 总结校验），通过 `npm run verify` 实现 100% 自动化闭环。
-7. **DevState 探针 100% 合规闭环**: 精准对齐全景控制台 10 大门禁抽取规则，通过零依赖脚本实现 G1 (Token限制)、G2 (Memory-Bank纯净度)、G3 (Git Gate工作流)、G6 (UI对比度) 与 G10 (重构文档同步)，消除所有 UNWIRED 债务。
-8. **SR 级核心容错与看门狗模式**: 将 500/502/504 纳入即时切号自愈，辅助接口消费注入 `STREAM_CHUNK` 超时控制，消除网络挂起死锁。
+1. **切号防抖与账号惩罚冷却契约**: 切号增加 5 秒全局防抖 (`minSwitchIntervalMs: 5000`) 与 60 秒故障账号冷却惩罚 (`accountCooldownMap`)，当账号故障切走后打上时间戳冷却沉底，优先调度健康账号，阻断全池轮询雪崩。
+2. **客户端 400 与 Google Ambiguous Service 错误隔离**: 客户端自身参数错误绝对不可计入账号 `failureCount`；将 Google `Ambiguous request for service ''` 识别为不可重试错误并标记 `skipAccountSwitch: true`，快速向调用方报错。
+3. **Thinking-Only 兜底契约升级**: 当模型仅输出 thought/reasoning 且未输出正文时注入无害 `glob` 工具调用（`{"pattern":"*"}`），并将 finish_reason 设为 tool_calls/tool_use，彻底阻断下游客户端解析崩溃。
+4. **多协议状态机统一**: OpenAI SSE 流、Claude SSE 流、OpenAI Response API 及非流式请求均统一注入 glob tool_call / tool_use。
+5. **统计筛选固定时间窗口**: 自定义时间范围收敛为最近经过的 15:00 至次日 15:00，保持全局 24 小时对齐。
+6. **双节点状态感知健康检查**: 8317 主节点强校验 HTTP 200，8318 冷备节点在端口未监听时识别为 `[STANDBY]` 合规放行，避免误报。
+7. **轻量化 CI 门禁矩阵**: 在 Node.js 仓库引入标准 Python CI 门禁（Canary 校验、ECT 格式断言、ADVG 部署物对齐与 AES 总结校验），通过 `npm run verify` 实现 100% 自动化闭环。
+8. **DevState 探针 100% 合规闭环**: 精准对齐全景控制台 10 大门禁抽取规则，通过零依赖脚本实现 G1 (Token限制)、G2 (Memory-Bank纯净度)、G3 (Git Gate工作流)、G6 (UI对比度) 与 G10 (重构文档同步)，消除所有 UNWIRED 债务。
+9. **SR 级核心容错与看门狗模式**: 将 500/502/504 纳入即时切号自愈，辅助接口消费注入 `STREAM_CHUNK` 超时控制，消除网络挂起死锁。
+10. **后缀剥离二次合法性校验与 404 切号防雪崩**: 剥离 `-search` 等后缀后必须二次核验合法性，防横杠穿透；`_isModelNotFoundError` 识别必须前置于 immediateSwitch，严禁不存在的模型引发全账号轮换雪崩。

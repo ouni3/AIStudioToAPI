@@ -306,8 +306,16 @@ class RequestHandler {
             msgStr.includes("MODELS/") ||
             msgStr.includes("NOT FOUND") ||
             msgStr.includes("NOT_FOUND") ||
-            msgStr.includes("IS NOT FOUND FOR API VERSION")
+            msgStr.includes("IS NOT FOUND FOR API VERSION") ||
+            msgStr.includes("AMBIGUOUS REQUEST FOR SERVICE")
         );
+    }
+
+    _isClientParameterError(error) {
+        if (!error) return false;
+        const status = Number(error.status);
+        if (!Number.isFinite(status)) return false;
+        return status === 400 || (status >= 400 && status < 500 && status !== 403 && status !== 404 && status !== 429);
     }
 
     _logGeminiNativeChunkDebug(googleChunk, mode = "stream") {
@@ -695,6 +703,28 @@ class RequestHandler {
         if (!status) return false;
         const statusCode = Number(status);
         if (isNaN(statusCode)) return false;
+
+        // Status 400 Bad Request or 4xx client parameter error (excluding 403, 404, 429): never trigger immediate account switch
+        if (
+            statusCode === 400 ||
+            (statusCode >= 400 && statusCode < 500 && statusCode !== 403 && statusCode !== 404 && statusCode !== 429)
+        ) {
+            return false;
+        }
+
+        // If it is 404, check if it's a model not found / ambiguous service error (non-retryable client error)
+        if (statusCode === 404) {
+            const msgStr = String(message || "").toUpperCase();
+            if (
+                msgStr.includes("MODELS/") ||
+                msgStr.includes("NOT FOUND") ||
+                msgStr.includes("NOT_FOUND") ||
+                msgStr.includes("IS NOT FOUND FOR API VERSION") ||
+                msgStr.includes("AMBIGUOUS REQUEST FOR SERVICE")
+            ) {
+                return false;
+            }
+        }
 
         // If it is 403, check if the response body/message contains specific denial reasons
         if (statusCode === 403) {
@@ -1414,23 +1444,24 @@ class RequestHandler {
                         });
 
                         const isModelNotFound = this._isModelNotFoundError(initialMessage);
-                        if (isModelNotFound) {
+                        const isClientError = this._isClientParameterError(initialMessage);
+                        if (isModelNotFound || isClientError) {
                             initialMessage.skipAccountSwitch = true;
                             skipFinalFailureSwitch = true;
                             this.logger.warn(
-                                `[Request] Upstream reported model not found error (OpenAI Real Stream). Directing response without account switch retry.`
+                                `[Request] Upstream reported ${isModelNotFound ? "model not found" : "client parameter"} error (status ${initialMessage.status}, message: ${initialMessage.message}) (OpenAI Real Stream). Directing response without account switch retry.`
                             );
                         }
 
                         // Send standard HTTP error response
                         this._sendErrorResponse(res, initialMessage.status || 500, initialMessage.message);
 
-                        // Avoid switching account if the error is just a connection reset
+                        // Avoid switching account if the error is just a connection reset or client parameter error
                         if (!skipFinalFailureSwitch && !this._isConnectionResetError(initialMessage)) {
                             await this.authSwitcher.handleRequestFailureAndSwitch(initialMessage, null);
                         } else if (skipFinalFailureSwitch) {
                             this.logger.info(
-                                "[Request] Immediate-switch retries exhausted or non-retryable model error, skipping additional account switch."
+                                "[Request] Immediate-switch retries exhausted, non-retryable model error, or client parameter error, skipping additional account switch."
                             );
                         } else {
                             this.logger.info(
@@ -1492,12 +1523,12 @@ class RequestHandler {
                                 this._sendErrorResponse(res, result.error.status || 500, result.error.message);
                             }
 
-                            // Avoid switching account if the error is just a connection reset
+                            // Avoid switching account if the error is just a connection reset or skipAccountSwitch is marked
                             if (!result.error.skipAccountSwitch && !this._isConnectionResetError(result.error)) {
                                 await this.authSwitcher.handleRequestFailureAndSwitch(result.error, null);
                             } else if (result.error.skipAccountSwitch) {
                                 this.logger.info(
-                                    "[Request] Immediate-switch retries exhausted, skipping additional account switch."
+                                    "[Request] Immediate-switch retries exhausted, non-retryable model error, or client parameter error, skipping additional account switch."
                                 );
                             } else {
                                 this.logger.info(
@@ -1871,23 +1902,24 @@ class RequestHandler {
                         });
 
                         const isModelNotFound = this._isModelNotFoundError(initialMessage);
-                        if (isModelNotFound) {
+                        const isClientError = this._isClientParameterError(initialMessage);
+                        if (isModelNotFound || isClientError) {
                             initialMessage.skipAccountSwitch = true;
                             skipFinalFailureSwitch = true;
                             this.logger.warn(
-                                `[Request] Upstream reported model not found error (OpenAI Response API Real Stream). Directing response without account switch retry.`
+                                `[Request] Upstream reported ${isModelNotFound ? "model not found" : "client parameter"} error (status ${initialMessage.status}, message: ${initialMessage.message}) (OpenAI Response API Real Stream). Directing response without account switch retry.`
                             );
                         }
 
                         // Send standard HTTP error response
                         this._sendErrorResponse(res, initialMessage.status || 500, initialMessage.message);
 
-                        // Avoid switching account if the error is just a connection reset
+                        // Avoid switching account if the error is just a connection reset or client parameter error
                         if (!skipFinalFailureSwitch && !this._isConnectionResetError(initialMessage)) {
                             await this.authSwitcher.handleRequestFailureAndSwitch(initialMessage, null);
                         } else if (skipFinalFailureSwitch) {
                             this.logger.info(
-                                "[Request] Immediate-switch retries exhausted or non-retryable model error, skipping additional account switch."
+                                "[Request] Immediate-switch retries exhausted, non-retryable model error, or client parameter error, skipping additional account switch."
                             );
                         } else {
                             this.logger.info(
@@ -1956,12 +1988,12 @@ class RequestHandler {
                                 this._sendErrorResponse(res, result.error.status || 500, result.error.message);
                             }
 
-                            // Avoid switching account if the error is just a connection reset
+                            // Avoid switching account if the error is just a connection reset or skipAccountSwitch is marked
                             if (!result.error.skipAccountSwitch && !this._isConnectionResetError(result.error)) {
                                 await this.authSwitcher.handleRequestFailureAndSwitch(result.error, null);
                             } else if (result.error.skipAccountSwitch) {
                                 this.logger.info(
-                                    "[Request] Immediate-switch retries exhausted, skipping additional account switch."
+                                    "[Request] Immediate-switch retries exhausted, non-retryable model error, or client parameter error, skipping additional account switch."
                                 );
                             } else {
                                 this.logger.info(
@@ -2296,11 +2328,12 @@ class RequestHandler {
                         });
 
                         const isModelNotFound = this._isModelNotFoundError(initialMessage);
-                        if (isModelNotFound) {
+                        const isClientError = this._isClientParameterError(initialMessage);
+                        if (isModelNotFound || isClientError) {
                             initialMessage.skipAccountSwitch = true;
                             skipFinalFailureSwitch = true;
                             this.logger.warn(
-                                `[Request] Upstream reported model not found error (Claude Real Stream). Directing response without account switch retry.`
+                                `[Request] Upstream reported ${isModelNotFound ? "model not found" : "client parameter"} error (status ${initialMessage.status}, message: ${initialMessage.message}) (Claude Real Stream). Directing response without account switch retry.`
                             );
                         }
 
@@ -2309,7 +2342,7 @@ class RequestHandler {
                             await this.authSwitcher.handleRequestFailureAndSwitch(initialMessage, null);
                         } else if (skipFinalFailureSwitch) {
                             this.logger.info(
-                                "[Request] Immediate-switch retries exhausted or non-retryable model error, skipping additional account switch."
+                                "[Request] Immediate-switch retries exhausted, non-retryable model error, or client parameter error, skipping additional account switch."
                             );
                         }
                         return;
@@ -2371,7 +2404,7 @@ class RequestHandler {
                                 await this.authSwitcher.handleRequestFailureAndSwitch(result.error, null);
                             } else if (result.error.skipAccountSwitch) {
                                 this.logger.info(
-                                    "[Request] Immediate-switch retries exhausted, skipping additional account switch."
+                                    "[Request] Immediate-switch retries exhausted, non-retryable model error, or client parameter error, skipping additional account switch."
                                 );
                             }
                             return;
@@ -2616,9 +2649,10 @@ class RequestHandler {
                     this._sendErrorResponse(res, response.status || 500, response.message, "api_error");
 
                     const isModelNotFound = this._isModelNotFoundError(response);
-                    if (isModelNotFound) {
+                    const isClientError = this._isClientParameterError(response);
+                    if (isModelNotFound || isClientError) {
                         this.logger.warn(
-                            `[Request] Upstream reported model not found error (count tokens). Skipping account switch.`
+                            `[Request] Upstream reported ${isModelNotFound ? "model not found" : "client parameter"} error (count tokens). Skipping account switch.`
                         );
                     } else if (!this._isConnectionResetError(response)) {
                         await this.authSwitcher.handleRequestFailureAndSwitch(response, null);
@@ -2798,9 +2832,10 @@ class RequestHandler {
                     this._sendErrorResponse(res, response.status || 500, response.message);
 
                     const isModelNotFound = this._isModelNotFoundError(response);
-                    if (isModelNotFound) {
+                    const isClientError = this._isClientParameterError(response);
+                    if (isModelNotFound || isClientError) {
                         this.logger.warn(
-                            `[Request] Upstream reported model not found error (input_tokens). Skipping account switch.`
+                            `[Request] Upstream reported ${isModelNotFound ? "model not found" : "client parameter"} error (input_tokens). Skipping account switch.`
                         );
                     } else if (!this._isConnectionResetError(response)) {
                         await this.authSwitcher.handleRequestFailureAndSwitch(response, null);
@@ -3377,20 +3412,21 @@ class RequestHandler {
                 });
 
                 const isModelNotFound = this._isModelNotFoundError(headerMessage);
-                if (isModelNotFound) {
+                const isClientError = this._isClientParameterError(headerMessage);
+                if (isModelNotFound || isClientError) {
                     headerMessage.skipAccountSwitch = true;
                     skipFinalFailureSwitch = true;
                     this.logger.warn(
-                        `[Request] Upstream reported model not found error (Real Stream). Directing 404/400 response without account switch retry.`
+                        `[Request] Upstream reported ${isModelNotFound ? "model not found" : "client parameter"} error (status ${headerMessage.status}, message: ${headerMessage.message}) (Real Stream). Directing response without account switch retry.`
                     );
                 }
 
-                // Avoid switching account if the error is just a connection reset
+                // Avoid switching account if the error is just a connection reset or client parameter error
                 if (!skipFinalFailureSwitch && !this._isConnectionResetError(headerMessage)) {
                     await this.authSwitcher.handleRequestFailureAndSwitch(headerMessage, null);
                 } else if (skipFinalFailureSwitch) {
                     this.logger.info(
-                        "[Request] Immediate-switch retries exhausted or non-retryable model error, skipping additional account switch."
+                        "[Request] Immediate-switch retries exhausted, non-retryable model error, or client parameter error, skipping additional account switch."
                     );
                 } else {
                     this.logger.info(
@@ -3504,12 +3540,12 @@ class RequestHandler {
                     this.logger.info(`[Request] Request #${proxyRequest.request_id} was properly cancelled by user.`);
                 } else {
                     this._logFinalRequestFailure(result.error, "Gemini non-stream", proxyRequest.request_id);
-                    // Avoid switching account if the error is just a connection reset
+                    // Avoid switching account if the error is just a connection reset or skipAccountSwitch is marked
                     if (!result.error.skipAccountSwitch && !this._isConnectionResetError(result.error)) {
                         await this.authSwitcher.handleRequestFailureAndSwitch(result.error, null);
                     } else if (result.error.skipAccountSwitch) {
                         this.logger.info(
-                            "[Request] Immediate-switch retries exhausted, skipping additional account switch."
+                            "[Request] Immediate-switch retries exhausted, non-retryable model error, or client parameter error, skipping additional account switch."
                         );
                     } else {
                         this.logger.info(
@@ -3781,6 +3817,15 @@ class RequestHandler {
                     lastError = { ...errorPayload, skipAccountSwitch: true };
                     this.logger.warn(
                         `[Request] Upstream reported model not found error (status ${errorPayload.status}, message: ${errorPayload.message}). Skipping retries and account switches.`
+                    );
+                    break;
+                }
+
+                const isClientError = this._isClientParameterError(errorPayload);
+                if (isClientError) {
+                    lastError = { ...errorPayload, skipAccountSwitch: true };
+                    this.logger.warn(
+                        `[Request] Upstream reported client parameter error (status ${errorPayload.status}, message: ${errorPayload.message}). Skipping retries and account switches.`
                     );
                     break;
                 }
