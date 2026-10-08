@@ -133,4 +133,28 @@
   - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
 - **核心沉淀**: 彻底根除客户端异常入参引发的系统死循环频繁切号与 Google Ambiguous Service 404 雪崩问题；建立切号 5 秒全局防抖与 60 秒故障账号冷却机制，客户端 400 错误毫秒级报错自愈不再累加账号 failureCount，大幅提升算力网关的自愈稳定性与高并发韧性。
 
+---
+
+## 8. Phase 11 效能快照 (AES Summary)
+
+### [AES_SUMMARY_P11]
+- **Phase**: `Phase 11 (Google 404 Ambiguous Service Auto-Healing & Downstream 503 Mapping)`
+- **结算时间**: `2026-10-08T10:45:00+08:00`
+- **主要参与 Agent**:
+  - `moe-orchestrator` (小奏): 全局统筹调度、任务激活快照、ATC 规范拆解与结算推进
+  - `moe-code` (诺诺): 修复 RequestHandler Ambiguous Service 404 误判，纳入即时切号重试，并在 OpenAI/Claude 出口优雅映射 503
+  - `moe-debug` (千夏): 全套单元测试与 CI 门禁验证通过，104 服务器 8317 增量构建与平滑重启探活
+  - `audit` (克莱尔): 调用方 DX 体验走查与部署物审查，签发 UI_UX_VERDICT: PASS
+- **效能指标**:
+  - `avg_effectiveness`: UNKNOWN
+  - `first_pass_rate`: 0% (phase_first_pass=false: 发生重试、被动修补或快照重构)
+  - `avg_rework`: 0
+  - `sentinel_triggered`: NONE
+  - `settlement_advice`: `[PASS_SETTLEMENT_RECOMMENDED]`
+- **双容器健康状态**:
+  - 8317 源码定制容器 (`aistudio-to-api`): 🟢 `DEPLOYED_HEALTHY` (`v1.3.5-p11`, `/` 200 OK, `/v1/chat/completions` 流式与非流式 200 OK)
+  - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
+- **核心沉淀**: 彻底解决 Google AI Studio 偶发 404 Ambiguous Service 寻址抖动导致网关不重试直接透传 404、引发 Kilo 客户端中断的痛点。将其准确识别为可重试错误并自动换号，重试耗尽时在多协议出口统一映射为 503，保障客户端具备透明重试能力，极大提升了网关可用性。
+
+
 

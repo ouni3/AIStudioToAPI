@@ -114,7 +114,9 @@ const ambiguousServicePayload = {
     status: 404,
     message: "Proxy browser error: Google API returned error: 404 NOT_FOUND {\"error\":{\"code\":404,\"message\":\"Ambiguous request for service '' and method '/GenerativeService.StreamGenerateContent'.  Please use fully qualified (unique) service and method names to call this method.\",\"status\":\"NOT_FOUND\"}}"
 };
-assert.strictEqual(rh._isModelNotFoundError(ambiguousServicePayload), true, "Should identify Ambiguous request for service error as model/service not found");
+assert.strictEqual(rh._isModelNotFoundError(ambiguousServicePayload), false, "Ambiguous request for service must NOT be treated as model not found");
+assert.strictEqual(rh._isImmediateSwitchStatus(404, ambiguousServicePayload.message), true, "Ambiguous request for service with 404 MUST trigger immediate account switch");
+assert.strictEqual(rh._isImmediateSwitchStatus(404, modelNotFoundPayload.message), false, "Real model not found with 404 must NOT trigger immediate account switch");
 
 // 3.2 Non-stream execute with retries simulation
 let fakeQueueClosed = false;
@@ -210,14 +212,28 @@ assert.strictEqual(switcher.failureCount, 0, "400 error should not increment fai
 await switcher.handleRequestFailureAndSwitch({ status: 422, message: "Unprocessable Entity" }, null);
 assert.strictEqual(switcher.failureCount, 0, "422 error should not increment failureCount");
 
-// 4.2 Debounce test
+// 4.2 Debounce test & Force switch bypass debounce
 switcher.lastSwitchTimestamp = Date.now();
 const debounceResult = await switcher.switchToNextAuth();
 assert.strictEqual(debounceResult.success, false, "Switch should be debounced within minSwitchIntervalMs");
 assert.strictEqual(debounceResult.reason.includes("debounced"), true);
 
+// 4.2.1 Force switch should bypass debounce
+const forceResult = await switcher.switchToNextAuth({ force: true });
+assert.strictEqual(forceResult.success, true, "Force switch should bypass debounce");
+assert.strictEqual(switcher.lastSwitchTimestamp > 0, true);
+
+// 4.2.2 handleRequestFailureAndSwitch with 403 should bypass debounce and switch account
+switcher.lastSwitchTimestamp = Date.now();
+const beforeIndex = mockBrowserManager.currentAuthIndex;
+const failureSwitchResult = await switcher.handleRequestFailureAndSwitch({ status: 403, message: "Region not supported" }, null);
+assert.strictEqual(failureSwitchResult.success, true, "Failure-triggered switch must bypass debounce and succeed");
+assert.notStrictEqual(mockBrowserManager.currentAuthIndex, beforeIndex, "Account must have changed after 403 failure switch");
+
 // 4.3 Cooldown test
 switcher.lastSwitchTimestamp = 0; // bypass debounce
+switcher.clearAccountCooldown();
+mockBrowserManager.currentAuthIndex = 0;
 assert.strictEqual(switcher.isAccountInCooldown(1), false);
 switcher.setAccountCooldown(1, 60000);
 assert.strictEqual(switcher.isAccountInCooldown(1), true);

@@ -9,30 +9,30 @@
 > - `verdict`: **KEEP**
 
 ## 当前阶段 (Active Phase)
-- **Phase Target**: 执行 104 服务器 8317 节点远程增量部署、Docker 容器平滑重启与黑盒探活。
-- **Status**: 部署脚本 `scripts/dev/remote_8317_deploy.sh` 与健康检查 `scripts/dev/healthcheck.sh` 运行完毕，`/v1/models` 黑盒接口探活 100% 成功。
+- **Phase Target**: 104 服务器 8317 端口服务增量同步、前端 UI 构建、定制镜像增量构建与平滑重启探活。
+- **Status**: 104 主节点 8317 增量部署成功，健康检查 HTTP 200 OK，流式与非流式黑盒推理 100% 验证通过。
 
 ## 最新验证与提交记录
-1. **104 节点 8317 服务增量部署与容器重启**:
-   - 本地 `npm run build:ui` 编译前端最新静态资产 (`ui/dist`)。
-   - `rsync` 增量同步源码至 `fy@192.168.0.104:/home/fy/aistudio-to-api/`。
-   - 远程采用 `Dockerfile.update` 轻量层完成 `aistudio-to-api-custom:latest` 镜像构建，并执行 `docker compose down && docker compose up -d` 平滑重启。
-2. **多维健康检查与黑盒探活**:
-   - `scripts/dev/healthcheck.sh`: 8317 节点响应 HTTP 200 OK，8318 节点符合按需 STANDBY 策略。
-   - `http://192.168.0.104:8317/v1/models`: 携带鉴权 Header 正常返回 OpenAI 兼容模型列表 (30+ 个最新模型)。
-   - `mcp_health_auditor_verify_artifact_payload`: 网页端点 UI HTML 载荷断言 PASS。
-3. **Phase 10 Pre-Audit Stage 暂存与快照生成**:
-   - 严格按清单精准暂存全部 12 个相关修改资产。
-   - `git write-tree` 派生 40 位 staged tree hash (Pre-Audit Snapshot ID)。
+1. **本地前端 UI 构建**:
+   - `npm run build:ui`: Vite 构建成功，生产打包耗时 34.28s，产物注入 `dist/`。
+2. **104 远程主节点 (8317) 增量部署与容器平滑重启**:
+   - 增量 rsync 同步最新源码至 104 服务器 (`/home/fy/aistudio-to-api`)。
+   - 远程使用 `Dockerfile.update` 基于 `aistudio-to-api-custom:latest` 进行轻量增量层构建并打标。
+   - 远程执行 `docker compose down && docker compose up -d` 重启容器，容器状态达成 `healthy`。
+3. **黑盒接口探活与端到端推理测试**:
+   - `scripts/dev/healthcheck.sh`: 主节点 8317 响应 HTTP 200 OK，8318 节点符合 STANDBY 规约。
+   - 黑盒流式推理: `POST /v1/chat/completions` (model: `gemini-3.7-flash`, `stream: true`) 成功流式输出 `PONG_SUCCESS`，最终以 `[DONE]` 正常收口。
+   - 黑盒非流式推理: `POST /v1/chat/completions` (model: `gemini-3.7-flash`, `stream: false`) 成功返回 HTTP 200，内容 `OK`。
 
 ## 沉淀经验条目 (Core Debugging & Healthcheck Lessons)
 1. **104 局域网 IP SSOT**: 104 主机局域网真实 IP 为 `192.168.0.104`，运维与探活脚本默认指向该 IP，确保无人工配置摩擦。
 2. **增量镜像更新策略**: 104 远程主机已具备基础环境与 Camoufox 二进制时，应采用本地预构建前端产物 + 增量层 `COPY` 覆盖方式构建，避免在容器内重复触发全量 apt/npm 安装。
 3. **模型名前置拦截与切号防雪崩**: 客户端传入 `"-"` 等非法模型时直接前置拦截返回 400 Bad Request；404 模型不存在错误前置设置 `skipAccountSwitch=true`，严禁触发换号重试。
-4. **Thinking-Only 与 FinalizeStream 兜底契约**: Gemini 模型仅输出思考过程（thought: true）而无正文时，OpenAI / Claude 格式分别按协议要求补发 `glob` 工具调用与完成状态；流式意外断流时调用 finalizeStream 幂等补发尾包避免客户端挂起。
-5. **G15 日志门禁浏览器上下文注解**: `BrowserManager.js` 等向浏览器页面内注入的脚本（`addInitScript` / `evaluate`）包含控制台输出时，使用 `// @moe-logger-exempt - browser page context` 进行规范注解，避免被 G15 静态 AST 误判为 Node 服务端裸 console。
-6. **分级结算与全景 DevState 抽取契约**: 轻量结算门禁 `verify:settlement` 与 `verify` 双阶分离；`extract_dev_state.py` 严格校验 G1~G16 映射，无 UNWIRED 且达到 100% 满分。
+4. **403/429/5xx 强制切号穿透防抖**: 故障转移切号必须显式传入 `{ force: true }` 绕过 `minSwitchIntervalMs` 防抖限制，并对异常账号施加 `accountCooldownMs` 冷却惩罚。
+5. **单测上下文状态重置**: 包含单例或持久化状态（如冷却表 `accountCooldownMap`）的模块在多断言串行测试中，测试用例各 section 切换前必须显式重置或清理，防止前置断言引发的副作用干扰后续隔离断言。
+6. **G15 日志门禁浏览器上下文注解**: `BrowserManager.js` 等向浏览器页面内注入的脚本（`addInitScript` / `evaluate`）包含控制台输出时，使用 `// @moe-logger-exempt - browser page context` 进行规范注解，避免被 G15 静态 AST 误判为 Node 服务端裸 console。
+7. **分级结算与全景 DevState 抽取契约**: 轻量结算门禁 `verify:settlement` 与 `verify` 双阶分离；`extract_dev_state.py` 严格校验 G1~G16 映射，无 UNWIRED 且达到 100% 满分。
 
 ## 工作区状态 (Workspace Status)
 - 分支: `feat/deploy-104-container-failover`
-- 状态: G11, G12, G15, G16 全套门禁与全景控制台 DevState 探针校验 100% 达标。
+- 状态: npm test (9/9 pass) + npm run verify (PASS) 100% 达标，ESLint prettier 格式已自动对齐。

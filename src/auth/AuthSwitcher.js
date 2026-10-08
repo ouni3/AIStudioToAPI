@@ -95,17 +95,23 @@ class AuthSwitcher {
         return remaining;
     }
 
-    async switchToNextAuth() {
+    async switchToNextAuth(options = {}) {
+        const { force = false, ignoreDebounce = false } = options;
         const available = this.authSource.getRotationIndices();
 
         if (available.length === 0) {
             throw new Error("No available authentication sources, cannot switch.");
         }
 
-        // Global switch debounce check
+        // Global switch debounce check (bypassed if force or ignoreDebounce is true)
         const now = Date.now();
         const elapsedSinceLastSwitch = now - this.lastSwitchTimestamp;
-        if (this.lastSwitchTimestamp > 0 && elapsedSinceLastSwitch < this.minSwitchIntervalMs) {
+        const shouldBypassDebounce = force || ignoreDebounce;
+        if (
+            !shouldBypassDebounce &&
+            this.lastSwitchTimestamp > 0 &&
+            elapsedSinceLastSwitch < this.minSwitchIntervalMs
+        ) {
             const waitRemaining = this.minSwitchIntervalMs - elapsedSinceLastSwitch;
             this.logger.warn(
                 `⚠️ [Auth] Switch rejected by debounce: ${elapsedSinceLastSwitch}ms < ${this.minSwitchIntervalMs}ms (remaining: ${waitRemaining}ms). Skipping switch.`
@@ -389,17 +395,20 @@ class AuthSwitcher {
             }
 
             try {
-                const result = await this.switchToNextAuth();
+                // Failure-triggered switch (403, 429, 5xx, or threshold reached):
+                // Account is failing or on cooldown, must force switch to bypass debounce
+                const result = await this.switchToNextAuth({ force: true });
                 if (!result.success) {
                     this.logger.warn(`⚠️ [Auth] Account switch skipped: ${result.reason}`);
                     if (sendErrorCallback) {
                         sendErrorCallback(`⚠️ Account switch skipped: ${result.reason}`);
                     }
-                    return;
+                    return result;
                 }
                 const successMessage = `🔄 Account switch completed, now using account #${this.currentAuthIndex}.`;
                 this.logger.info(`[Auth] ${successMessage}`);
                 if (sendErrorCallback) sendErrorCallback(successMessage);
+                return result;
             } catch (error) {
                 let userMessage = `❌ Fatal error: Unknown switching error occurred: ${error.message}`;
 

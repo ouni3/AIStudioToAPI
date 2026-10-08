@@ -302,12 +302,14 @@ class RequestHandler {
     _isModelNotFoundError(error) {
         if (!error) return false;
         const msgStr = String(error.message || error).toUpperCase();
+        if (msgStr.includes("AMBIGUOUS REQUEST FOR SERVICE")) {
+            return false;
+        }
         return (
             msgStr.includes("MODELS/") ||
             msgStr.includes("NOT FOUND") ||
             msgStr.includes("NOT_FOUND") ||
-            msgStr.includes("IS NOT FOUND FOR API VERSION") ||
-            msgStr.includes("AMBIGUOUS REQUEST FOR SERVICE")
+            msgStr.includes("IS NOT FOUND FOR API VERSION")
         );
     }
 
@@ -712,15 +714,18 @@ class RequestHandler {
             return false;
         }
 
-        // If it is 404, check if it's a model not found / ambiguous service error (non-retryable client error)
+        // If it is 404, check if it's a model not found error (non-retryable client error)
+        // Note: Google internal routing jitter ("Ambiguous request for service") returns 404,
+        // but it is an upstream generative failure that should trigger immediate account switch.
         if (statusCode === 404) {
             const msgStr = String(message || "").toUpperCase();
-            if (
+            if (msgStr.includes("AMBIGUOUS REQUEST FOR SERVICE")) {
+                // Allow immediate account switch for upstream routing jitter
+            } else if (
                 msgStr.includes("MODELS/") ||
                 msgStr.includes("NOT FOUND") ||
                 msgStr.includes("NOT_FOUND") ||
-                msgStr.includes("IS NOT FOUND FOR API VERSION") ||
-                msgStr.includes("AMBIGUOUS REQUEST FOR SERVICE")
+                msgStr.includes("IS NOT FOUND FOR API VERSION")
             ) {
                 return false;
             }
@@ -748,10 +753,16 @@ class RequestHandler {
     }
 
     async _performImmediateSwitchRetry(errorDetails, requestId, tracker) {
-        await this.authSwitcher.handleRequestFailureAndSwitch(
+        const switchResult = await this.authSwitcher.handleRequestFailureAndSwitch(
             { message: errorDetails.message, status: Number(errorDetails.status) },
             null
         );
+
+        if (switchResult && switchResult.success === false) {
+            this.logger.warn(
+                `[Request] Immediate switch for request #${requestId} was skipped or rejected: ${switchResult.reason || "unknown reason"}`
+            );
+        }
 
         const ready = await this._waitForSystemAndConnectionIfBusy(null, {
             sendError: () => {},
@@ -769,8 +780,10 @@ class RequestHandler {
         }
 
         if (tracker.attemptedAuthIndices.has(newAuthIndex)) {
+            // Check if current account is on cooldown or if available alternative accounts exist
+            const isCurrentInCooldown = this.authSwitcher?.isAccountInCooldown?.(newAuthIndex);
             this.logger.warn(
-                `[Request] Immediate switch for request #${requestId} returned to already-attempted account #${newAuthIndex}, stopping account-switch retries.`
+                `[Request] Immediate switch for request #${requestId} returned to already-attempted account #${newAuthIndex}${isCurrentInCooldown ? " (account is in cooldown)" : ""}, stopping account-switch retries.`
             );
             return false;
         }
@@ -1453,8 +1466,21 @@ class RequestHandler {
                             );
                         }
 
-                        // Send standard HTTP error response
-                        this._sendErrorResponse(res, initialMessage.status || 500, initialMessage.message);
+                        // Send standard HTTP error response (mapping 403 or generative 404 to 503)
+                        let downstreamStatus = initialMessage.status || 500;
+                        let errorMessage = initialMessage.message;
+                        if (
+                            !isModelNotFound &&
+                            (initialMessage.status === 403 ||
+                                (initialMessage.status === 404 && proxyRequest.is_generative))
+                        ) {
+                            downstreamStatus = 503;
+                            this.logger.warn(
+                                `[Request] Mapping upstream ${initialMessage.status} to 503 for OpenAI streaming request #${requestId} (account index: ${currentQueueAuthIndex}) to trigger client-side retry.`
+                            );
+                            errorMessage = `Upstream Google AI Studio ${initialMessage.status} error mapped to 503. Original message: ${initialMessage.message}`;
+                        }
+                        this._sendErrorResponse(res, downstreamStatus, errorMessage);
 
                         // Avoid switching account if the error is just a connection reset or client parameter error
                         if (!skipFinalFailureSwitch && !this._isConnectionResetError(initialMessage)) {
@@ -1520,7 +1546,24 @@ class RequestHandler {
                                 // If keep-alives already started the SSE response, send an SSE error event instead of JSON.
                                 this._handleRequestError(result.error, res, requestId);
                             } else {
-                                this._sendErrorResponse(res, result.error.status || 500, result.error.message);
+                                let downstreamStatus = result.error.status || 500;
+                                let errorMessage = result.error.message;
+                                const isModelNotFound = this._isModelNotFoundError(result.error);
+                                if (
+                                    !isModelNotFound &&
+                                    (result.error.status === 403 ||
+                                        (result.error.status === 404 && proxyRequest.is_generative))
+                                ) {
+                                    downstreamStatus = 503;
+                                    const authIndex =
+                                        this.connectionRegistry.getAuthIndexForRequest(proxyRequest.request_id) ??
+                                        this.currentAuthIndex;
+                                    this.logger.warn(
+                                        `[Request] Mapping upstream ${result.error.status} to 503 for OpenAI request #${requestId} (account index: ${authIndex}) to trigger client-side retry.`
+                                    );
+                                    errorMessage = `Upstream Google AI Studio ${result.error.status} error mapped to 503. Original message: ${result.error.message}`;
+                                }
+                                this._sendErrorResponse(res, downstreamStatus, errorMessage);
                             }
 
                             // Avoid switching account if the error is just a connection reset or skipAccountSwitch is marked
@@ -1911,8 +1954,21 @@ class RequestHandler {
                             );
                         }
 
-                        // Send standard HTTP error response
-                        this._sendErrorResponse(res, initialMessage.status || 500, initialMessage.message);
+                        // Send standard HTTP error response (mapping 403 or generative 404 to 503)
+                        let downstreamStatus = initialMessage.status || 500;
+                        let errorMessage = initialMessage.message;
+                        if (
+                            !isModelNotFound &&
+                            (initialMessage.status === 403 ||
+                                (initialMessage.status === 404 && proxyRequest.is_generative))
+                        ) {
+                            downstreamStatus = 503;
+                            this.logger.warn(
+                                `[Request] Mapping upstream ${initialMessage.status} to 503 for OpenAI Response API streaming request #${requestId} (account index: ${currentQueueAuthIndex}) to trigger client-side retry.`
+                            );
+                            errorMessage = `Upstream Google AI Studio ${initialMessage.status} error mapped to 503. Original message: ${initialMessage.message}`;
+                        }
+                        this._sendErrorResponse(res, downstreamStatus, errorMessage);
 
                         // Avoid switching account if the error is just a connection reset or client parameter error
                         if (!skipFinalFailureSwitch && !this._isConnectionResetError(initialMessage)) {
@@ -1985,7 +2041,24 @@ class RequestHandler {
                                 // If keep-alives already started the SSE response, send an SSE error event instead of JSON.
                                 this._handleRequestError(result.error, res, requestId);
                             } else {
-                                this._sendErrorResponse(res, result.error.status || 500, result.error.message);
+                                let downstreamStatus = result.error.status || 500;
+                                let errorMessage = result.error.message;
+                                const isModelNotFound = this._isModelNotFoundError(result.error);
+                                if (
+                                    !isModelNotFound &&
+                                    (result.error.status === 403 ||
+                                        (result.error.status === 404 && proxyRequest.is_generative))
+                                ) {
+                                    downstreamStatus = 503;
+                                    const authIndex =
+                                        this.connectionRegistry.getAuthIndexForRequest(proxyRequest.request_id) ??
+                                        this.currentAuthIndex;
+                                    this.logger.warn(
+                                        `[Request] Mapping upstream ${result.error.status} to 503 for OpenAI Response API request #${requestId} (account index: ${authIndex}) to trigger client-side retry.`
+                                    );
+                                    errorMessage = `Upstream Google AI Studio ${result.error.status} error mapped to 503. Original message: ${result.error.message}`;
+                                }
+                                this._sendErrorResponse(res, downstreamStatus, errorMessage);
                             }
 
                             // Avoid switching account if the error is just a connection reset or skipAccountSwitch is marked
@@ -2337,7 +2410,21 @@ class RequestHandler {
                             );
                         }
 
-                        this._sendErrorResponse(res, initialMessage.status || 500, initialMessage.message, "api_error");
+                        // Send standard HTTP error response (mapping 403 or generative 404 to 503)
+                        let downstreamStatus = initialMessage.status || 500;
+                        let errorMessage = initialMessage.message;
+                        if (
+                            !isModelNotFound &&
+                            (initialMessage.status === 403 ||
+                                (initialMessage.status === 404 && proxyRequest.is_generative))
+                        ) {
+                            downstreamStatus = 503;
+                            this.logger.warn(
+                                `[Request] Mapping upstream ${initialMessage.status} to 503 for Claude streaming request #${requestId} (account index: ${currentQueueAuthIndex}) to trigger client-side retry.`
+                            );
+                            errorMessage = `Upstream Google AI Studio ${initialMessage.status} error mapped to 503. Original message: ${initialMessage.message}`;
+                        }
+                        this._sendErrorResponse(res, downstreamStatus, errorMessage, "api_error");
                         if (!skipFinalFailureSwitch && !this._isConnectionResetError(initialMessage)) {
                             await this.authSwitcher.handleRequestFailureAndSwitch(initialMessage, null);
                         } else if (skipFinalFailureSwitch) {
@@ -2393,12 +2480,24 @@ class RequestHandler {
                                 // If keep-alives already started the SSE response, send an SSE error event instead of JSON.
                                 this._handleRequestError(result.error, res, requestId);
                             } else {
-                                this._sendErrorResponse(
-                                    res,
-                                    result.error.status || 500,
-                                    result.error.message,
-                                    "api_error"
-                                );
+                                let downstreamStatus = result.error.status || 500;
+                                let errorMessage = result.error.message;
+                                const isModelNotFound = this._isModelNotFoundError(result.error);
+                                if (
+                                    !isModelNotFound &&
+                                    (result.error.status === 403 ||
+                                        (result.error.status === 404 && proxyRequest.is_generative))
+                                ) {
+                                    downstreamStatus = 503;
+                                    const authIndex =
+                                        this.connectionRegistry.getAuthIndexForRequest(proxyRequest.request_id) ??
+                                        this.currentAuthIndex;
+                                    this.logger.warn(
+                                        `[Request] Mapping upstream ${result.error.status} to 503 for Claude request #${requestId} (account index: ${authIndex}) to trigger client-side retry.`
+                                    );
+                                    errorMessage = `Upstream Google AI Studio ${result.error.status} error mapped to 503. Original message: ${result.error.message}`;
+                                }
+                                this._sendErrorResponse(res, downstreamStatus, errorMessage, "api_error");
                             }
                             if (!result.error.skipAccountSwitch && !this._isConnectionResetError(result.error)) {
                                 await this.authSwitcher.handleRequestFailureAndSwitch(result.error, null);

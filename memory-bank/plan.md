@@ -19,12 +19,12 @@
 
 ## 2. 活跃 Phase 状态与施工记录
 
-### Phase 10: Anti-Thrashing Account Switch Guard & Client Error Isolation
-- 根除客户端传入畸形/错误参数引发全池账号高速死循环轮转与 Ambiguous Service 404 切号雪崩问题：
-  1. `src/auth/AuthSwitcher.js`: 400 客户端参数错误隔离不增加 `failureCount`，加入 5 秒全局防抖 (`minSwitchIntervalMs`) 与 60 秒故障账号惩罚冷却 (`accountCooldownMap`)，优先轮换调度健康可用账号；
-  2. `src/core/RequestHandler.js`: 新增 `_isClientParameterError` 识别函数并在各大流式/非流式响应中注入 `skipAccountSwitch: true`；将 Google `Ambiguous request for service ''` 识别为模型/端点错误，阻断换号重试；
-  3. `tests/test_model_dash_sanitization.mjs`: 补充 400 错误隔离、全局防抖、账号惩罚冷却与 Ambiguous Service 断言单测 (9/9 100% PASS)；
-  4. 104 服务器 8317 端口增量同步部署并重启，真实探活与黑盒 `/v1/chat/completions` 流式响应通过。
+### Phase 11: Google 404 Ambiguous Service Auto-Healing & Downstream 503 Mapping
+- 根除上游 Google 404 "Ambiguous request for service '' and method '/GenerativeService.StreamGenerateContent'" 误判为不可重试错误导致 Kilo 客户端中断的问题：
+  1. `src/core/RequestHandler.js`: 将 Ambiguous Service 404 移出 `_isModelNotFoundError` 并纳入 `_isImmediateSwitchStatus` 触发立即换号重试；在 OpenAI Real Stream、Fake Stream、Response API 以及 Claude 流式/非流式出口将生成式 404 与 403 统一映射为 503 Service Unavailable，支持下游客户端平滑重试；
+  2. `tests/test_model_dash_sanitization.mjs`: 更新并增加单测断言（9/9 100% PASS）；
+  3. 104 服务器 8317 容器增量同步、镜像构建与平滑重启探活完成，黑盒流式/非流式均返回 200 OK；
+  4. Claire 调用方 DX 与部署物体验走查双 PASS。
 
 ### 2.2 门禁状态核验明细
 - G1~G16 门禁全绿，单测 9/9 100% PASS。
@@ -45,7 +45,8 @@
 | Phase 7 | Thinking-Only 注入无害 Kilocode glob 操作防进程中断 | 已归档 |
 | Phase 8 | 全量 CI/CD 缺陷门禁补齐与全景 DevState 100% 合规闭环 | 已归档 (`36ab57a`) |
 | Phase 9 | 模型名 '-' 防御清洗与 404 切号防雪崩状态机加固 | 已归档 |
-| Phase 10 | 切号防抖、账号惩罚冷却、400 错误隔离与 Ambiguous Service 阻断 | 已完成待提交 |
+| Phase 10 | 切号防抖、账号惩罚冷却、400 错误隔离与 Ambiguous Service 阻断 | 已归档 (`c84bc60`) |
+| Phase 11 | Google 404 Ambiguous Service 自愈重试与下游 503 弹性映射 | 已完成待提交 |
 
 ---
 
@@ -87,11 +88,13 @@
 - [x] Phase 7 服务器更新：固化 `remote_8317_deploy.sh` 脚本，代码增量推送到 104 并完成定制镜像重建与平滑重启
 - [x] Phase 7 生产探活：104 容器 8317 活跃健康检查 (HTTP 200 OK) 与 `/v1/models` 业务端点验证通过
 - [x] Phase 7 资产登记：更新 `memory-bank/assets.md` 部署物档案为 `v1.3.5-p7` (DEPLOYED_HEALTHY)
+- [x] Phase 10 切号防抖、账号惩罚冷却、400 客户端参数错误隔离加固 (`c84bc60`)
+- [x] Phase 11 Google 404 Ambiguous Service 自愈换号与 OpenAI 出口 503 弹性映射
 
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
-- Primary Phase: `Phase 10 (Anti-Thrashing Account Switch Guard & Client Error Isolation)` [PASS_PENDING_COMMIT]
+- Primary Phase: `Phase 11 (Google 404 Ambiguous Service Auto-Healing & Downstream 503 Mapping)` [PASS_PENDING_COMMIT]
 - Secondary Phases: 无
 
 ---
