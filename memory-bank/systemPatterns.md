@@ -75,19 +75,24 @@
 - **Token 计数异步队列超时注入**: 针对 Claude `countTokens` 与 OpenAI `inputTokens` 等辅助接口，底层的 `messageQueue.dequeue()` 显式绑定超时阈值（`this.timeouts.STREAM_CHUNK`），杜绝因上游连接中断无响应而导致的挂死死锁。
 - **代理路径防重规范化清洗**: 网关在 `_buildProxyRequest` 代理转发与 `_extractModelFromPath` 模型提取链路中，通过正则严格清洗 `/models/` 重复前缀（如 `/models/(?:models/)+/` 规范化为 `/models/`），杜绝畸形 404 扩散。
 
-### 2.3 双容器主备协同拓扑 (Dual-Container Topology)
-在 104 局域网服务器 (192.168.0.104) 采用双容器并行部署模式：
-1. **8317 端口 (主服务 / 源码定制容器)**:
+### 2.3 多容器协同拓扑与端口职能分离 (Multi-Container Topology)
+在 104 局域网服务器 (192.168.0.104) 采用多容器并行协同与流量分流模式：
+1. **8316 端口 (Pro 模型专用专线 / 源码同构容器)**:
+   - 宿主机路径: `/home/fy/aistudio-to-api-8316/`
+   - 容器镜像: `aistudio-to-api-custom:latest`
+   - 端口映射: `8316 -> 7860/tcp`, `9997 -> 9998/tcp` (内部 WS 隔离端口)
+   - 定位与职能: **专用于 Pro 模型调用通道**（如 `gemini-2.5-pro`、`gemini-pro-latest`），隔离重型长上下文推理负载，避免与 Flash 等高频轻量请求争抢凭据槽位与并发队列。
+2. **8317 端口 (主服务 / 综合模型网关容器)**:
    - 宿主机路径: `/home/fy/aistudio-to-api/`
    - 容器镜像: `aistudio-to-api-custom:latest`
    - 端口映射: `8317 -> 7860/tcp`, `9998 -> 9998/tcp`
-   - 特性: 承载源码定制、`ui/dist` 前端构建产物、403/404 补丁与前沿自愈优化，作为日常主入口。
-2. **8318 端口 (备用服务 / 原生稳定镜像容器)**:
+   - 定位与职能: 承载源码定制、`ui/dist` 前端管理后台、403/404 补丁与综合模型日常推理。
+3. **8318 端口 (备用服务 / 原生稳定镜像容器)**:
    - 宿主机路径: `/home/fy/aistudio-to-api-8318/`
    - 容器镜像: `ibuhub/aistudio-to-api:latest`
    - 端口映射: `8318 -> 7860/tcp`
-   - 特性: 作为稳定回退与对照基准节点，确保任何极端情况下存在 100% 可用回退实例。
-3. **网络与出墙隔离**: 通过 `host.docker.internal:7890` 挂载宿主机 Mihomo 代理，保障容器出墙访问 Google AI Studio。
+   - 定位与职能: 作为稳定回退与对照基准节点，常驻按需待命 (`restart: "no"`)。
+4. **网络与出墙隔离**: 通过 `host.docker.internal:7890` 挂载宿主机 Mihomo 代理，保障所有容器统一出墙访问 Google AI Studio。
 
 ## 3. 防御性编码与韧性原则 (Defensive Engineering)
 - **路径与载荷前置断言**: 请求发起前强校验 `model` 字段非空与合法性。

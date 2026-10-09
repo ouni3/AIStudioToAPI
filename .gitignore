@@ -42,3 +42,5 @@ proxylist.txt
 proxy_mapping.json
 .husky/
 memory-bank/agents/moe-ask/
+docs/screenshots/
+docs/audit_reports/

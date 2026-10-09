@@ -24,11 +24,20 @@
   1. `src/core/RequestHandler.js`: 将 Ambiguous Service 404 移出 `_isModelNotFoundError` 并纳入 `_isImmediateSwitchStatus` 触发立即换号重试；在 OpenAI Real Stream、Fake Stream、Response API 以及 Claude 流式/非流式出口将生成式 404 与 403 统一映射为 503 Service Unavailable，支持下游客户端平滑重试；
   2. `tests/test_model_dash_sanitization.mjs`: 更新并增加单测断言（9/9 100% PASS）；
   3. 104 服务器 8317 容器增量同步、镜像构建与平滑重启探活完成，黑盒流式/非流式均返回 200 OK；
-  4. Claire 调用方 DX 与部署物体验走查双 PASS。
+  4. Claire 调用方 DX 与部署物体验走查双 PASS；
+  5. audit-expert R3 增量终审签发 PASS_PENDING_AUDIT，千夏完成物理提交与打标。
+
+```markdown
+[RELEASE_RECEIPT_P11]
+- COMMIT: f1da756104757380f9e90b41209279a9482f9496 (f1da756)
+- TAG: v1.3.5-p11
+- COMMITTED_TREE: e5ab2b7f3422e4af57afb46714227290af20ba0f
+- STATUS: COMPLETED_AND_TAGGED
+```
 
 ### 2.2 门禁状态核验明细
 - G1~G16 门禁全绿，单测 9/9 100% PASS。
-- 终审状态: `[PASS_PENDING_COMMIT]`
+- 终审状态: `[CLOSED_SETTLED]`
 
 ---
 
@@ -46,7 +55,7 @@
 | Phase 8 | 全量 CI/CD 缺陷门禁补齐与全景 DevState 100% 合规闭环 | 已归档 (`36ab57a`) |
 | Phase 9 | 模型名 '-' 防御清洗与 404 切号防雪崩状态机加固 | 已归档 |
 | Phase 10 | 切号防抖、账号惩罚冷却、400 错误隔离与 Ambiguous Service 阻断 | 已归档 (`c84bc60`) |
-| Phase 11 | Google 404 Ambiguous Service 自愈重试与下游 503 弹性映射 | 已完成待提交 |
+| Phase 11 | Google 404 Ambiguous Service 自愈重试与下游 503 弹性映射 | 已归档 (`f1da756`) |
 
 ---
 
@@ -90,11 +99,13 @@
 - [x] Phase 7 资产登记：更新 `memory-bank/assets.md` 部署物档案为 `v1.3.5-p7` (DEPLOYED_HEALTHY)
 - [x] Phase 10 切号防抖、账号惩罚冷却、400 客户端参数错误隔离加固 (`c84bc60`)
 - [x] Phase 11 Google 404 Ambiguous Service 自愈换号与 OpenAI 出口 503 弹性映射
+- [x] 104 服务器 8316 端口同构容器复刻部署与真实探活 (专用于 Pro 模型调用通道，隔离内部 WS 端口 9997)
+- [x] 建立 `scripts/dev/remote_8316.sh` 运维调度脚本与 package.json npm scripts 绑定
 
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
-- Primary Phase: `Phase 11 (Google 404 Ambiguous Service Auto-Healing & Downstream 503 Mapping)` [PASS_PENDING_COMMIT]
+- Primary Phase: `Phase 11 (Google 404 Ambiguous Service Auto-Healing & Downstream 503 Mapping)` [CLOSED_SETTLED]
 - Secondary Phases: 无
 
 ---
