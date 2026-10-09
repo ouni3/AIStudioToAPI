@@ -97,4 +97,5 @@
 ## 3. 防御性编码与韧性原则 (Defensive Engineering)
 - **路径与载荷前置断言**: 请求发起前强校验 `model` 字段非空与合法性。
 - **流式响应断流自愈**: 对 SSE (Server-Sent Events) 流异常做即时清理与客户端断开监听，防止挂起僵尸连接。
+- **Web 控制台免密直通机制**: 局域网管理界面采用免密路由直通模式（`AuthRoutes.isAuthenticated` 默认注入 session 并放行，前端 Vue Router 跳过异步登录拦截），彻底消除管理员日常登录摩擦；同时 `_createAuthMiddleware` 物理隔离保障，所有 `/v1/*` 核心 API 推理接口依然强制校验 API Key。
 - **配置与密钥物理隔离**: 凭据严格隔离于本地 `configs/auths/` 与 Docker 外部卷，禁止任何凭据进入版本控制与记忆银行。

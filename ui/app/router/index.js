@@ -42,42 +42,11 @@ const router = createRouter({
     },
 });
 
-let isAuthenticated = null;
-
-router.beforeEach(async (to, from, next) => {
+router.beforeEach((to, from, next) => {
     if (to.name === 'login') {
-        return next();
+        return next({ name: 'status' });
     }
-
-    if (isAuthenticated === null) {
-        try {
-            const res = await fetch('/api/status');
-            // If the request was redirected (e.g. to /login), the user is not authenticated
-            if (res.redirected) {
-                isAuthenticated = false;
-                return next({ name: 'login' });
-            }
-
-            if (res.ok) {
-                isAuthenticated = true;
-                return next();
-            } else {
-                // Handle other errors (401, 500, etc) if the server changes behavior to not redirect
-                isAuthenticated = false;
-                return next({ name: 'login' });
-            }
-        } catch (error) {
-            console.error('Failed to check auth status:', error);
-            isAuthenticated = false;
-            return next({ name: 'login' });
-        }
-    }
-
-    if (isAuthenticated) {
-        return next();
-    } else {
-        return next({ name: 'login' });
-    }
+    next();
 });
 
 export default router;

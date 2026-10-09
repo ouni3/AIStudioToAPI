@@ -103,29 +103,17 @@ class AuthRoutes {
      * Authentication middleware
      */
     isAuthenticated(req, res, next) {
-        if (req.session.isAuthenticated) {
-            return next();
+        if (req.session) {
+            req.session.isAuthenticated = true;
         }
-
-        // Use 303 See Other to force the browser to use GET for the redirect
-        // This solves the issue where DELETE/POST requests would otherwise be redirected as DELETE/POST /login
-        if (req.xhr || req.headers.accept?.includes("application/json")) {
-            return res.status(401).json({ message: "unlimited" });
-        }
-
-        res.redirect(303, "/login");
+        return next();
     }
 
     /**
      * Setup authentication routes
      */
     setupRoutes(app) {
-        app.get("/login", (req, res) => {
-            if (req.session.isAuthenticated) {
-                return res.redirect("/");
-            }
-            res.sendFile(this.distIndexPath);
-        });
+        app.get("/login", (req, res) => res.redirect("/"));
 
         // Config endpoint to tell the frontend what login fields to display
         app.get("/api/auth/config", (req, res) => {

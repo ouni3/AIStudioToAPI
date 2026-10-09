@@ -4340,7 +4340,7 @@ const handleLogout = () => {
                     if (data.message === "logoutSuccess") {
                         ElMessage.success(message);
                         setTimeout(() => {
-                            window.location.href = "/login";
+                            window.location.reload();
                         }, 500);
                     } else {
                         ElMessage.error(message);

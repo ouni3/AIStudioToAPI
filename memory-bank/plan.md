@@ -101,6 +101,7 @@
 - [x] Phase 11 Google 404 Ambiguous Service 自愈换号与 OpenAI 出口 503 弹性映射
 - [x] 104 服务器 8316 端口同构容器复刻部署与真实探活 (专用于 Pro 模型调用通道，隔离内部 WS 端口 9997)
 - [x] 建立 `scripts/dev/remote_8316.sh` 运维调度脚本与 package.json npm scripts 绑定
+- [x] 取消 8316 与 8317 双端口 Web 控制台界面登录密钥验证（免密直通），并完成双容器同步更新与探活验证
 
 ---
 

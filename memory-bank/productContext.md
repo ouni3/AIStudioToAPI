@@ -39,7 +39,7 @@
 - **协议兼容与零摩擦接入**: 原生支持 `/v1/chat/completions` (OpenAI 格式) 与 `/v1/messages` (Claude 格式)，支持主流第三方客户端与 Agent 框架直接对接。
 - **智能故障转移 (Failover)**: 遇到 403 区域受限 (`Region not supported` / `PERMISSION_DENIED`) 或 429 速率限制时自动触发立即换号重试，保证请求高可用。
 - **畸形请求防范与模型映射**: 清洗模型名后缀，提供有效性断言与默认回退兜底，杜绝 `/v1beta/models/:streamGenerateContent` 畸形 404 路径拼接。
-- **可视化控制台**: 提供基于 Vue 3 + Element Plus 的管理 UI，支持凭据录入、VNC 自动登录与实时状态监控。
+- **可视化免密控制台**: 提供基于 Vue 3 + Element Plus 的管理 UI，支持局域网免密即时直通、凭据录入、VNC 自动登录与实时状态监控。
 
 ## 3. 核心用户流程 (User Workflows)
 1. **凭据接入与管理**: 管理员通过 Web UI 或配置目录导入 AI Studio 凭据，系统自动建立可用会话池。
