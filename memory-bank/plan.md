@@ -19,25 +19,18 @@
 
 ## 2. 活跃 Phase 状态与施工记录
 
-### Phase 11: Google 404 Ambiguous Service Auto-Healing & Downstream 503 Mapping
-- 根除上游 Google 404 "Ambiguous request for service '' and method '/GenerativeService.StreamGenerateContent'" 误判为不可重试错误导致 Kilo 客户端中断的问题：
-  1. `src/core/RequestHandler.js`: 将 Ambiguous Service 404 移出 `_isModelNotFoundError` 并纳入 `_isImmediateSwitchStatus` 触发立即换号重试；在 OpenAI Real Stream、Fake Stream、Response API 以及 Claude 流式/非流式出口将生成式 404 与 403 统一映射为 503 Service Unavailable，支持下游客户端平滑重试；
-  2. `tests/test_model_dash_sanitization.mjs`: 更新并增加单测断言（9/9 100% PASS）；
-  3. 104 服务器 8317 容器增量同步、镜像构建与平滑重启探活完成，黑盒流式/非流式均返回 200 OK；
-  4. Claire 调用方 DX 与部署物体验走查双 PASS；
-  5. audit-expert R3 增量终审签发 PASS_PENDING_AUDIT，千夏完成物理提交与打标。
+### Phase 12: Manual Account Enable/Disable Switch in Management Console (ACTIVE_PHASE)
+- 为 Web 控制台账号管理列表新增即时生效的启用/停用开关，彻底解决个别异常账号在后台反复报错穿透的痛点：
+  1. `src/auth/AuthSource.js`: 为账号实体注入 `disabled` 属性与持久化识别，提供 `updateAccountStatus(index, { disabled })` 原子写盘与内存热重载；轮询与故障转移调度天然排除停用账号；
+  2. `src/auth/AuthSwitcher.js`: 停用当前活跃账号时触发无缝平滑切号，并防御性拦截对停用账号的手动切换；
+  3. `src/core/BrowserManager.js` & `src/routes/StatusRoutes.js`: 暴露 `/api/accounts/:index/status` PUT 接口；
+  4. `ui/app/pages/StatusPage.vue`: 账号列表新增状态滑动开关 (ElSwitch) 与中英文国际化语言包；
+  5. `tests/test_account_enable_disable.mjs`: 编写包含轮询排除、手动切换拦截与持久化行为单测 (100% PASS)；
+  6. 104 服务器 8316 节点（`aistudio-to-api-custom:8316`）与 8317 主节点（`aistudio-to-api-custom:latest`）均已完成独立镜像构建与平滑重启探活，返回 200 OK 与最新账号状态载荷；
+  7. Claire 微观体验与调用方 DX 走查双 PASS，理事长下达更新与结算指示 `[CHAIRMAN_EXPERIENCE_APPROVED]`；
+  8. audit-expert R1/R2 VETO 打回项已全部清偿，提请终审。
 
-```markdown
-[RELEASE_RECEIPT_P11]
-- COMMIT: f1da756104757380f9e90b41209279a9482f9496 (f1da756)
-- TAG: v1.3.5-p11
-- COMMITTED_TREE: e5ab2b7f3422e4af57afb46714227290af20ba0f
-- STATUS: COMPLETED_AND_TAGGED
-```
-
-### 2.2 门禁状态核验明细
-- G1~G16 门禁全绿，单测 9/9 100% PASS。
-- 终审状态: `[CLOSED_SETTLED]`
+- 门禁状态: `PASS_PENDING_COMMIT`
 
 ---
 
@@ -56,6 +49,7 @@
 | Phase 9 | 模型名 '-' 防御清洗与 404 切号防雪崩状态机加固 | 已归档 |
 | Phase 10 | 切号防抖、账号惩罚冷却、400 错误隔离与 Ambiguous Service 阻断 | 已归档 (`c84bc60`) |
 | Phase 11 | Google 404 Ambiguous Service 自愈重试与下游 503 弹性映射 | 已归档 (`f1da756`) |
+| Phase 12 | 控制台账号手动启用/停用开关与调度热隔离 | 进行中 |
 
 ---
 
@@ -102,11 +96,12 @@
 - [x] 104 服务器 8316 端口同构容器复刻部署与真实探活 (专用于 Pro 模型调用通道，隔离内部 WS 端口 9997)
 - [x] 建立 `scripts/dev/remote_8316.sh` 运维调度脚本与 package.json npm scripts 绑定
 - [x] 取消 8316 与 8317 双端口 Web 控制台界面登录密钥验证（免密直通），并完成双容器同步更新与探活验证
+- [x] Phase 12 控制台账号手动启用/停用开关、原子写盘持久化与调度热隔离闭环
 
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
-- Primary Phase: `Phase 11 (Google 404 Ambiguous Service Auto-Healing & Downstream 503 Mapping)` [CLOSED_SETTLED]
+- Primary Phase: `Phase 12 (Manual Account Enable/Disable Switch in Management Console)` [ACTIVE_PHASE]
 - Secondary Phases: 无
 
 ---

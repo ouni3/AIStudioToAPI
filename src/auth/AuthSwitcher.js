@@ -326,6 +326,13 @@ class AuthSwitcher {
             };
         }
 
+        if (this.authSource.isDisabled && this.authSource.isDisabled(targetIndex)) {
+            return {
+                reason: `Switch failed: Account #${targetIndex} is disabled.`,
+                success: false,
+            };
+        }
+
         this.isSystemBusy = true;
         try {
             // Wait for in-flight requests on the current account to finish before manual switch

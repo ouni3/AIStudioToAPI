@@ -1943,12 +1943,15 @@ class BrowserManager {
         }
 
         // Targets = first maxContexts from ordered (or all available if unlimited)
-        // In unlimited mode, include all valid accounts (rotation + duplicates), excluding expired
+        // In unlimited mode, include all valid accounts (rotation + duplicates), excluding expired and disabled
         let targets;
         if (isUnlimited) {
-            // Filter out expired accounts from availableIndices
-            const nonExpiredAvailable = this.authSource.availableIndices.filter(idx => !this.authSource.isExpired(idx));
-            targets = new Set(nonExpiredAvailable);
+            // Filter out expired and disabled accounts from availableIndices
+            const activeAvailable = this.authSource.availableIndices.filter(
+                idx =>
+                    !this.authSource.isExpired(idx) && !(this.authSource.isDisabled && this.authSource.isDisabled(idx))
+            );
+            targets = new Set(activeAvailable);
         } else {
             targets = new Set(ordered.slice(0, maxContexts));
         }

@@ -10,6 +10,8 @@
     "accountDeleteSuccess": "Account #{index} deleted successfully.",
     "accountManagement": "Account Management",
     "accountStatus": "Account Status",
+    "accountStatusUpdated": "Account #{index} status updated successfully.",
+    "accountStatusUpdateFailed": "Failed to update account status.",
     "accountSwitchCancelledSingle": "Switch cancelled: Only one available account.",
     "accountSwitchFailed": "Switch failed: {reason}",
     "accountSwitchFallback": "Switch failed, but successfully fell back to account #{newIndex}.",

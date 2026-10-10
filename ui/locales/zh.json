@@ -10,6 +10,8 @@
     "accountDeleteSuccess": "账号 {index} 删除成功。",
     "accountManagement": "账号管理",
     "accountStatus": "账号状态",
+    "accountStatusUpdated": "账号 #{index} 状态已更新。",
+    "accountStatusUpdateFailed": "更新账号状态失败。",
     "accountSwitchCancelledSingle": "切换取消：只有一个可用账号。",
     "accountSwitchFailed": "切换失败：{reason}",
     "accountSwitchFallback": "切换失败，但已成功回退到账号 {newIndex}。",

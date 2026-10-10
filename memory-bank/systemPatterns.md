@@ -8,6 +8,8 @@
 > - `ect`: **S** (count(+)=4, count(-)=0, Value_Delivered=+, S_total=+)
 > - `verdict`: **KEEP** (核心 memory-bank 资产)
 
+- **Baseline Marker**: `BASELINE_PHASE_12` (Phase 12 核心架构基线已对齐)
+
 ## 0. 资产定级标定 (Rating & Asset Profile)
 - **项目等级**: **SR (Super Rare - 系统枢纽级)**
 - **系统定位**: 全系开发与生产环境之核心 LLM 逆向 API 网关与算力中继中枢
@@ -71,6 +73,12 @@
   - 精准识别页面硬路由崩溃特征（如 `Page not found` + `Go to Build`），避免将 Google 偶发非阻塞 Toast 提示（如 `Please try again`）误判为致命错误。
   - 设定最大重试轮次（Max Retry Quorum），保障请求不陷入死循环，并在全部凭据耗尽时规范返回标准上游错误。
 
+- **账号手动启用/停用与调度池物理隔离机制 (Phase 12)**:
+  - 在 `AuthSource` 中引入 `disabledIndices` 状态追踪，`_buildRotationIndices()` 自动将 `disabled === true` 的账号物理排除在可用轮询池与故障转移（Failover）池之外。
+  - `updateAccountStatus(index, { disabled })` 实现配置在磁盘上的原子写盘持久化与内存轮询索引热重载。
+  - `AuthSwitcher.switchToSpecificAuth(targetIndex)` 增加防御性校验，严禁手动切换至已停用账号；当停用当前正在使用的活跃账号时，自动平滑切号至下一个可用账号。
+  - `BrowserManager.rebalanceContextPool()` 自动排除已停用账号的 Context 预热与资源占用。
+
 ### 2.3 异步队列超时看门狗与路径清洗模式 (Async Queue Watchdog & Sanitization)
 - **Token 计数异步队列超时注入**: 针对 Claude `countTokens` 与 OpenAI `inputTokens` 等辅助接口，底层的 `messageQueue.dequeue()` 显式绑定超时阈值（`this.timeouts.STREAM_CHUNK`），杜绝因上游连接中断无响应而导致的挂死死锁。
 - **代理路径防重规范化清洗**: 网关在 `_buildProxyRequest` 代理转发与 `_extractModelFromPath` 模型提取链路中，通过正则严格清洗 `/models/` 重复前缀（如 `/models/(?:models/)+/` 规范化为 `/models/`），杜绝畸形 404 扩散。
@@ -79,7 +87,7 @@
 在 104 局域网服务器 (192.168.0.104) 采用多容器并行协同与流量分流模式：
 1. **8316 端口 (Pro 模型专用专线 / 源码同构容器)**:
    - 宿主机路径: `/home/fy/aistudio-to-api-8316/`
-   - 容器镜像: `aistudio-to-api-custom:latest`
+   - 容器镜像: `aistudio-to-api-custom:8316`
    - 端口映射: `8316 -> 7860/tcp`, `9997 -> 9998/tcp` (内部 WS 隔离端口)
    - 定位与职能: **专用于 Pro 模型调用通道**（如 `gemini-2.5-pro`、`gemini-pro-latest`），隔离重型长上下文推理负载，避免与 Flash 等高频轻量请求争抢凭据槽位与并发队列。
 2. **8317 端口 (主服务 / 综合模型网关容器)**:

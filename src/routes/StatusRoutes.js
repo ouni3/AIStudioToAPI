@@ -279,6 +279,88 @@ class StatusRoutes {
             }
         });
 
+        // Update account disabled/enabled status
+        app.put("/api/accounts/:index/status", isAuthenticated, async (req, res) => {
+            if (this._rejectIfSystemBusy(res)) return;
+
+            const rawIndex = req.params.index;
+            const targetIndex = Number(rawIndex);
+
+            if (!Number.isInteger(targetIndex)) {
+                return res.status(400).json({ message: "errorInvalidIndex" });
+            }
+
+            const { authSource, requestHandler, browserManager } = this.serverSystem;
+            if (!authSource.availableIndices.includes(targetIndex)) {
+                return res.status(404).json({ index: targetIndex, message: "errorAccountNotFound" });
+            }
+
+            const disabled = Boolean(req.body?.disabled);
+
+            try {
+                const updated = await authSource.updateAccountStatus(targetIndex, { disabled });
+                if (!updated) {
+                    return res.status(500).json({
+                        error: "Failed to update account status on disk",
+                        message: "accountStatusUpdateFailed",
+                    });
+                }
+
+                // If the account was disabled and is currently the active account, switch to next available healthy account
+                let switched = false;
+                let newIndex = requestHandler.currentAuthIndex;
+                if (disabled && requestHandler.currentAuthIndex === targetIndex) {
+                    const availableRotation = authSource.getRotationIndices();
+                    if (availableRotation.length > 0) {
+                        this.logger.info(
+                            `[Auth] Current account #${targetIndex} was disabled. Automatically switching to next available account...`
+                        );
+                        try {
+                            const switchResult = await requestHandler._switchToNextAuth();
+                            if (switchResult && switchResult.success) {
+                                switched = true;
+                                newIndex = switchResult.newIndex;
+                            }
+                        } catch (switchErr) {
+                            this.logger.error(
+                                `[Auth] Failed to auto-switch after disabling current account: ${switchErr.message}`
+                            );
+                        }
+                    } else {
+                        this.logger.warn(
+                            `[Auth] Current account #${targetIndex} was disabled and no remaining active accounts exist in rotation.`
+                        );
+                    }
+
+                    // Close context and connection for the disabled account if not already closed
+                    try {
+                        await browserManager.closeContext(targetIndex);
+                        this.serverSystem.connectionRegistry.closeConnectionByAuth(targetIndex);
+                    } catch (closeErr) {
+                        this.logger.warn(
+                            `[Auth] Error closing context for disabled account #${targetIndex}: ${closeErr.message}`
+                        );
+                    }
+                }
+
+                // Rebalance context pool after status change
+                browserManager.rebalanceContextPool().catch(err => {
+                    this.logger.error(`[Auth] Background rebalance failed after status update: ${err.message}`);
+                });
+
+                return res.status(200).json({
+                    disabled,
+                    index: targetIndex,
+                    message: "accountStatusUpdated",
+                    newIndex,
+                    switched,
+                });
+            } catch (error) {
+                this.logger.error(`[WebUI] Failed to update account status for #${targetIndex}: ${error.message}`);
+                return res.status(500).json({ error: error.message, message: "accountStatusUpdateFailed" });
+            }
+        });
+
         app.post("/api/accounts/deduplicate", isAuthenticated, async (req, res) => {
             try {
                 if (this._rejectIfSystemBusy(res)) return;
@@ -968,6 +1050,7 @@ class StatusRoutes {
         const rotationIndices = authSource.getRotationIndices();
         const duplicateIndices = authSource.duplicateIndices || [];
         const expiredIndices = authSource.expiredIndices || [];
+        const disabledIndices = authSource.disabledIndices || [];
         const limit = this.logger.displayLimit || 100;
         const allLogs = this.logger.logBuffer || [];
         const displayLogs = allLogs.slice(-limit);
@@ -980,10 +1063,11 @@ class StatusRoutes {
             const isDuplicate = canonicalIndex !== null && canonicalIndex !== index;
             const isRotation = rotationIndices.includes(index);
             const isExpired = expiredIndices.includes(index);
+            const disabled = disabledIndices.includes(index);
 
             const hasContext = browserManager.contexts.has(index);
 
-            return { canonicalIndex, hasContext, index, isDuplicate, isExpired, isInvalid, isRotation, name };
+            return { canonicalIndex, disabled, hasContext, index, isDuplicate, isExpired, isInvalid, isRotation, name };
         });
 
         const currentAuthIndex = requestHandler.currentAuthIndex;
@@ -1011,6 +1095,7 @@ class StatusRoutes {
                 currentAccountName,
                 currentAuthIndex,
                 debugMode: LoggingService.isDebugEnabled(),
+                disabledIndicesRaw: disabledIndices,
                 duplicateIndicesRaw: duplicateIndices,
                 enableAuthUpdate: config.enableAuthUpdate,
                 expiredIndicesRaw: expiredIndices,

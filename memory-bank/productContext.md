@@ -14,6 +14,8 @@
 > **项目类型**: **infrastructure** — 底层算力网关服务与代理出墙
 > **项目受众**: **Moe开发团队与全系Agent舰队** — 提供高并发、免人工干预的 Gemini 原生与兼容协议推理中继
 
+- **Baseline Marker**: `BASELINE_PHASE_12` (Phase 12 产品范畴已对齐)
+
 ## 0. 评级与商业化基准 (Project Rating & Stage)
 - **当前等级**: **SR (Super Rare - 系统枢纽级)**
 - **商业生命周期**: **S2 (极客验证期) / 基础设施算力赋能网关 (COMMERCIAL_EXEMPT)**
@@ -39,7 +41,7 @@
 - **协议兼容与零摩擦接入**: 原生支持 `/v1/chat/completions` (OpenAI 格式) 与 `/v1/messages` (Claude 格式)，支持主流第三方客户端与 Agent 框架直接对接。
 - **智能故障转移 (Failover)**: 遇到 403 区域受限 (`Region not supported` / `PERMISSION_DENIED`) 或 429 速率限制时自动触发立即换号重试，保证请求高可用。
 - **畸形请求防范与模型映射**: 清洗模型名后缀，提供有效性断言与默认回退兜底，杜绝 `/v1beta/models/:streamGenerateContent` 畸形 404 路径拼接。
-- **可视化免密控制台**: 提供基于 Vue 3 + Element Plus 的管理 UI，支持局域网免密即时直通、凭据录入、VNC 自动登录与实时状态监控。
+- **可视化免密控制台与账号手动启停**: 提供基于 Vue 3 + Element Plus 的管理 UI，支持局域网免密即时直通、凭据录入、VNC 自动登录、实时状态监控，以及账号一键手动启用/停用开关（实时将异常账号物理隔离出轮询池，杜绝报错穿透）。
 
 ## 3. 核心用户流程 (User Workflows)
 1. **凭据接入与管理**: 管理员通过 Web UI 或配置目录导入 AI Studio 凭据，系统自动建立可用会话池。

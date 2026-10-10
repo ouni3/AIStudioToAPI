@@ -156,5 +156,34 @@
   - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
 - **核心沉淀**: 彻底解决 Google AI Studio 偶发 404 Ambiguous Service 寻址抖动导致网关不重试直接透传 404、引发 Kilo 客户端中断的痛点。将其准确识别为可重试错误并自动换号，重试耗尽时在多协议出口统一映射为 503，保障客户端具备透明重试能力，极大提升了网关可用性。
 
+---
+
+## 9. Phase 12 效能快照 (AES Summary)
+
+### [AES_SUMMARY_P12]
+- **Phase**: `Phase 12 (Manual Account Enable/Disable Switch in Management Console)`
+- **结算时间**: `2026-10-10T09:30:00+08:00`
+- **主要参与 Agent**:
+  - `moe-orchestrator` (小奏): 全局统筹调度、任务激活快照、多方验真与结算收口推进
+  - `moe-ask` (栞): 前后端账号存储结构与表格交互拓扑摸底
+  - `moe-code` (诺诺): 后端 AuthSource 停用状态识别、原子持久化、轮询排除与状态切换接口
+  - `frontend` (凛): StatusPage 账号管理列表 ElSwitch 开关交互、防抖与状态双向联动
+  - `moe-debug` (千夏): 前端 Vite 构建打包人格、深入业务行为单测、104 双节点部署与探活
+  - `audit` (克莱尔): 控制台开关微观体验与调用方 DX 体验走查，签发 UI_UX_VERDICT: PASS
+- **效能指标**:
+  - `avg_effectiveness`: UNKNOWN
+  - `first_pass_rate`: 0% (phase_first_pass=false: 发生重试、被动修补或快照重构)
+  - `avg_rework`: 0
+  - `sentinel_triggered`: NONE
+  - `settlement_advice`: `[PASS_SETTLEMENT_RECOMMENDED]`
+- **双容器健康状态**:
+  - 8316 源码定制容器 (`aistudio-to-api-8316`): 🟢 `DEPLOYED_HEALTHY` (`v1.3.5-p12`, 镜像: `aistudio-to-api-custom:8316`, `/health` 200 OK, `/v1/models` 200 OK, Web UI 200 OK)
+  - 8317 源码定制容器 (`aistudio-to-api`): 🟢 `DEPLOYED_HEALTHY` (`v1.3.5-p12`, 镜像: `aistudio-to-api-custom:latest`, `/health` 200 OK, `/v1/models` 200 OK, Web UI 200 OK, `/api/accounts/0/status` 200 OK)
+  - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
+- **核心沉淀**: 为 Web 控制台账号管理列表新增即时生效的启用/停用开关，彻底解决个别异常账号在后台反复报错穿透的痛点。停用账号被实时物理隔离出轮询池与故障转移池，状态通过原子写盘保持持久化，停用当前账号时支持无缝平滑切号，实现 O(1) 极简运维管控。8316 与 8317 双容器均完成独立镜像构建、部署与真实验真。
+
+
+
+
 
 

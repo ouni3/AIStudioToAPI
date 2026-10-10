@@ -836,6 +836,23 @@
                                     </div>
                                 </el-tooltip>
                                 <div class="account-actions">
+                                    <div
+                                        class="account-status-switch"
+                                        :title="!item.disabled ? t('enabled') : t('disabled')"
+                                        @click.stop
+                                    >
+                                        <el-switch
+                                            :model-value="!item.disabled"
+                                            size="small"
+                                            inline-prompt
+                                            :active-text="t('enabled')"
+                                            :inactive-text="t('disabled')"
+                                            :loading="accountStatusUpdatingIndices.has(item.index)"
+                                            :disabled="isBusy || accountStatusUpdatingIndices.has(item.index)"
+                                            :before-change="() => handleToggleAccountStatus(item)"
+                                            @click.stop
+                                        />
+                                    </div>
                                     <button
                                         class="btn-switch"
                                         :class="{
@@ -3882,6 +3899,47 @@ const clearSelection = () => {
     state.selectedAccounts.clear();
 };
 
+// Tracking updating account indices for ElSwitch loading and debounce
+const accountStatusUpdatingIndices = reactive(new Set());
+
+// Handle toggling account enabled/disabled status
+const handleToggleAccountStatus = async item => {
+    const targetIndex = item.index;
+    if (accountStatusUpdatingIndices.has(targetIndex)) {
+        return false;
+    }
+
+    const currentEnabled = !item.disabled;
+    const targetDisabled = currentEnabled; // If currently enabled, switch to disabled: true
+
+    accountStatusUpdatingIndices.add(targetIndex);
+    try {
+        const res = await fetch(`/api/accounts/${targetIndex}/status`, {
+            body: JSON.stringify({ disabled: targetDisabled }),
+            headers: { "Content-Type": "application/json" },
+            method: "PUT",
+        });
+        const data = await res.json();
+        if (res.ok) {
+            item.disabled = targetDisabled;
+            const message = t(data.message || "accountStatusUpdated", { index: targetIndex });
+            ElMessage.success(message);
+            // Refresh content to sync latest state (especially if backend auto-switched current account)
+            updateContent();
+            return true;
+        } else {
+            const message = t(data.message || "accountStatusUpdateFailed", data);
+            ElMessage.error(message);
+            return false;
+        }
+    } catch (err) {
+        ElMessage.error(t("settingFailed", { message: err.message || err }));
+        return false;
+    } finally {
+        accountStatusUpdatingIndices.delete(targetIndex);
+    }
+};
+
 // Batch delete accounts
 const batchDeleteAccounts = async () => {
     if (state.selectedAccounts.size === 0) {
@@ -5595,8 +5653,34 @@ watchEffect(() => {
 
 .account-actions {
     display: flex;
+    align-items: center;
     gap: 6px;
     flex-shrink: 0;
+
+    .account-status-switch {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 2px;
+        user-select: none;
+
+        :deep(.el-switch) {
+            --el-switch-on-color: @success-color;
+            --el-switch-off-color: var(--color-border-hover, #cbd5e1);
+
+            .el-switch__core {
+                border-radius: 12px;
+                min-width: 50px;
+                height: 22px;
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+                .el-switch__inner {
+                    font-size: 11px;
+                    font-weight: 500;
+                    padding: 0 4px;
+                }
+            }
+        }
+    }
 
     button {
         width: 28px;
