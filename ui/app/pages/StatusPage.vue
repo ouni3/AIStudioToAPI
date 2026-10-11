@@ -833,26 +833,51 @@
                                         <span v-if="item.isExpired" class="expired-badge">
                                             {{ t("tagExpired") }}
                                         </span>
+                                        <span
+                                            v-if="item.disabled && item.disabledReason === 'quota_exhausted'"
+                                            class="quota-exhausted-badge"
+                                            :title="t('quotaExhaustedTooltip', { limit: item.quotaLimit || 100 })"
+                                        >
+                                            {{ t("tagQuotaExhausted", { usage: item.quotaUsage ?? (item.quotaLimit || 100), limit: item.quotaLimit || 100 }) }}
+                                        </span>
+                                        <span
+                                            v-else-if="item.quotaUsage !== undefined && item.quotaUsage !== null"
+                                            class="quota-usage-badge"
+                                            :class="{ 'is-high': item.quotaUsage >= (item.quotaLimit || 100) * 0.8 }"
+                                        >
+                                            {{ t("tagQuotaUsage", { usage: item.quotaUsage, limit: item.quotaLimit || 100 }) }}
+                                        </span>
                                     </div>
                                 </el-tooltip>
                                 <div class="account-actions">
-                                    <div
-                                        class="account-status-switch"
-                                        :title="!item.disabled ? t('enabled') : t('disabled')"
-                                        @click.stop
+                                    <el-tooltip
+                                        :content="
+                                            item.disabled && item.disabledReason === 'quota_exhausted'
+                                                ? t('quotaExhaustedTooltip', { limit: item.quotaLimit || 100 })
+                                                : (!item.disabled ? t('enabled') : t('disabled'))
+                                        "
+                                        placement="top"
+                                        effect="dark"
+                                        :hide-after="0"
                                     >
-                                        <el-switch
-                                            :model-value="!item.disabled"
-                                            size="small"
-                                            inline-prompt
-                                            :active-text="t('enabled')"
-                                            :inactive-text="t('disabled')"
-                                            :loading="accountStatusUpdatingIndices.has(item.index)"
-                                            :disabled="isBusy || accountStatusUpdatingIndices.has(item.index)"
-                                            :before-change="() => handleToggleAccountStatus(item)"
+                                        <div
+                                            class="account-status-switch"
+                                            :class="{ 'is-quota-exhausted': item.disabled && item.disabledReason === 'quota_exhausted' }"
                                             @click.stop
-                                        />
-                                    </div>
+                                        >
+                                            <el-switch
+                                                :model-value="!item.disabled"
+                                                size="small"
+                                                inline-prompt
+                                                :active-text="t('enabled')"
+                                                :inactive-text="t('disabled')"
+                                                :loading="accountStatusUpdatingIndices.has(item.index)"
+                                                :disabled="isBusy || accountStatusUpdatingIndices.has(item.index)"
+                                                :before-change="() => handleToggleAccountStatus(item)"
+                                                @click.stop
+                                            />
+                                        </div>
+                                    </el-tooltip>
                                     <button
                                         class="btn-switch"
                                         :class="{
@@ -5649,6 +5674,42 @@ watchEffect(() => {
     flex-shrink: 0;
     margin-left: 0;
     margin-right: 6px;
+}
+
+.quota-exhausted-badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 2px 8px;
+    background: @warning-color;
+    color: @text-on-primary;
+    border-radius: 12px;
+    flex-shrink: 0;
+    margin-left: 0;
+    margin-right: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    cursor: help;
+}
+
+.quota-usage-badge {
+    font-family: @font-family-mono;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    background: rgba(0, 123, 255, 0.1);
+    color: @primary-color;
+    border-radius: 12px;
+    flex-shrink: 0;
+    margin-left: 0;
+    margin-right: 6px;
+    display: inline-flex;
+    align-items: center;
+
+    &.is-high {
+        background: rgba(243, 156, 18, 0.15);
+        color: @warning-color;
+    }
 }
 
 .account-actions {

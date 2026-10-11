@@ -21,6 +21,7 @@ const BrowserManager = require("./BrowserManager");
 const ConnectionRegistry = require("./ConnectionRegistry");
 const RequestHandler = require("./RequestHandler");
 const UsageStatsService = require("./UsageStatsService");
+const QuotaGuardService = require("./QuotaGuardService");
 const ConfigLoader = require("../utils/ConfigLoader");
 const WebRoutes = require("../routes/WebRoutes");
 
@@ -109,6 +110,13 @@ class ProxyServerSystem extends EventEmitter {
         );
         this.browserManager.setSystemBusyProvider(() => this.requestHandler?.isSystemBusy === true);
 
+        this.quotaGuardService = new QuotaGuardService({
+            authSource: this.authSource,
+            config: this.config,
+            logger: this.logger,
+            requestHandler: this.requestHandler,
+        });
+
         this.httpServer = null;
         this.wsServer = null;
         this.webRoutes = new WebRoutes(this);
@@ -118,6 +126,7 @@ class ProxyServerSystem extends EventEmitter {
         this.logger.info("[System] Starting flexible startup process...");
         await this._startHttpServer();
         await this._startWebSocketServer();
+        this.quotaGuardService.startScheduler();
         this.logger.info(`[System] Proxy server system startup complete.`);
 
         // Start periodic cleanup of stale message queues (every 5 minutes)
@@ -620,6 +629,12 @@ class ProxyServerSystem extends EventEmitter {
             clearInterval(this.staleQueueCleanupInterval);
             this.staleQueueCleanupInterval = null;
             this.logger.info("[System] Stopped stale queue cleanup interval");
+        }
+
+        // Stop quota guard scheduler
+        if (this.quotaGuardService) {
+            this.quotaGuardService.stopScheduler();
+            this.logger.info("[System] Stopped quota guard scheduler");
         }
 
         // Close all message queues

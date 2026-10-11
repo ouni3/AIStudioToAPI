@@ -14,9 +14,11 @@ const dummyLogger = {
 // 1. Method signatures and basic backward compatibility check
 const baseAuthSource = new AuthSource(dummyLogger);
 assert.strictEqual(typeof baseAuthSource.isDisabled, "function", "isDisabled should be a function");
+assert.strictEqual(typeof baseAuthSource.getDisabledReason, "function", "getDisabledReason should be a function");
 assert.strictEqual(typeof baseAuthSource.getAvailableIndices, "function", "getAvailableIndices should be a function");
 assert.strictEqual(typeof baseAuthSource.updateAccountStatus, "function", "updateAccountStatus should be a function");
 assert.ok(Array.isArray(baseAuthSource.disabledIndices), "disabledIndices should be an array");
+assert.ok(baseAuthSource.disabledReasonMap instanceof Map, "disabledReasonMap should be a Map");
 assert.ok(Array.isArray(baseAuthSource.getAvailableIndices()), "getAvailableIndices() should return array");
 console.log("✓ 1. Method signatures and initial structures verified.");
 
@@ -53,14 +55,16 @@ assert.strictEqual(testAuthSource.isDisabled(1), false, "Account 1 should not be
 assert.strictEqual(testAuthSource.isDisabled(2), false, "Account 2 should not be disabled by default");
 console.log("   • Default state: accounts [0, 1, 2] participate in rotation.");
 
-// Mark account 1 as disabled in the mock data source
-mockAccounts.set(1, { accountName: "acc1@example.com", disabled: true });
+// Mark account 1 as disabled in the mock data source with disabledReason
+mockAccounts.set(1, { accountName: "acc1@example.com", disabled: true, disabledReason: "quota_exhausted" });
 testAuthSource._preValidateAndFilter();
 
 // Assertions after disabling account 1:
 assert.strictEqual(testAuthSource.isDisabled(1), true, "isDisabled(1) should return true");
 assert.strictEqual(testAuthSource.isDisabled(0), false, "isDisabled(0) should return false");
 assert.strictEqual(testAuthSource.isDisabled(2), false, "isDisabled(2) should return false");
+assert.strictEqual(testAuthSource.getDisabledReason(1), "quota_exhausted", "getDisabledReason(1) should return quota_exhausted");
+assert.strictEqual(testAuthSource.getDisabledReason(0), null, "getDisabledReason(0) should return null");
 
 assert.deepStrictEqual(testAuthSource.getRotationIndices(), [0, 2], "getRotationIndices() must strictly exclude disabled account 1");
 assert.deepStrictEqual(testAuthSource.getAvailableIndices(), [0, 2], "getAvailableIndices() must strictly exclude disabled account 1");

@@ -26,6 +26,8 @@ class AuthSource {
         this.expiredIndices = [];
         // Disabled auth indices (valid JSON but explicitly marked as disabled by user/admin, excluded from rotation)
         this.disabledIndices = [];
+        // Map<authIndex, string|null> storing the reason why an account is disabled (e.g. 'quota_exhausted')
+        this.disabledReasonMap = new Map();
         this.initialIndices = [];
         this.accountNameMap = new Map();
         // Map any valid index -> canonical (latest) index for the same account email
@@ -114,6 +116,7 @@ class AuthSource {
             this.duplicateIndices = [];
             this.expiredIndices = [];
             this.disabledIndices = [];
+            this.disabledReasonMap.clear();
             this.accountNameMap.clear();
             this.canonicalIndexMap.clear();
             this.duplicateGroups = [];
@@ -127,6 +130,7 @@ class AuthSource {
         this.duplicateGroups = [];
         this.expiredIndices = [];
         this.disabledIndices = [];
+        this.disabledReasonMap.clear();
 
         for (const index of this.initialIndices) {
             // Iterate over initial to check all, not just previously available
@@ -143,6 +147,8 @@ class AuthSource {
                     // Track disabled status from auth file
                     if (authData.disabled === true) {
                         this.disabledIndices.push(index);
+                        const reason = authData.disabledReason || authData.reason || null;
+                        this.disabledReasonMap.set(index, reason);
                     }
                 } catch (e) {
                     invalidSourceDescriptions.push(`auth-${index} (parse error)`);
@@ -402,6 +408,15 @@ class AuthSource {
     }
 
     /**
+     * Get disabled reason for an auth index
+     * @param {number} index - Auth index to check
+     * @returns {string|null}
+     */
+    getDisabledReason(index) {
+        return this.disabledReasonMap.get(index) || null;
+    }
+
+    /**
      * Get available (non-disabled) indices
      * @returns {number[]}
      */
@@ -413,21 +428,22 @@ class AuthSource {
      * Update account status (enable or disable account) and persist to file
      *
      * Side effects:
-     * - Writes/removes "disabled": true to configs/auth/auth-{index}.json
-     * - Updates this.disabledIndices array
+     * - Writes/removes "disabled": true and "disabledReason" to configs/auth/auth-{index}.json
+     * - Updates this.disabledIndices array and this.disabledReasonMap
      * - Rebuilds rotation indices (calls this._buildRotationIndices())
      *
      * @param {number} index - Auth index to update
-     * @param {Object} statusUpdate - { disabled: boolean }
+     * @param {Object} statusUpdate - { disabled: boolean, disabledReason?: string, reason?: string }
      * @returns {Promise<boolean>} True if successfully updated, false otherwise
      */
-    async updateAccountStatus(index, { disabled }) {
+    async updateAccountStatus(index, { disabled, disabledReason, reason }) {
         if (!this.availableIndices.includes(index)) {
             this.logger.warn(`[Auth] Cannot update status of non-existent auth #${index}`);
             return false;
         }
 
         const shouldDisable = Boolean(disabled);
+        const resolvedReason = shouldDisable ? disabledReason || reason || null : null;
         const authFilePath = path.join(process.cwd(), "configs", "auth", `auth-${index}.json`);
 
         try {
@@ -436,8 +452,16 @@ class AuthSource {
 
             if (shouldDisable) {
                 authData.disabled = true;
+                if (resolvedReason) {
+                    authData.disabledReason = resolvedReason;
+                } else {
+                    delete authData.disabledReason;
+                    delete authData.reason;
+                }
             } else {
                 delete authData.disabled;
+                delete authData.disabledReason;
+                delete authData.reason;
             }
 
             await fsPromises.writeFile(authFilePath, JSON.stringify(authData, null, 2));
@@ -446,9 +470,15 @@ class AuthSource {
                 if (!this.disabledIndices.includes(index)) {
                     this.disabledIndices.push(index);
                 }
-                this.logger.info(`[Auth] ⏸️ Account #${index} manually disabled.`);
+                if (resolvedReason) {
+                    this.disabledReasonMap.set(index, resolvedReason);
+                } else {
+                    this.disabledReasonMap.delete(index);
+                }
+                this.logger.info(`[Auth] ⏸️ Account #${index} manually disabled.${resolvedReason ? ` Reason: ${resolvedReason}` : ""}`);
             } else {
                 this.disabledIndices = this.disabledIndices.filter(idx => idx !== index);
+                this.disabledReasonMap.delete(index);
                 this.logger.info(`[Auth] ▶️ Account #${index} manually enabled.`);
             }
 

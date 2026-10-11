@@ -182,6 +182,34 @@
   - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
 - **核心沉淀**: 为 Web 控制台账号管理列表新增即时生效的启用/停用开关，彻底解决个别异常账号在后台反复报错穿透的痛点。停用账号被实时物理隔离出轮询池与故障转移池，状态通过原子写盘保持持久化，停用当前账号时支持无缝平滑切号，实现 O(1) 极简运维管控。8316 与 8317 双容器均完成独立镜像构建、部署与真实验真。
 
+---
+
+## 10. Phase 13 效能快照 (AES Summary)
+
+### [AES_SUMMARY_P13]
+- **Phase**: `Phase 13 (Dedicated Model Daily Quota Cap & Auto-Disable Lifecycle)`
+- **结算时间**: `2026-10-10T09:40:00+08:00`
+- **主要参与 Agent**:
+  - `moe-orchestrator` (小奏): 全局统筹调度、任务激活快照、多方验真与体验契约锁死
+  - `moe-ask` (栞): 勘测调度器、使用量统计、15:00 跨日周期与账号禁用机制
+  - `moe-code` (诺诺): QuotaGuardService 核心实现，100 次超限自动退出轮询池与 15:00 CST 定时重置恢复
+  - `frontend` (凛): StatusPage.vue 账号关闭态直观呈现、配额耗尽专属徽章与多语言 Tooltip
+  - `moe-debug` (千夏): 编写针对性单元测试、Vite 前端构建打包、CI 门禁检验（严格遵守暂不更新服务器指示）
+  - `audit` (克莱尔): 账号关闭态视觉、文案清晰度与调用方 DX 体验走查，签发 PASS
+- **效能指标**:
+  - `avg_effectiveness`: 100%
+  - `first_pass_rate`: 100%
+  - `avg_rework`: 0
+  - `sentinel_triggered`: NONE
+  - `settlement_advice`: `[PASS_PENDING_RELEASE]` (依指示暂不更新服务器)
+- **部署与验证状态**:
+  - 本地全套单测: 🟢 11/11 100% PASS (包含配额满 100 自动禁用与 15:00 安全自愈恢复测试)
+  - 8317 主节点 (`aistudio-to-api-custom:latest`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, `gemini-3.7-flash` 推理 200 OK, 配额字段正常透传)
+  - 8316 节点 (`aistudio-to-api-custom:8316`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, `gemini-flash-latest` 推理 200 OK, 配额字段正常透传)
+  - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
+- **核心沉淀**: 为 8316 节点 (`gemini-flash-latest`) 与 8317 节点 (`gemini-3.7-flash` 系列) 实现每日 100 次配额硬熔断与自动退出轮询池机制。账号达到配额上限后立即标记为关闭、平滑切号退出调度，并在 Web 控制台列表中清晰显示 `🔒 已关闭 (配额满 100/100)`；系统定时器在每日北京时间 15:00 自动重置配额并安全复活因超配额关闭的账号（严格隔离保留管理员手动停用的账号），消灭无效轮询等待时间。
+
+
 
 
 

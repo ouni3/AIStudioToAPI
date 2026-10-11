@@ -70,6 +70,10 @@ class RequestHandler {
         return this.serverSystem.usageStatsService || null;
     }
 
+    _getQuotaGuardService() {
+        return this.serverSystem.quotaGuardService || null;
+    }
+
     _getAccountNameForIndex(authIndex) {
         if (!Number.isInteger(authIndex) || authIndex < 0) {
             return null;
@@ -1037,6 +1041,13 @@ class RequestHandler {
                         this.needsSwitchingAfterRequest = true;
                     }
                 }
+
+                // Check quota guard
+                const modelInPath = this._extractModelFromPath(req.path);
+                const quotaGuard = this._getQuotaGuardService();
+                if (quotaGuard && modelInPath) {
+                    await quotaGuard.recordRequest(this.currentAuthIndex, modelInPath);
+                }
             }
 
             const rawModelInPath = this._extractModelFromPath(req.path);
@@ -1322,6 +1333,12 @@ class RequestHandler {
                     );
                     return this._sendInvalidModelError(res, rawModel);
                 }
+            }
+
+            // Check quota guard
+            const quotaGuard = this._getQuotaGuardService();
+            if (quotaGuard && rawModel) {
+                await quotaGuard.recordRequest(this.currentAuthIndex, String(rawModel));
             }
 
             // Translate OpenAI format to Google format (also handles model name suffix parsing)
@@ -1806,6 +1823,12 @@ class RequestHandler {
                 }
             }
 
+            // Check quota guard
+            const quotaGuard = this._getQuotaGuardService();
+            if (quotaGuard && rawModel) {
+                await quotaGuard.recordRequest(this.currentAuthIndex, String(rawModel));
+            }
+
             // Translate OpenAI Response format to Google format
             let googleBody, model, modelStreamingMode;
             try {
@@ -2265,6 +2288,12 @@ class RequestHandler {
                     );
                     return this._sendInvalidModelError(res, rawModel);
                 }
+            }
+
+            // Check quota guard
+            const quotaGuard = this._getQuotaGuardService();
+            if (quotaGuard && rawModel) {
+                await quotaGuard.recordRequest(this.currentAuthIndex, String(rawModel));
             }
 
             // Translate Claude format to Google format

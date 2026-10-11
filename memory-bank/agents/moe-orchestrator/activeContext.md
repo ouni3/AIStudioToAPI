@@ -9,11 +9,19 @@
 > - `verdict`: **KEEP**
 
 ## 1. 当前会话状态 (Current Session State)
-- **Active Phase**: `Phase 11 (Google 404 Ambiguous Service Auto-Healing & Downstream 503 Mapping)`
-- **Task Goal**: 根除上游 Google 404 "Ambiguous request for service '' and method '/GenerativeService.StreamGenerateContent'" 误判为不可重试错误导致 Kilo 客户端中断的问题；完成 104 服务器 8316 端口同构容器复刻部署与探活，明确 8316 端口专用于 Pro 模型调用通道；完成 8316 与 8317 双端口 Web 控制台免密直通改造并同步更新上线。
-- **Status**: [CLOSED_SETTLED|TAGGED_v1.3.5-p11|REMOTE_PUSHED|8316_8317_PASSWORDLESS_ONLINE|8316_PRO_CHANNEL_ONLINE|8317_DEPLOYED_HEALTHY]
+- **Active Phase**: `Phase 13 (Dedicated Model Daily Quota Cap & Auto-Disable Lifecycle)`
+- **Task Goal**: 8316 (gemini-flash-latest) 与 8317 (gemini-3.7-flash) 专用模型每日配额上限为 100，达到 100 自动退出轮询池并在 Web 控制台呈现关闭态，每日北京时间 15:00 自动更新重置。8316 与 8317 双容器均已成功更新上线并全量探活。
+- **Status**: [DEPLOYED_HEALTHY|8316_8317_ONLINE_PASS|ALL_PROBES_PASS]
 
 ## 2. 核心架构与编排经验 (Orchestration Insights)
+1. **账号手动启停与调度池物理隔离契约**:
+   - `AuthSource.js`: 在 `_buildRotationIndices()` 中基于 `disabledIndices` 彻底排除停用账号，保证被禁用的账号绝对不被分配任何 API 请求；
+   - `updateAccountStatus(index, { disabled })`: 实现磁盘 JSON 文件的原子更新与内存热重载；
+   - `StatusRoutes.js`: 暴露 `PUT /api/accounts/:index/status` 接口，当前活跃账号被停用时自动平滑切至下一健康账号；
+   - 前端 `StatusPage.vue`: 采用 Element Plus ElSwitch，支持防抖、小巧提示与状态回滚。
+2. **8316/8317 独立镜像构建隔离规范**: 8316 节点采用专用镜像标签 `aistudio-to-api-custom:8316`，8317 主节点使用 `aistudio-to-api-custom:latest`，彻底消灭双容器镜像覆盖与配置漂移。
+3. **[DISCOVERED_PITFALL] 终审派单叙事断言一致性**: 派单叙述必须逐字引用冻结文件实值，严禁与实际文件记录存在细微数字脱节；Summary 四树快照必须在暂存时保持严格自洽。
+
 1. **Web 控制台免密直通与 API 严格鉴权物理隔离契约**:
    - `src/routes/AuthRoutes.js`: `isAuthenticated` 中间件默认将 `req.session.isAuthenticated` 置为 `true` 并执行 `next()`，所有 `/api/status`、`/api/accounts/*`、`/api/vnc/*` 管理接口免密直通；
    - `ui/app/router/index.js`: Vue Router 移除阻塞式鉴权探针，访问 `/login` 自动跳回状态页，实现访问即入；

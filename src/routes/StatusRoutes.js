@@ -1055,6 +1055,7 @@ class StatusRoutes {
         const allLogs = this.logger.logBuffer || [];
         const displayLogs = allLogs.slice(-limit);
         const accountNameMap = authSource.accountNameMap;
+        const quotaGuardService = this.serverSystem.quotaGuardService;
         const accountDetails = initialIndices.map(index => {
             const isInvalid = invalidIndices.includes(index);
             const name = isInvalid ? null : accountNameMap.get(index) || null;
@@ -1064,10 +1065,27 @@ class StatusRoutes {
             const isRotation = rotationIndices.includes(index);
             const isExpired = expiredIndices.includes(index);
             const disabled = disabledIndices.includes(index);
+            const disabledReason = disabled ? authSource.getDisabledReason(index) : null;
+
+            const quotaUsage = quotaGuardService ? quotaGuardService.getUsage(index) : 0;
+            const quotaLimit = quotaGuardService ? quotaGuardService.quotaLimit : 100;
 
             const hasContext = browserManager.contexts.has(index);
 
-            return { canonicalIndex, disabled, hasContext, index, isDuplicate, isExpired, isInvalid, isRotation, name };
+            return {
+                canonicalIndex,
+                disabled,
+                disabledReason,
+                hasContext,
+                index,
+                isDuplicate,
+                isExpired,
+                isInvalid,
+                isRotation,
+                name,
+                quotaLimit,
+                quotaUsage,
+            };
         });
 
         const currentAuthIndex = requestHandler.currentAuthIndex;

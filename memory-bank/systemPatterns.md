@@ -8,7 +8,7 @@
 > - `ect`: **S** (count(+)=4, count(-)=0, Value_Delivered=+, S_total=+)
 > - `verdict`: **KEEP** (核心 memory-bank 资产)
 
-- **Baseline Marker**: `BASELINE_PHASE_12` (Phase 12 核心架构基线已对齐)
+- **Baseline Marker**: `BASELINE_PHASE_13` (Phase 13 专属模型每日配额熔断与UI自动关闭基线已对齐)
 
 ## 0. 资产定级标定 (Rating & Asset Profile)
 - **项目等级**: **SR (Super Rare - 系统枢纽级)**
