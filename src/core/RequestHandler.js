@@ -185,7 +185,15 @@ class RequestHandler {
         return "api_error";
     }
 
-    _startTrackedRequest(requestId, req, meta = {}) {
+    _startTrackedRequest(requestId, req, meta = {}, res = null) {
+        const extractedModel = meta.model || req?.body?.model || this._extractModelFromPath(req?.path) || null;
+        if (req && extractedModel && !req.__trackedRequestModel) {
+            req.__trackedRequestModel = String(extractedModel);
+        }
+        if (res && extractedModel && !res.__trackedRequestModel) {
+            res.__trackedRequestModel = String(extractedModel);
+        }
+
         const usageStatsService = this._getUsageStatsService();
         if (!usageStatsService) return;
 
@@ -195,20 +203,21 @@ class RequestHandler {
             initialAuthIndex: this.currentAuthIndex,
             method: req.method,
             path: req.path,
+            model: extractedModel,
             ...meta,
         });
     }
 
-    _updateTrackedRequest(requestId, patch = {}) {
+    _updateTrackedRequest(requestId, patch = {}, res = null) {
+        if (res && patch?.model) {
+            res.__trackedRequestModel = String(patch.model);
+        }
         const usageStatsService = this._getUsageStatsService();
         if (!usageStatsService) return;
         usageStatsService.updateRequest(requestId, patch);
     }
 
     _finalizeTrackedRequest(requestId, res, overrides = {}) {
-        const usageStatsService = this._getUsageStatsService();
-        if (!usageStatsService) return;
-
         let outcome = overrides.outcome;
         if (!outcome) {
             if (res.__usageTrackingClientAborted) {
@@ -231,13 +240,40 @@ class RequestHandler {
             res.__usageTrackingErrorMessage ??
             (outcome === "error" ? "Request failed" : null);
 
-        usageStatsService.finishRequest(requestId, {
-            errorMessage,
-            finalAccountName: overrides.finalAccountName,
-            finalAuthIndex: overrides.finalAuthIndex,
-            outcome,
-            statusCode,
-        });
+        const usageStatsService = this._getUsageStatsService();
+        let finishedRecord = null;
+        if (usageStatsService) {
+            finishedRecord = usageStatsService.finishRequest(requestId, {
+                errorMessage,
+                finalAccountName: overrides.finalAccountName,
+                finalAuthIndex: overrides.finalAuthIndex,
+                outcome,
+                statusCode,
+            });
+        }
+
+        // Quota Guard: only count towards daily quota if request successfully completed (statusCode < 400)
+        if (outcome === "success" && (statusCode === null || statusCode < 400)) {
+            const quotaGuard = this._getQuotaGuardService();
+            if (quotaGuard) {
+                const finalAuthIndex =
+                    overrides.finalAuthIndex ??
+                    finishedRecord?.finalAuthIndex ??
+                    this.connectionRegistry?.getAuthIndexForRequest?.(requestId) ??
+                    this.currentAuthIndex;
+                const model =
+                    res.__trackedRequestModel ||
+                    finishedRecord?.model ||
+                    overrides.model ||
+                    this._extractModelFromPath(finishedRecord?.path) ||
+                    null;
+                if (Number.isInteger(finalAuthIndex) && finalAuthIndex >= 0 && model) {
+                    quotaGuard.recordRequest(finalAuthIndex, String(model)).catch(err => {
+                        this.logger?.warn?.(`[QuotaGuard] Failed to record request in _finalizeTrackedRequest: ${err.message}`);
+                    });
+                }
+            }
+        }
     }
 
     _markTrackedResponseError(res, message, statusCode = null, outcome = "error") {
@@ -1005,7 +1041,7 @@ class RequestHandler {
         this._startTrackedRequest(requestId, req, {
             apiFormat: "gemini",
             requestCategory: this._categorizeRequest(req.path, "request"),
-        });
+        }, res);
         this._setResponseApiFormat(res, "gemini");
         res.__proxyResponseStreamMode = null;
 
@@ -1041,13 +1077,6 @@ class RequestHandler {
                         this.needsSwitchingAfterRequest = true;
                     }
                 }
-
-                // Check quota guard
-                const modelInPath = this._extractModelFromPath(req.path);
-                const quotaGuard = this._getQuotaGuardService();
-                if (quotaGuard && modelInPath) {
-                    await quotaGuard.recordRequest(this.currentAuthIndex, modelInPath);
-                }
             }
 
             const rawModelInPath = this._extractModelFromPath(req.path);
@@ -1076,7 +1105,7 @@ class RequestHandler {
                     isGenerativeRequest ? "generation" : "request"
                 ),
                 streamMode: wantsStream ? proxyRequest.streaming_mode : null,
-            });
+            }, res);
 
             try {
                 // Create message queue inside try-catch to handle invalid authIndex
@@ -1128,7 +1157,7 @@ class RequestHandler {
             isStreaming: false,
             requestCategory: "embedding",
             streamMode: null,
-        });
+        }, res);
         this._setResponseApiFormat(res, "openai");
         res.__proxyResponseStreamMode = null;
 
@@ -1169,7 +1198,7 @@ class RequestHandler {
                 path: proxyRequest.path,
                 requestCategory: "embedding",
                 streamMode: null,
-            });
+            }, res);
 
             try {
                 const messageQueue = this.connectionRegistry.createMessageQueue(
@@ -1200,8 +1229,7 @@ class RequestHandler {
             apiFormat: "upload",
             isStreaming: false,
             requestCategory: "upload",
-            streamMode: null,
-        });
+        }, res);
         this._setResponseApiFormat(res, "upload");
 
         try {
@@ -1288,7 +1316,7 @@ class RequestHandler {
             isStreaming: req.body.stream === true,
             requestCategory: "generation",
             streamMode: req.body.stream === true ? this.config.streamingMode : null,
-        });
+        }, res);
         this._setResponseApiFormat(res, "openai");
         res.__proxyResponseStreamMode = null;
 
@@ -1333,12 +1361,6 @@ class RequestHandler {
                     );
                     return this._sendInvalidModelError(res, rawModel);
                 }
-            }
-
-            // Check quota guard
-            const quotaGuard = this._getQuotaGuardService();
-            if (quotaGuard && rawModel) {
-                await quotaGuard.recordRequest(this.currentAuthIndex, String(rawModel));
             }
 
             // Translate OpenAI format to Google format (also handles model name suffix parsing)
@@ -1388,7 +1410,7 @@ class RequestHandler {
                 path: proxyRequest.path,
                 requestCategory: "generation",
                 ...(isOpenAIStream ? { streamMode: useRealStream ? "real" : "fake" } : {}),
-            });
+            }, res);
 
             try {
                 // Create message queue inside try-catch to handle invalid authIndex
@@ -1727,7 +1749,7 @@ class RequestHandler {
             isStreaming: isOpenAIStream,
             requestCategory: "generation",
             streamMode: isOpenAIStream ? this.config.streamingMode : null,
-        });
+        }, res);
         this._setResponseApiFormat(res, "response_api");
         res.__proxyResponseStreamMode = null;
 
@@ -1823,12 +1845,6 @@ class RequestHandler {
                 }
             }
 
-            // Check quota guard
-            const quotaGuard = this._getQuotaGuardService();
-            if (quotaGuard && rawModel) {
-                await quotaGuard.recordRequest(this.currentAuthIndex, String(rawModel));
-            }
-
             // Translate OpenAI Response format to Google format
             let googleBody, model, modelStreamingMode;
             try {
@@ -1882,7 +1898,7 @@ class RequestHandler {
                 path: proxyRequest.path,
                 requestCategory: "generation",
                 ...(isOpenAIStream ? { streamMode: useRealStream ? "real" : "fake" } : {}),
-            });
+            }, res);
 
             try {
                 // Create message queue inside try-catch to handle invalid authIndex
@@ -2243,7 +2259,7 @@ class RequestHandler {
             isStreaming: req.body.stream === true,
             requestCategory: "generation",
             streamMode: req.body.stream === true ? this.config.streamingMode : null,
-        });
+        }, res);
         this._setResponseApiFormat(res, "claude");
         res.__proxyResponseStreamMode = null;
 
@@ -2290,12 +2306,6 @@ class RequestHandler {
                 }
             }
 
-            // Check quota guard
-            const quotaGuard = this._getQuotaGuardService();
-            if (quotaGuard && rawModel) {
-                await quotaGuard.recordRequest(this.currentAuthIndex, String(rawModel));
-            }
-
             // Translate Claude format to Google format
             let googleBody, model, modelStreamingMode;
             try {
@@ -2339,12 +2349,12 @@ class RequestHandler {
             this._initializeProxyRequestAttempt(proxyRequest);
             res.__proxyResponseStreamMode = isClaudeStream ? (useRealStream ? "real" : "fake") : null;
             this._updateTrackedRequest(requestId, {
-                isStreaming: isClaudeStream,
+                isStreaming: isOpenAIStream,
                 model,
                 path: proxyRequest.path,
                 requestCategory: "generation",
-                ...(isClaudeStream ? { streamMode: useRealStream ? "real" : "fake" } : {}),
-            });
+                ...(isOpenAIStream ? { streamMode: useRealStream ? "real" : "fake" } : {}),
+            }, res);
 
             try {
                 // Create message queue inside try-catch to handle invalid authIndex
@@ -2668,8 +2678,7 @@ class RequestHandler {
             apiFormat: "claude",
             isStreaming: false,
             requestCategory: "count_tokens",
-            streamMode: null,
-        });
+        }, res);
         this._setResponseApiFormat(res, "claude");
 
         // Handle raw model validation for Claude count tokens request before browser readiness check
@@ -2749,7 +2758,7 @@ class RequestHandler {
                 model,
                 path: proxyRequest.path,
                 requestCategory: "count_tokens",
-            });
+            }, res);
 
             try {
                 // Create message queue inside try-catch to handle invalid authIndex
@@ -2847,8 +2856,7 @@ class RequestHandler {
             apiFormat: "response_api",
             isStreaming: false,
             requestCategory: "count_tokens",
-            streamMode: null,
-        });
+        }, res);
         this._setResponseApiFormat(res, "response_api");
 
         // Handle raw model validation for OpenAI Response input_tokens request before browser readiness check
@@ -2932,7 +2940,7 @@ class RequestHandler {
                 model,
                 path: proxyRequest.path,
                 requestCategory: "count_tokens",
-            });
+            }, res);
 
             try {
                 const messageQueue = this.connectionRegistry.createMessageQueue(

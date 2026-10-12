@@ -207,7 +207,12 @@
   - 8317 主节点 (`aistudio-to-api-custom:latest`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, `gemini-3.7-flash` 推理 200 OK, 配额字段正常透传)
   - 8316 节点 (`aistudio-to-api-custom:8316`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, `gemini-flash-latest` 推理 200 OK, 配额字段正常透传)
   - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
-- **核心沉淀**: 为 8316 节点 (`gemini-flash-latest`) 与 8317 节点 (`gemini-3.7-flash` 系列) 实现每日 100 次配额硬熔断与自动退出轮询池机制。账号达到配额上限后立即标记为关闭、平滑切号退出调度，并在 Web 控制台列表中清晰显示 `🔒 已关闭 (配额满 100/100)`；系统定时器在每日北京时间 15:00 自动重置配额并安全复活因超配额关闭的账号（严格隔离保留管理员手动停用的账号），消灭无效轮询等待时间。
+- **核心沉淀**: 为 8316 节点 (`gemini-flash-latest`) 与 8317 节点 (`gemini-3.7-flash` 系列) 实现每日 100 次配额硬熔断与自动退出轮询池机制。
+  - **托管效率与理事长纠偏证据记录 (Phase 441/P0 立法)**:
+    1. 理事长纠偏指示一：“注意是成功调用次数达到100次,需要修改逻辑重新部署。请求成功才算作一次统计值” -> 团队立即将配额累加由入口提前绑定重构为 `_finalizeTrackedRequest` 晚绑定，强门禁断言仅当请求 200/成功返回且未被客户端中断时才计入调用次数，异常与失败调用绝对不计入配额；
+    2. 理事长运维指示二：“后续不要同时更新两个容器,更新一个稳定后再更新另外一个” -> 团队确立《双容器串行金丝雀发布铁律 (Serial Canary Update Protocol)》，固化至 `systemPatterns.md`，执行单容器更新、实测探活与出字稳定后再推进次节点的严格时序，消除集群双挂风险；
+    3. 生产全量探活验证：8317 节点 (`gemini-3.7-flash`) 探活成功出字，满额账号实时呈现 `disabled: true, disabledReason: 'quota_exhausted'` 并移出轮询；8316 节点 (`gemini-flash-latest`) 探活成功出字，双节点健康运行中。
+
 
 
 

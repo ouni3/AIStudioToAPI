@@ -17,6 +17,30 @@
 
 ## 1. 架构总览 (Architecture Overview)
 
+### 1.1 核心模块功能定位地图 (Repo-Skeleton Function Map)
+按照 K5a「全景骨架导航与精准语法重构协同法则」建立骨架拓扑两级索引之第一级 SSOT：
+
+| 模块目录 / 文件 | 核心功能定位 | 架构分层 | 协同依赖 |
+|:---|:---|:---|:---|
+| `main.js` | 服务初始化、中间件挂载、路由绑定与优雅停机 | 入口编排层 | `ProxyServerSystem`, `ConfigLoader`, `WebRoutes` |
+| `src/core/RequestHandler.js` | OpenAI/Claude 协议路由分发、流式聚合、403/404/503 切号故障转移 | 请求调度中枢 | `FormatConverter`, `BrowserManager`, `ConnectionRegistry` |
+| `src/core/FormatConverter.js` | 双向协议载荷转换、模型名清洗、Thinking 提取与 Kilocode 兜底 | 协议适配层 | `CustomErrors`, `logger` |
+| `src/core/BrowserManager.js` | 逆向 WebSocket 会话管理、Token 刷新、Context 池伸缩 | 逆向会话层 | `AuthSource`, `AuthSwitcher`, `ConnectionRegistry` |
+| `src/core/ConnectionRegistry.js` | WebSocket 与 HTTP 在途连接追踪、在途请求平滑排空 (Drain) | 流量守卫层 | `logger` |
+| `src/core/QuotaGuardService.js` | 专属模型配额硬熔断追踪、日配额退池与每日 15:00 自动重置 | 配额熔断层 | `ConfigLoader`, `logger` |
+| `src/core/UsageStatsService.js` | 请求指标统计、每日 Token/请求数聚合与跨日持久化 | 观测指标层 | `logger` |
+| `src/core/ProxyServerSystem.js` | 代理服务实例生命周期编排与健康状态维护 | 系统核心层 | `RequestHandler`, `BrowserManager` |
+| `src/auth/AuthSource.js` | 账号凭据加载、账号启用/停用状态追踪、轮询索引池构建 | 凭据状态层 | `ConfigLoader`, `logger` |
+| `src/auth/AuthSwitcher.js` | 故障转移账号切换决策、手动账号切换与平滑降级 | 调度决策层 | `AuthSource`, `ConnectionRegistry` |
+| `src/auth/CreateAuth.js` | AI Studio 凭据初始化、登录状态抓取与凭据文件写入 | 凭据接入层 | `StickyProxyManager` |
+| `src/routes/WebRoutes.js` | API 推理端点路由绑定 (`/v1/chat/completions`, `/v1/messages`, `/v1/models`) | 外部接口层 | `RequestHandler`, `AuthRoutes` |
+| `src/routes/StatusRoutes.js` | 管理控制台状态接口与账号启停管理 (`/api/accounts/:index/status`) | 运维管理层 | `BrowserManager`, `QuotaGuardService` |
+| `src/routes/AuthRoutes.js` | Web 控制台鉴权中间件与会话免密直通通道 | 安全控制层 | `ConfigLoader` |
+| `src/utils/StickyProxyManager.js` | 账号专有黏性代理配置、VNC 端口映射与多网卡隔离 | 网络代理层 | `ProxyUtils` |
+| `src/utils/MessageQueue.js` | 异步请求队列调度、背压控制与 STREAM_CHUNK 超时看门狗 | 异步通信层 | `CustomErrors` |
+
+### 1.2 系统分层架构交互拓扑 (Subsystem Topology)
+
 本项目采用模块化 Express + WebSocket 服务架构，整体分为四大核心子系统：
 
 ```
@@ -101,6 +125,10 @@
    - 端口映射: `8318 -> 7860/tcp`
    - 定位与职能: 作为稳定回退与对照基准节点，常驻按需待命 (`restart: "no"`)。
 4. **网络与出墙隔离**: 通过 `host.docker.internal:7890` 挂载宿主机 Mihomo 代理，保障所有容器统一出墙访问 Google AI Studio。
+5. **双容器串行金丝雀发布铁律 (Serial Canary Update Protocol - 理事长最高指示 2026-10-12, P0)**:
+   - **严禁同时更新双容器**: 绝对禁止对 8316 与 8317 容器同时触发构建、重启或覆盖操作，消灭双节点同时离线与服务雪崩风险；
+   - **单节点先行验证原则**: 必须且仅能先更新其中一个容器（如 8317 主节点），等待构建启动就绪并执行真实 HTTP `/health` 探活与真实业务推理（curl 测试出字成功）、确认状态完全稳定且工作正常后；
+   - **放行后方可推进次节点**: 仅在前置节点获得稳定放行凭据后，方可启动第二个节点（如 8316 节点）的独立构建与平滑重启验证，保障整个集群时刻保有至少一个高可用在线节点。
 
 ## 3. 防御性编码与韧性原则 (Defensive Engineering)
 - **路径与载荷前置断言**: 请求发起前强校验 `model` 字段非空与合法性。

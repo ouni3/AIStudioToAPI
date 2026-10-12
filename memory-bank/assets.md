@@ -22,6 +22,32 @@
 | `ui/dist/` | 前端构建产物 | Vite 编译生成的生产静态资源，由后端静态托管 | P1 |
 | `configs/models.json` | 模型参数与映射字典 | 支持的 Gemini 模型列表、Token 配额与特性标签 | P0 |
 
+### 1.1 关键入口与符号索引 (Key Entrypoints & Symbol Index)
+按照 K5a「全景骨架导航与精准语法重构协同法则」建立骨架拓扑两级索引之第二级轻量拓扑（供代码勘测与重构施工精准锁定，下刀前优先 AST/语法检索）：
+
+| 关键文件 | 关键类 / 函数 / 符号 (Symbol) | 符号类型 | 核心职能与重构关节点 |
+|:---|:---|:---|:---|
+| `main.js` | `bootstrap()` / `main()` | 异步入口 | 服务启动流程、端口监听、中间件加载与系统初始化 |
+| `src/core/RequestHandler.js` | `RequestHandler` | 核心类 | 请求调度引擎主类 |
+| `src/core/RequestHandler.js` | `handleChatCompletion()` | 核心方法 | OpenAI 兼容接口请求入口与流式分发 |
+| `src/core/RequestHandler.js` | `handleMessages()` | 核心方法 | Claude 兼容接口请求入口与协议处理 |
+| `src/core/RequestHandler.js` | `handleRequestFailureAndSwitch()` | 核心方法 | 状态码识别 (403/404/429/500/502/504) 与故障转移决策 |
+| `src/core/FormatConverter.js` | `FormatConverter` | 核心类 | 协议与载荷转换工具类 |
+| `src/core/FormatConverter.js` | `cleanModelName()` | 静态/方法 | 模型名称清洗、前后缀去除与防空兜底 |
+| `src/core/FormatConverter.js` | `convertToGeminiRequest()` | 核心方法 | OpenAI/Claude 请求载荷映射为 Google API 原生载荷 |
+| `src/core/FormatConverter.js` | `extractThinkingAndInjectToolCall()` | 核心方法 | Thinking-only 兜底注入 Kilocode glob tool_call |
+| `src/core/BrowserManager.js` | `BrowserManager` | 核心类 | 逆向浏览器会话池与 WebSocket 上游通道管理器 |
+| `src/core/BrowserManager.js` | `rebalanceContextPool()` | 核心方法 | 排除停用账号、动态维护健康 Context 会话池 |
+| `src/core/ConnectionRegistry.js` | `ConnectionRegistry` | 单例/类 | 在途连接注册中心 |
+| `src/core/ConnectionRegistry.js` | `waitForAuthQueuesToDrain()` | 核心方法 | 切号前排空在途请求，保证流式传输完整性 |
+| `src/core/QuotaGuardService.js` | `QuotaGuardService` | 核心服务 | 模型配额熔断看门狗，15:00 每日配额重置 |
+| `src/auth/AuthSource.js` | `AuthSource` | 核心类 | 多账号凭据状态持久化与加载器 |
+| `src/auth/AuthSource.js` | `updateAccountStatus()` | 核心方法 | 账号启用/停用状态热重载与磁盘写盘 |
+| `src/auth/AuthSource.js` | `_buildRotationIndices()` | 核心方法 | 可用账号轮询索引池构建 (排除 disabled 账号) |
+| `src/auth/AuthSwitcher.js` | `AuthSwitcher` | 核心类 | 故障切换与手动切号调度决策器 |
+| `src/auth/AuthSwitcher.js` | `switchToSpecificAuth()` | 核心方法 | 指定账号平滑切换与防切换至停用账号校验 |
+| `src/routes/StatusRoutes.js` | `setupStatusRoutes()` | 路由配置 | 导出管理端监控 API 与账号启停 PUT 路由 |
+
 ---
 
 ## 2. 交付态部署物档案 (Deployment Artifact Registry — Phase 118 立法, P0)

@@ -148,4 +148,98 @@ assert.strictEqual(restoredAccounts[0].index, 0);
 assert.strictEqual(restoredAccounts[0].status.disabled, false);
 
 console.log("✓ Quota reset cleanly restored quota_exhausted accounts while preserving manual disabled accounts.");
+
+// 5. Test RequestHandler integration: only successful requests increment quota, failures/aborts do not
+console.log("5. Testing RequestHandler and QuotaGuard collaboration on success vs failure/abort...");
+const rhModule = await import("../src/core/RequestHandler.js");
+const RequestHandler = rhModule.default;
+
+const recordedCalls = [];
+const mockQuotaGuardForRh = {
+    recordRequest: async (authIndex, model) => {
+        recordedCalls.push({ authIndex, model });
+        return { isQuotaExhausted: false, currentUsage: recordedCalls.length };
+    },
+};
+
+const mockServerSystemForRh = {
+    quotaGuardService: mockQuotaGuardForRh,
+    usageStatsService: {
+        finishRequest: () => ({ finalAuthIndex: 0, model: "gemini-flash-latest" }),
+        startRequest: () => {},
+        updateRequest: () => {},
+    },
+    webRoutes: {
+        authRoutes: {
+            getClientIP: () => "127.0.0.1",
+        },
+    },
+};
+
+const rhInstance = new RequestHandler(
+    mockServerSystemForRh,
+    { getAuthIndexForRequest: () => 0 },
+    dummyLogger,
+    {},
+    {},
+    mockAuthSource
+);
+
+// 5a. Successful request (statusCode 200, outcome success) -> MUST increment
+recordedCalls.length = 0;
+const successRes = { statusCode: 200, __trackedRequestModel: "gemini-flash-latest" };
+rhInstance._finalizeTrackedRequest("req-success-1", successRes, { outcome: "success", statusCode: 200, finalAuthIndex: 0 });
+await new Promise(resolve => setTimeout(resolve, 10));
+assert.strictEqual(recordedCalls.length, 1);
+assert.strictEqual(recordedCalls[0].authIndex, 0);
+assert.strictEqual(recordedCalls[0].model, "gemini-flash-latest");
+
+// 5b. Client aborted request -> MUST NOT increment
+recordedCalls.length = 0;
+const abortRes = { statusCode: 200, __usageTrackingClientAborted: true, __trackedRequestModel: "gemini-flash-latest" };
+rhInstance._finalizeTrackedRequest("req-abort-1", abortRes, { finalAuthIndex: 0 });
+await new Promise(resolve => setTimeout(resolve, 10));
+assert.strictEqual(recordedCalls.length, 0, "Aborted request must NOT increment quota");
+
+// 5c. Error response: 400 Bad Request -> MUST NOT increment
+recordedCalls.length = 0;
+const err400Res = { statusCode: 400, __trackedRequestModel: "gemini-flash-latest" };
+rhInstance._finalizeTrackedRequest("req-400-1", err400Res, { finalAuthIndex: 0 });
+await new Promise(resolve => setTimeout(resolve, 10));
+assert.strictEqual(recordedCalls.length, 0, "400 error must NOT increment quota");
+
+// 5d. Error response: 403 Forbidden / Region -> MUST NOT increment
+recordedCalls.length = 0;
+const err403Res = { statusCode: 403, __trackedRequestModel: "gemini-flash-latest" };
+rhInstance._finalizeTrackedRequest("req-403-1", err403Res, { finalAuthIndex: 0 });
+await new Promise(resolve => setTimeout(resolve, 10));
+assert.strictEqual(recordedCalls.length, 0, "403 error must NOT increment quota");
+
+// 5e. Error response: 404 Model Not Found -> MUST NOT increment
+recordedCalls.length = 0;
+const err404Res = { statusCode: 404, __trackedRequestModel: "gemini-flash-latest" };
+rhInstance._finalizeTrackedRequest("req-404-1", err404Res, { finalAuthIndex: 0 });
+await new Promise(resolve => setTimeout(resolve, 10));
+assert.strictEqual(recordedCalls.length, 0, "404 error must NOT increment quota");
+
+// 5f. Error response: 429 Rate Limit -> MUST NOT increment
+recordedCalls.length = 0;
+const err429Res = { statusCode: 429, __trackedRequestModel: "gemini-flash-latest" };
+rhInstance._finalizeTrackedRequest("req-429-1", err429Res, { finalAuthIndex: 0 });
+await new Promise(resolve => setTimeout(resolve, 10));
+assert.strictEqual(recordedCalls.length, 0, "429 error must NOT increment quota");
+
+// 5g. Error response: 500 / 503 Server Error -> MUST NOT increment
+recordedCalls.length = 0;
+const err500Res = { statusCode: 500, __trackedRequestModel: "gemini-flash-latest" };
+rhInstance._finalizeTrackedRequest("req-500-1", err500Res, { finalAuthIndex: 0 });
+await new Promise(resolve => setTimeout(resolve, 10));
+assert.strictEqual(recordedCalls.length, 0, "500 error must NOT increment quota");
+
+const err503Res = { statusCode: 503, __trackedRequestModel: "gemini-flash-latest" };
+rhInstance._finalizeTrackedRequest("req-503-1", err503Res, { finalAuthIndex: 0 });
+await new Promise(resolve => setTimeout(resolve, 10));
+assert.strictEqual(recordedCalls.length, 0, "503 error must NOT increment quota");
+
+console.log("✓ RequestHandler quota counting gating on success (and rejection on 4xx/5xx/abort) verified.");
 console.log("All QuotaGuardService tests passed successfully!");
