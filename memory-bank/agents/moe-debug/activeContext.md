@@ -9,19 +9,19 @@
 > - `verdict`: **KEEP**
 
 ## 当前阶段 (Active Phase)
-- **Phase Target**: 本地全量单元测试与 CI 门禁验证 (11 套单测 + 12 项 CI 静态门禁).
-- **Status**: 全部单元测试 100% PASS，CI lint 静态门禁全绿通过。工作区干净。
+- **Phase Target**: 8316 节点最新代码增量同步构建部署、健康检查与推理探活接管.
+- **Status**: 104 服务器 8316 节点专用镜像与容器更新成功，/health 200 OK，真实业务推理成功出字，8317 综合网关保持正常运行。
 
 ## 最新验证与提交记录
-1. **本地单元测试套件**:
-   - 命令: `npm test` (`node --test tests/*.mjs`)
-   - 结果: 11 tests, 1 suite, 11 pass, 0 fail (耗时 677.79ms).
-   - 覆盖模块: Account Enable/Disable, Quota Guard Service, FormatConverter Validation, Model Dash Sanitization, RequestHandler Validation, Thinking-Only Mock Response, Upstream Error Codes Failover 等。
-2. **CI 静态检查门禁**:
-   - 命令: `npm run lint:ci`
-   - 结果: 12 项子门禁检查 100% PASS (Canary, Core File Format, ADVG, AES Summary, Token Limits, Memory-Bank Purity, UI/UX Contrast, Refactor Doc Sync, Routine Maintenance, Phase Evidence, Logging & FSM Standards, Settlement Consistency)。
-3. **工作区状态与发布断言**:
-   - `git status`: working tree clean.
+1. **8316 节点增量同步与专用镜像构建**:
+   - 同步命令: `rsync` 增量排除 node_modules, .git, configs/auth, data 等至 `/home/fy/aistudio-to-api-8316/`。
+   - 构建镜像: 基于 `Dockerfile.update` 成功在 104 宿主机构建 `aistudio-to-api-custom:8316` 专用标签镜像。
+   - 容器生命周期: 启动 `aistudio-to-api-8316` 容器 (映射 `192.168.0.104:8316:7860` 与 `192.168.0.104:9997:9998`)，与 8317 容器物理隔离协同。
+2. **HTTP 健康检查与推理验证**:
+   - `curl http://192.168.0.104:8316/health`: HTTP 200 OK (`browserConnected: true`, `status: ok`, `uptime: ~6.6s`)。
+   - `gemini-flash-latest`: POST `/v1/chat/completions` (Bearer sk-123456) 验证成功，输出真实回复 `"4"`，HTTP 200 OK。
+   - `gemini-3.5-flash`: POST `/v1/chat/completions` (Bearer sk-123456) 调用正常，HTTP 200 OK。
+
 
 ## 沉淀经验条目 (Core Debugging & Healthcheck Lessons)
 1. **GitHub Remote 凭据通道一致性**: 本地环境具备系统级全局 HTTPS GitHub Token (`credential.helper=store`)，遇 SSH 交互式阻断或超时应优先切换为标准 HTTPS remote 协议直通推送。

@@ -28,6 +28,8 @@ class AuthSource {
         this.disabledIndices = [];
         // Map<authIndex, string|null> storing the reason why an account is disabled (e.g. 'quota_exhausted')
         this.disabledReasonMap = new Map();
+        // Map<authIndex, number|null> storing the timestamp (ms) until when an account is disabled
+        this.disabledUntilMap = new Map();
         this.initialIndices = [];
         this.accountNameMap = new Map();
         // Map any valid index -> canonical (latest) index for the same account email
@@ -117,6 +119,7 @@ class AuthSource {
             this.expiredIndices = [];
             this.disabledIndices = [];
             this.disabledReasonMap.clear();
+            this.disabledUntilMap.clear();
             this.accountNameMap.clear();
             this.canonicalIndexMap.clear();
             this.duplicateGroups = [];
@@ -131,6 +134,7 @@ class AuthSource {
         this.expiredIndices = [];
         this.disabledIndices = [];
         this.disabledReasonMap.clear();
+        this.disabledUntilMap.clear();
 
         for (const index of this.initialIndices) {
             // Iterate over initial to check all, not just previously available
@@ -149,6 +153,9 @@ class AuthSource {
                         this.disabledIndices.push(index);
                         const reason = authData.disabledReason || authData.reason || null;
                         this.disabledReasonMap.set(index, reason);
+                        if (authData.disabledUntil && Number.isFinite(Number(authData.disabledUntil))) {
+                            this.disabledUntilMap.set(index, Number(authData.disabledUntil));
+                        }
                     }
                 } catch (e) {
                     invalidSourceDescriptions.push(`auth-${index} (parse error)`);
@@ -417,6 +424,15 @@ class AuthSource {
     }
 
     /**
+     * Get disabled until timestamp for an auth index
+     * @param {number} index - Auth index to check
+     * @returns {number|null}
+     */
+    getDisabledUntil(index) {
+        return this.disabledUntilMap.get(index) || null;
+    }
+
+    /**
      * Get available (non-disabled) indices
      * @returns {number[]}
      */
@@ -428,15 +444,15 @@ class AuthSource {
      * Update account status (enable or disable account) and persist to file
      *
      * Side effects:
-     * - Writes/removes "disabled": true and "disabledReason" to configs/auth/auth-{index}.json
-     * - Updates this.disabledIndices array and this.disabledReasonMap
+     * - Writes/removes "disabled": true, "disabledReason", and "disabledUntil" to configs/auth/auth-{index}.json
+     * - Updates this.disabledIndices array, this.disabledReasonMap, and this.disabledUntilMap
      * - Rebuilds rotation indices (calls this._buildRotationIndices())
      *
      * @param {number} index - Auth index to update
-     * @param {Object} statusUpdate - { disabled: boolean, disabledReason?: string, reason?: string }
+     * @param {Object} statusUpdate - { disabled: boolean, disabledReason?: string, reason?: string, disabledUntil?: number }
      * @returns {Promise<boolean>} True if successfully updated, false otherwise
      */
-    async updateAccountStatus(index, { disabled, disabledReason, reason }) {
+    async updateAccountStatus(index, { disabled, disabledReason, reason, disabledUntil }) {
         if (!this.availableIndices.includes(index)) {
             this.logger.warn(`[Auth] Cannot update status of non-existent auth #${index}`);
             return false;
@@ -444,6 +460,8 @@ class AuthSource {
 
         const shouldDisable = Boolean(disabled);
         const resolvedReason = shouldDisable ? disabledReason || reason || null : null;
+        const resolvedDisabledUntil =
+            shouldDisable && Number.isFinite(Number(disabledUntil)) ? Number(disabledUntil) : null;
         const authFilePath = path.join(process.cwd(), "configs", "auth", `auth-${index}.json`);
 
         try {
@@ -458,10 +476,16 @@ class AuthSource {
                     delete authData.disabledReason;
                     delete authData.reason;
                 }
+                if (resolvedDisabledUntil) {
+                    authData.disabledUntil = resolvedDisabledUntil;
+                } else {
+                    delete authData.disabledUntil;
+                }
             } else {
                 delete authData.disabled;
                 delete authData.disabledReason;
                 delete authData.reason;
+                delete authData.disabledUntil;
             }
 
             await fsPromises.writeFile(authFilePath, JSON.stringify(authData, null, 2));
@@ -475,10 +499,21 @@ class AuthSource {
                 } else {
                     this.disabledReasonMap.delete(index);
                 }
-                this.logger.info(`[Auth] ⏸️ Account #${index} manually disabled.${resolvedReason ? ` Reason: ${resolvedReason}` : ""}`);
+                if (resolvedDisabledUntil) {
+                    this.disabledUntilMap.set(index, resolvedDisabledUntil);
+                } else {
+                    this.disabledUntilMap.delete(index);
+                }
+                const untilDesc = resolvedDisabledUntil
+                    ? ` until ${new Date(resolvedDisabledUntil).toISOString()}`
+                    : "";
+                this.logger.info(
+                    `[Auth] ⏸️ Account #${index} manually disabled.${resolvedReason ? ` Reason: ${resolvedReason}` : ""}${untilDesc}`
+                );
             } else {
                 this.disabledIndices = this.disabledIndices.filter(idx => idx !== index);
                 this.disabledReasonMap.delete(index);
+                this.disabledUntilMap.delete(index);
                 this.logger.info(`[Auth] ▶️ Account #${index} manually enabled.`);
             }
 

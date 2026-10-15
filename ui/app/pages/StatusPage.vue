@@ -836,16 +836,20 @@
                                         <span
                                             v-if="item.disabled && item.disabledReason === 'quota_exhausted'"
                                             class="quota-exhausted-badge"
-                                            :title="t('quotaExhaustedTooltip', { limit: item.quotaLimit || 100 })"
+                                            :title="t('quotaExhaustedTooltip')"
                                         >
-                                            {{ t("tagQuotaExhausted", { usage: item.quotaUsage ?? (item.quotaLimit || 100), limit: item.quotaLimit || 100 }) }}
+                                            {{ t("tagQuotaExhausted") }}
                                         </span>
                                         <span
                                             v-else-if="item.quotaUsage !== undefined && item.quotaUsage !== null"
                                             class="quota-usage-badge"
                                             :class="{ 'is-high': item.quotaUsage >= (item.quotaLimit || 100) * 0.8 }"
                                         >
-                                            {{ t("tagQuotaUsage", { usage: item.quotaUsage, limit: item.quotaLimit || 100 }) }}
+                                            {{
+                                                t("tagQuotaUsage", {
+                                                    usage: item.quotaUsage,
+                                                })
+                                            }}
                                         </span>
                                     </div>
                                 </el-tooltip>
@@ -853,8 +857,10 @@
                                     <el-tooltip
                                         :content="
                                             item.disabled && item.disabledReason === 'quota_exhausted'
-                                                ? t('quotaExhaustedTooltip', { limit: item.quotaLimit || 100 })
-                                                : (!item.disabled ? t('enabled') : t('disabled'))
+                                                ? t('quotaExhaustedTooltip')
+                                                : !item.disabled
+                                                  ? t('enabled')
+                                                  : t('disabled')
                                         "
                                         placement="top"
                                         effect="dark"
@@ -862,7 +868,10 @@
                                     >
                                         <div
                                             class="account-status-switch"
-                                            :class="{ 'is-quota-exhausted': item.disabled && item.disabledReason === 'quota_exhausted' }"
+                                            :class="{
+                                                'is-quota-exhausted':
+                                                    item.disabled && item.disabledReason === 'quota_exhausted',
+                                            }"
                                             @click.stop
                                         >
                                             <el-switch

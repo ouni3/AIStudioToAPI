@@ -36,6 +36,11 @@ class RequestHandler {
         this.authSwitcher = new AuthSwitcher(logger, config, authSource, browserManager);
         this.formatConverter = new FormatConverter(logger, serverSystem);
 
+        // Wire QuotaGuardService into AuthSwitcher if available
+        if (serverSystem && serverSystem.quotaGuardService) {
+            this.authSwitcher.setQuotaGuardService(serverSystem.quotaGuardService);
+        }
+
         this.needsSwitchingAfterRequest = false;
 
         // Timeout settings
@@ -71,7 +76,11 @@ class RequestHandler {
     }
 
     _getQuotaGuardService() {
-        return this.serverSystem.quotaGuardService || null;
+        const qg = this.serverSystem.quotaGuardService || null;
+        if (qg && !this.authSwitcher.quotaGuardService) {
+            this.authSwitcher.setQuotaGuardService(qg);
+        }
+        return qg;
     }
 
     _getAccountNameForIndex(authIndex) {
@@ -202,8 +211,8 @@ class RequestHandler {
             initialAccountName: this._getAccountNameForIndex(this.currentAuthIndex),
             initialAuthIndex: this.currentAuthIndex,
             method: req.method,
-            path: req.path,
             model: extractedModel,
+            path: req.path,
             ...meta,
         });
     }
@@ -269,7 +278,9 @@ class RequestHandler {
                     null;
                 if (Number.isInteger(finalAuthIndex) && finalAuthIndex >= 0 && model) {
                     quotaGuard.recordRequest(finalAuthIndex, String(model)).catch(err => {
-                        this.logger?.warn?.(`[QuotaGuard] Failed to record request in _finalizeTrackedRequest: ${err.message}`);
+                        this.logger?.warn?.(
+                            `[QuotaGuard] Failed to record request in _finalizeTrackedRequest: ${err.message}`
+                        );
                     });
                 }
             }
@@ -1038,10 +1049,15 @@ class RequestHandler {
     // Process standard Google API requests
     async processRequest(req, res) {
         const requestId = this._generateRequestId();
-        this._startTrackedRequest(requestId, req, {
-            apiFormat: "gemini",
-            requestCategory: this._categorizeRequest(req.path, "request"),
-        }, res);
+        this._startTrackedRequest(
+            requestId,
+            req,
+            {
+                apiFormat: "gemini",
+                requestCategory: this._categorizeRequest(req.path, "request"),
+            },
+            res
+        );
         this._setResponseApiFormat(res, "gemini");
         res.__proxyResponseStreamMode = null;
 
@@ -1096,16 +1112,20 @@ class RequestHandler {
             const wantsStream = req.path.includes(":streamGenerateContent");
             res.__proxyResponseStreamMode = wantsStream ? proxyRequest.streaming_mode : null;
 
-            this._updateTrackedRequest(requestId, {
-                isStreaming: wantsStream,
-                model: this._extractModelFromPath(proxyRequest.path),
-                path: proxyRequest.path,
-                requestCategory: this._categorizeRequest(
-                    proxyRequest.path,
-                    isGenerativeRequest ? "generation" : "request"
-                ),
-                streamMode: wantsStream ? proxyRequest.streaming_mode : null,
-            }, res);
+            this._updateTrackedRequest(
+                requestId,
+                {
+                    isStreaming: wantsStream,
+                    model: this._extractModelFromPath(proxyRequest.path),
+                    path: proxyRequest.path,
+                    requestCategory: this._categorizeRequest(
+                        proxyRequest.path,
+                        isGenerativeRequest ? "generation" : "request"
+                    ),
+                    streamMode: wantsStream ? proxyRequest.streaming_mode : null,
+                },
+                res
+            );
 
             try {
                 // Create message queue inside try-catch to handle invalid authIndex
@@ -1152,12 +1172,17 @@ class RequestHandler {
     // Process OpenAI embeddings requests
     async processOpenAIEmbeddingsRequest(req, res) {
         const requestId = this._generateRequestId();
-        this._startTrackedRequest(requestId, req, {
-            apiFormat: "openai",
-            isStreaming: false,
-            requestCategory: "embedding",
-            streamMode: null,
-        }, res);
+        this._startTrackedRequest(
+            requestId,
+            req,
+            {
+                apiFormat: "openai",
+                isStreaming: false,
+                requestCategory: "embedding",
+                streamMode: null,
+            },
+            res
+        );
         this._setResponseApiFormat(res, "openai");
         res.__proxyResponseStreamMode = null;
 
@@ -1192,13 +1217,17 @@ class RequestHandler {
                 tracking_model: cleanModelName,
             };
             this._initializeProxyRequestAttempt(proxyRequest);
-            this._updateTrackedRequest(requestId, {
-                isStreaming: false,
-                model: proxyRequest.tracking_model,
-                path: proxyRequest.path,
-                requestCategory: "embedding",
-                streamMode: null,
-            }, res);
+            this._updateTrackedRequest(
+                requestId,
+                {
+                    isStreaming: false,
+                    model: proxyRequest.tracking_model,
+                    path: proxyRequest.path,
+                    requestCategory: "embedding",
+                    streamMode: null,
+                },
+                res
+            );
 
             try {
                 const messageQueue = this.connectionRegistry.createMessageQueue(
@@ -1225,11 +1254,16 @@ class RequestHandler {
     async processUploadRequest(req, res) {
         const requestId = this._generateRequestId();
         this.logger.info(`[Upload] Processing upload request ${req.method} ${req.path}, request ID: ${requestId}`);
-        this._startTrackedRequest(requestId, req, {
-            apiFormat: "upload",
-            isStreaming: false,
-            requestCategory: "upload",
-        }, res);
+        this._startTrackedRequest(
+            requestId,
+            req,
+            {
+                apiFormat: "upload",
+                isStreaming: false,
+                requestCategory: "upload",
+            },
+            res
+        );
         this._setResponseApiFormat(res, "upload");
 
         try {
@@ -1311,12 +1345,17 @@ class RequestHandler {
     // Process OpenAI format requests
     async processOpenAIRequest(req, res) {
         const requestId = this._generateRequestId();
-        this._startTrackedRequest(requestId, req, {
-            apiFormat: "openai",
-            isStreaming: req.body.stream === true,
-            requestCategory: "generation",
-            streamMode: req.body.stream === true ? this.config.streamingMode : null,
-        }, res);
+        this._startTrackedRequest(
+            requestId,
+            req,
+            {
+                apiFormat: "openai",
+                isStreaming: req.body.stream === true,
+                requestCategory: "generation",
+                streamMode: req.body.stream === true ? this.config.streamingMode : null,
+            },
+            res
+        );
         this._setResponseApiFormat(res, "openai");
         res.__proxyResponseStreamMode = null;
 
@@ -1404,13 +1443,17 @@ class RequestHandler {
             };
             this._initializeProxyRequestAttempt(proxyRequest);
             res.__proxyResponseStreamMode = isOpenAIStream ? (useRealStream ? "real" : "fake") : null;
-            this._updateTrackedRequest(requestId, {
-                isStreaming: isOpenAIStream,
-                model,
-                path: proxyRequest.path,
-                requestCategory: "generation",
-                ...(isOpenAIStream ? { streamMode: useRealStream ? "real" : "fake" } : {}),
-            }, res);
+            this._updateTrackedRequest(
+                requestId,
+                {
+                    isStreaming: isOpenAIStream,
+                    model,
+                    path: proxyRequest.path,
+                    requestCategory: "generation",
+                    ...(isOpenAIStream ? { streamMode: useRealStream ? "real" : "fake" } : {}),
+                },
+                res
+            );
 
             try {
                 // Create message queue inside try-catch to handle invalid authIndex
@@ -1744,12 +1787,17 @@ class RequestHandler {
     async processOpenAIResponseRequest(req, res) {
         const requestId = this._generateRequestId();
         const isOpenAIStream = req.body?.stream === true;
-        this._startTrackedRequest(requestId, req, {
-            apiFormat: "response_api",
-            isStreaming: isOpenAIStream,
-            requestCategory: "generation",
-            streamMode: isOpenAIStream ? this.config.streamingMode : null,
-        }, res);
+        this._startTrackedRequest(
+            requestId,
+            req,
+            {
+                apiFormat: "response_api",
+                isStreaming: isOpenAIStream,
+                requestCategory: "generation",
+                streamMode: isOpenAIStream ? this.config.streamingMode : null,
+            },
+            res
+        );
         this._setResponseApiFormat(res, "response_api");
         res.__proxyResponseStreamMode = null;
 
@@ -1892,13 +1940,17 @@ class RequestHandler {
             };
             this._initializeProxyRequestAttempt(proxyRequest);
             res.__proxyResponseStreamMode = isOpenAIStream ? (useRealStream ? "real" : "fake") : null;
-            this._updateTrackedRequest(requestId, {
-                isStreaming: isOpenAIStream,
-                model,
-                path: proxyRequest.path,
-                requestCategory: "generation",
-                ...(isOpenAIStream ? { streamMode: useRealStream ? "real" : "fake" } : {}),
-            }, res);
+            this._updateTrackedRequest(
+                requestId,
+                {
+                    isStreaming: isOpenAIStream,
+                    model,
+                    path: proxyRequest.path,
+                    requestCategory: "generation",
+                    ...(isOpenAIStream ? { streamMode: useRealStream ? "real" : "fake" } : {}),
+                },
+                res
+            );
 
             try {
                 // Create message queue inside try-catch to handle invalid authIndex
@@ -2254,12 +2306,17 @@ class RequestHandler {
     // Process Claude API format requests
     async processClaudeRequest(req, res) {
         const requestId = this._generateRequestId();
-        this._startTrackedRequest(requestId, req, {
-            apiFormat: "claude",
-            isStreaming: req.body.stream === true,
-            requestCategory: "generation",
-            streamMode: req.body.stream === true ? this.config.streamingMode : null,
-        }, res);
+        this._startTrackedRequest(
+            requestId,
+            req,
+            {
+                apiFormat: "claude",
+                isStreaming: req.body.stream === true,
+                requestCategory: "generation",
+                streamMode: req.body.stream === true ? this.config.streamingMode : null,
+            },
+            res
+        );
         this._setResponseApiFormat(res, "claude");
         res.__proxyResponseStreamMode = null;
 
@@ -2348,13 +2405,17 @@ class RequestHandler {
             };
             this._initializeProxyRequestAttempt(proxyRequest);
             res.__proxyResponseStreamMode = isClaudeStream ? (useRealStream ? "real" : "fake") : null;
-            this._updateTrackedRequest(requestId, {
-                isStreaming: isOpenAIStream,
-                model,
-                path: proxyRequest.path,
-                requestCategory: "generation",
-                ...(isOpenAIStream ? { streamMode: useRealStream ? "real" : "fake" } : {}),
-            }, res);
+            this._updateTrackedRequest(
+                requestId,
+                {
+                    isStreaming: isClaudeStream,
+                    model,
+                    path: proxyRequest.path,
+                    requestCategory: "generation",
+                    ...(isClaudeStream ? { streamMode: useRealStream ? "real" : "fake" } : {}),
+                },
+                res
+            );
 
             try {
                 // Create message queue inside try-catch to handle invalid authIndex
@@ -2674,11 +2735,16 @@ class RequestHandler {
     async processClaudeCountTokens(req, res) {
         const requestId = this._generateRequestId();
         this.logger.info(`[Request] Claude count tokens request started, request ID: ${requestId}`);
-        this._startTrackedRequest(requestId, req, {
-            apiFormat: "claude",
-            isStreaming: false,
-            requestCategory: "count_tokens",
-        }, res);
+        this._startTrackedRequest(
+            requestId,
+            req,
+            {
+                apiFormat: "claude",
+                isStreaming: false,
+                requestCategory: "count_tokens",
+            },
+            res
+        );
         this._setResponseApiFormat(res, "claude");
 
         // Handle raw model validation for Claude count tokens request before browser readiness check
@@ -2754,11 +2820,15 @@ class RequestHandler {
                 request_id: requestId,
             };
             this._initializeProxyRequestAttempt(proxyRequest);
-            this._updateTrackedRequest(requestId, {
-                model,
-                path: proxyRequest.path,
-                requestCategory: "count_tokens",
-            }, res);
+            this._updateTrackedRequest(
+                requestId,
+                {
+                    model,
+                    path: proxyRequest.path,
+                    requestCategory: "count_tokens",
+                },
+                res
+            );
 
             try {
                 // Create message queue inside try-catch to handle invalid authIndex
@@ -2852,11 +2922,16 @@ class RequestHandler {
     async processOpenAIResponseInputTokens(req, res) {
         const requestId = this._generateRequestId();
         this.logger.info(`[Request] OpenAI Response input_tokens request started, request ID: ${requestId}`);
-        this._startTrackedRequest(requestId, req, {
-            apiFormat: "response_api",
-            isStreaming: false,
-            requestCategory: "count_tokens",
-        }, res);
+        this._startTrackedRequest(
+            requestId,
+            req,
+            {
+                apiFormat: "response_api",
+                isStreaming: false,
+                requestCategory: "count_tokens",
+            },
+            res
+        );
         this._setResponseApiFormat(res, "response_api");
 
         // Handle raw model validation for OpenAI Response input_tokens request before browser readiness check
@@ -2936,11 +3011,15 @@ class RequestHandler {
                 request_id: requestId,
             };
             this._initializeProxyRequestAttempt(proxyRequest);
-            this._updateTrackedRequest(requestId, {
-                model,
-                path: proxyRequest.path,
-                requestCategory: "count_tokens",
-            }, res);
+            this._updateTrackedRequest(
+                requestId,
+                {
+                    model,
+                    path: proxyRequest.path,
+                    requestCategory: "count_tokens",
+                },
+                res
+            );
 
             try {
                 const messageQueue = this.connectionRegistry.createMessageQueue(

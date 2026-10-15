@@ -22,6 +22,11 @@ class AuthSwitcher {
         this.minSwitchIntervalMs = this.config?.minSwitchIntervalMs || 5000;
         this.accountCooldownMs = this.config?.accountCooldownMs || 60000;
         this.accountCooldownMap = new Map();
+        this.quotaGuardService = null;
+    }
+
+    setQuotaGuardService(quotaGuardService) {
+        this.quotaGuardService = quotaGuardService;
     }
 
     get currentAuthIndex() {
@@ -370,6 +375,42 @@ class AuthSwitcher {
                 `⚠️ [Auth] Client parameter error received (status ${status}, message: ${errorDetails?.message || "Client error"}). Skipping failure count increment and account switch.`
             );
             return;
+        }
+
+        // Upstream 429 Quota Exhaustion handling:
+        // If status is 429, trigger QuotaGuardService.handleQuota429 to disable the account for 2 hours
+        // and physically remove it from the rotation pool.
+        if (status === 429 && this.currentAuthIndex >= 0) {
+            const failingIndex = this.currentAuthIndex;
+            const modelName = errorDetails?.model || null;
+            if (this.quotaGuardService && typeof this.quotaGuardService.handleQuota429 === "function") {
+                this.logger.warn(
+                    `🛑 [Auth] 429 rate limit / quota exhaustion detected on account #${failingIndex}. Invoking QuotaGuardService.handleQuota429 to disable for 2 hours...`
+                );
+                try {
+                    await this.quotaGuardService.handleQuota429(failingIndex, modelName);
+                } catch (qErr) {
+                    this.logger.error(
+                        `[Auth] Failed to invoke handleQuota429 for account #${failingIndex}: ${qErr.message}`
+                    );
+                }
+            } else if (this.authSource && typeof this.authSource.updateAccountStatus === "function") {
+                // Fallback direct disable if quotaGuardService reference not explicitly attached
+                const disabledUntil = Date.now() + 2 * 3600 * 1000;
+                this.logger.warn(
+                    `🛑 [Auth] 429 rate limit / quota exhaustion detected on account #${failingIndex}. Fallback direct disable for 2 hours (until ${new Date(disabledUntil).toISOString()})...`
+                );
+                try {
+                    await this.authSource.updateAccountStatus(failingIndex, {
+                        disabled: true,
+                        disabledReason: "quota_exhausted",
+                        disabledUntil,
+                        reason: "quota_exhausted",
+                    });
+                } catch (asErr) {
+                    this.logger.error(`[Auth] Failed to fallback disable account #${failingIndex}: ${asErr.message}`);
+                }
+            }
         }
 
         this.failureCount++;

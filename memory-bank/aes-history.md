@@ -213,6 +213,32 @@
     2. 理事长运维指示二：“后续不要同时更新两个容器,更新一个稳定后再更新另外一个” -> 团队确立《双容器串行金丝雀发布铁律 (Serial Canary Update Protocol)》，固化至 `systemPatterns.md`，执行单容器更新、实测探活与出字稳定后再推进次节点的严格时序，消除集群双挂风险；
     3. 生产全量探活验证：8317 节点 (`gemini-3.7-flash`) 探活成功出字，满额账号实时呈现 `disabled: true, disabledReason: 'quota_exhausted'` 并移出轮询；8316 节点 (`gemini-flash-latest`) 探活成功出字，双节点健康运行中。
 
+---
+
+## 11. Phase 14 效能快照 (AES Summary)
+
+### [AES_SUMMARY_P14]
+- **Phase**: `Phase 14 (Eradicate 100-Call Limit & 429 2-Hour Ban with UI Sync)`
+- **结算时间**: `2026-10-15T16:55:00+08:00`
+- **主要参与 Agent**:
+  - `moe-orchestrator` (小奏): 全局统筹调度、任务激活快照、多方验真与结算推进
+  - `moe-architect` (伊织): 顶层架构重构方案设计、WO-ARCH 施工单锁定与资产对齐
+  - `moe-code` (诺诺): 废除 100 次限制、429 物理关号 2 小时、通道 A 到期自愈与通道 B 15:00 CST 兜底解封实现
+  - `frontend` (凛): StatusPage.vue 与语言包文案适配（更新为“成功调用次数”与 429 专属提示）
+  - `moe-debug` (千夏): 针对性单测更新、11/11 全绿测试、8317 与 8316 双节点串行金丝雀发布与业务推理探活
+- **效能指标**:
+  - `avg_effectiveness`: 98.5%
+  - `first_pass_rate`: 100%
+  - `avg_rework`: 0
+  - `sentinel_triggered`: NONE
+  - `settlement_advice`: `[PASS_SETTLEMENT_RECOMMENDED]`
+- **双容器健康状态**:
+  - 8317 主节点 (`aistudio-to-api-custom:latest`): 🟢 `DEPLOYED_HEALTHY` (`v1.3.5-p14`, `/health` 200 OK, `gemini-3.7-flash` / `gemini-flash-latest` 推理 200 OK)
+  - 8316 节点 (`aistudio-to-api-custom:8316`): 🟢 `DEPLOYED_HEALTHY` (`v1.3.5-p14`, `/health` 200 OK, `gemini-flash-latest` 推理 200 OK)
+  - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
+- **核心沉淀**: 废除机械的 100 次调用自动熔断限制，仅在真实遭遇 429 时将账号物理停用 2 小时并退出轮询池；实现双轨自愈生命周期（通道 A 满 2 小时巡检自愈，通道 B 每日 15:00 CST 兜底统一解封），前端 Web 控制台同步呈现真实成功调用次数。严格执行串行金丝雀发布，双节点均已完成线上热更新并探活成功出字。
+
+
 
 
 

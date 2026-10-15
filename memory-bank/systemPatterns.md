@@ -103,6 +103,14 @@
   - `AuthSwitcher.switchToSpecificAuth(targetIndex)` 增加防御性校验，严禁手动切换至已停用账号；当停用当前正在使用的活跃账号时，自动平滑切号至下一个可用账号。
   - `BrowserManager.rebalanceContextPool()` 自动排除已停用账号的 Context 预热与资源占用。
 
+- **429 物理熔断停用 2 小时与双轨自愈生命周期 (Phase 14 / 理事长最高指示)**:
+  - **废除 100 次机械限制**: 彻底废除按成功调用达到 100 次切断账号的旧逻辑，请求调用统计仅作可观测性展示，不再触发熔断；
+  - **429 物理关号 2 小时**: 涵盖 `gemini-3.8-flash`、`gemini-flash-latest` 及 `gemini-3.7-flash` 系列。一旦遇到 429 报错，直接标记 `disabled: true, disabledReason: 'quota_exhausted', disabledUntil: Date.now() + 2 * 3600 * 1000` 并退出轮询池平滑切号；
+  - **双轨自愈恢复通道**:
+    - 通道 A (2 小时到期自愈): 调度器每 60 秒轻量巡检 `checkAndRestoreExpiredBans()`，超过 `disabledUntil` 自动启用；
+    - 通道 B (每日 15:00 CST 兜底重置): 每日北京时间 15:00 统一定时重置解封所有 `quota_exhausted` 账号；
+    - 人治免疫防护: 严格隔离手动停用的账号，仅恢复 `disabledReason === 'quota_exhausted'` 的账号。
+
 ### 2.3 异步队列超时看门狗与路径清洗模式 (Async Queue Watchdog & Sanitization)
 - **Token 计数异步队列超时注入**: 针对 Claude `countTokens` 与 OpenAI `inputTokens` 等辅助接口，底层的 `messageQueue.dequeue()` 显式绑定超时阈值（`this.timeouts.STREAM_CHUNK`），杜绝因上游连接中断无响应而导致的挂死死锁。
 - **代理路径防重规范化清洗**: 网关在 `_buildProxyRequest` 代理转发与 `_extractModelFromPath` 模型提取链路中，通过正则严格清洗 `/models/` 重复前缀（如 `/models/(?:models/)+/` 规范化为 `/models/`），杜绝畸形 404 扩散。

@@ -18,6 +18,7 @@
 - `[ARCH_DECISION_01]`: 固化 104 局域网服务器 (192.168.0.104) 多容器协同部署模式 (8316 Pro专线 + 8317 综合网关 + 8318 镜像备用)。
 - `[ARCH_DECISION_02]`: 设计 403 区域风控秒级换号与 404 畸形路径防护状态机，根治代理死锁。
 - `[ARCH_DECISION_03]`: 落地 K5a「全景骨架导航与精准语法重构协同法则」两级索引 SSOT：`systemPatterns.md`（核心模块功能定位地图）与 `assets.md`（关键入口与符号索引），达成 100% 架构拓扑对齐。
-- `[ARCH_DECISION_04]`: 严格维系 memory-bank 7 大白名单资产的纯净度与 Token 预算合规（G1/G2/G10 CI 门禁全绿）。
+- `[ARCH_DECISION_04]`: 落地 429 物理停用 2 小时与双轨自愈生命周期（通道 A 2小时到期巡检自愈 + 通道 B 每日 15:00 CST 兜底全量重置），废除机械 100 次使用量限制，保护手动禁用账号。
+- `[ARCH_DECISION_05]`: 严格维系 memory-bank 7 大白名单资产的纯净度与 Token 预算合规（G1/G2/G10 CI 门禁全绿）。
 
 (End of file - total 26 lines)

@@ -19,16 +19,15 @@
 
 ## 2. 活跃 Phase 状态与施工记录
 
-### Phase 12: Manual Account Enable/Disable Switch in Management Console (ACTIVE_PHASE)
-- 为 Web 控制台账号管理列表新增即时生效的启用/停用开关，彻底解决个别异常账号在后台反复报错穿透的痛点：
-  1. `src/auth/AuthSource.js`: 为账号实体注入 `disabled` 属性与持久化识别，提供 `updateAccountStatus(index, { disabled })` 原子写盘与内存热重载；轮询与故障转移调度天然排除停用账号；
-  2. `src/auth/AuthSwitcher.js`: 停用当前活跃账号时触发无缝平滑切号，并防御性拦截对停用账号的手动切换；
-  3. `src/core/BrowserManager.js` & `src/routes/StatusRoutes.js`: 暴露 `/api/accounts/:index/status` PUT 接口；
-  4. `ui/app/pages/StatusPage.vue`: 账号列表新增状态滑动开关 (ElSwitch) 与中英文国际化语言包；
-  5. `tests/test_account_enable_disable.mjs`: 编写包含轮询排除、手动切换拦截与持久化行为单测 (100% PASS)；
-  6. 104 服务器 8316 节点（`aistudio-to-api-custom:8316`）与 8317 主节点（`aistudio-to-api-custom:latest`）均已完成独立镜像构建与平滑重启探活，返回 200 OK 与最新账号状态载荷；
-  7. Claire 微观体验与调用方 DX 走查双 PASS，理事长下达更新与结算指示 `[CHAIRMAN_EXPERIENCE_APPROVED]`；
-  8. audit-expert R1/R2 VETO 打回项已全部清偿，提请终审。
+### Phase 14: 废除100次调用上限、429错误物理熔断2小时与UI文案对齐 (ACTIVE_PHASE)
+- 废除机械的 100 次调用自动切断旧逻辑，统一 8316 与 8317 端口配额熔断治理：
+  1. `src/core/QuotaGuardService.js`: 彻底移除 100 次使用限制导致关闭账号的旧逻辑；新增 `handleQuota429()` 接口，遇到 429 物理关号 2 小时；实现双轨自愈生命周期（通道 A 满 2 小时巡检自愈，通道 B 每日 15:00 CST 兜底统一解封）；
+  2. `src/auth/AuthSource.js`: `updateAccountStatus` 支持 `disabledUntil` 状态写入与清除，提供 `disabledUntilMap` 内存索引与持久化；
+  3. `src/auth/AuthSwitcher.js` & `src/core/RequestHandler.js`: 429 报错时联动 QuotaGuardService 执行 2 小时封禁与平滑切号；
+  4. `ui/locales/zh.json`, `ui/locales/en.json` & `ui/app/pages/StatusPage.vue`: 账号标签更新为“成功调用次数 {usage}”，关闭态明确标记 429 限制；
+  5. `tests/test_quota_guard_service.mjs`: 全面更新单测套件，覆盖 100 次不熔断、429 触发 2 小时封禁与切号、双轨自愈验证 (100% PASS)；
+  6. 严格执行双容器串行金丝雀发布：8317 主节点（`aistudio-to-api-custom:latest`）与 8316 节点（`aistudio-to-api-custom:8316`）先后完成独立镜像构建、部署重启与真实端到端推理出字探活（HTTP 200 OK）；
+  7. 全量门禁验证通过 (`npm test` 11/11 PASS, `npm run verify` 全绿)。
 
 - 门禁状态: `PASS_PENDING_COMMIT`
 
@@ -51,6 +50,7 @@
 | Phase 11 | Google 404 Ambiguous Service 自愈重试与下游 503 弹性映射 | 已归档 (`f1da756`) |
 | Phase 12 | 控制台账号手动启用/停用开关与调度热隔离 | 已归档 |
 | Phase 13 | 专属模型每日100次配额硬熔断退池与15:00自动恢复生命周期 | 已归档 (`8316/8317已上线`) |
+| Phase 14 | 废除100次调用上限、429物理关号2小时与UI文案对齐 | 已归档 (`8316/8317已上线`) |
 
 ---
 
@@ -98,11 +98,14 @@
 - [x] 建立 `scripts/dev/remote_8316.sh` 运维调度脚本与 package.json npm scripts 绑定
 - [x] 取消 8316 与 8317 双端口 Web 控制台界面登录密钥验证（免密直通），并完成双容器同步更新与探活验证
 - [x] Phase 12 控制台账号手动启用/停用开关、原子写盘持久化与调度热隔离闭环
+- [x] Phase 14 废除 100 次机械限制，实现 429 物理关号 2 小时与双轨自愈生命周期（通道 A 2小时到期自愈 + 通道 B 每日 15:00 CST 兜底解封）
+- [x] Phase 14 前端 Web 控制台文案对齐：配额标记更新为“成功调用次数”，关闭态提示 429 限制
+- [x] Phase 14 严格遵循双容器串行金丝雀发布铁律：8317 综合网关与 8316 节点先后完成独立镜像构建、平滑重启与真实端到端推理出字探活
 
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
-- Primary Phase: `Phase 12 (Manual Account Enable/Disable Switch in Management Console)` [ACTIVE_PHASE]
+- Primary Phase: `Phase 14 (Eradicate 100-Call Limit & 429 2-Hour Ban with UI Sync)` [ACTIVE_PHASE]
 - Secondary Phases: 无
 
 ---
