@@ -9,29 +9,23 @@
 > - `verdict`: **KEEP**
 
 ## 当前阶段 (Active Phase)
-- **Phase Target**: 8316 节点最新代码增量同步构建部署、健康检查与推理探活接管.
-- **Status**: 104 服务器 8316 节点专用镜像与容器更新成功，/health 200 OK，真实业务推理成功出字，8317 综合网关保持正常运行。
+- **Phase Target**: Phase 15 验证与 Git 物理提交收口 (8316与8317物理凭据与统计口径绝对隔离及8317独立部署).
+- **Status**: `npm run verify` 全绿 100% PASS，准备执行 Git 物理提交。
 
 ## 最新验证与提交记录
-1. **8316 节点增量同步与专用镜像构建**:
-   - 同步命令: `rsync` 增量排除 node_modules, .git, configs/auth, data 等至 `/home/fy/aistudio-to-api-8316/`。
-   - 构建镜像: 基于 `Dockerfile.update` 成功在 104 宿主机构建 `aistudio-to-api-custom:8316` 专用标签镜像。
-   - 容器生命周期: 启动 `aistudio-to-api-8316` 容器 (映射 `192.168.0.104:8316:7860` 与 `192.168.0.104:9997:9998`)，与 8317 容器物理隔离协同。
-2. **HTTP 健康检查与推理验证**:
-   - `curl http://192.168.0.104:8316/health`: HTTP 200 OK (`browserConnected: true`, `status: ok`, `uptime: ~6.6s`)。
-   - `gemini-flash-latest`: POST `/v1/chat/completions` (Bearer sk-123456) 验证成功，输出真实回复 `"4"`，HTTP 200 OK。
-   - `gemini-3.5-flash`: POST `/v1/chat/completions` (Bearer sk-123456) 调用正常，HTTP 200 OK。
-
+1. **104 服务器 8316 与 8317 物理凭据与统计口径绝对隔离**:
+   - `docker-compose.yml` volumes 与挂载路径彻底解耦，明确物理隔离。
+   - 验证独立凭据与统计口径，避免 8316/8317 互相干扰。
+   - `npm run verify` (lint, test, lint:ci) 全绿 100% PASS。
 
 ## 沉淀经验条目 (Core Debugging & Healthcheck Lessons)
 1. **GitHub Remote 凭据通道一致性**: 本地环境具备系统级全局 HTTPS GitHub Token (`credential.helper=store`)，遇 SSH 交互式阻断或超时应优先切换为标准 HTTPS remote 协议直通推送。
 2. **多 Remote 分支跟踪断言**: 本地特性分支所跟踪的远端为 `myfork`，在执行推送及检查时应显式以跟踪分支 `myfork/<branch>` 为基准进行二值化状态校验。
 3. **网络抖动代理通道自愈切换**: 当本地代理 (`127.0.0.1:7897`) 偶发报 `HTTP 408 / RPC failed` 阻断 git push 时，可平滑采用 104 局域网代理网关通道 (`192.168.0.104:7890`) 直通推送，保障网络发布任务零摩擦。
 4. **104 局域网 IP SSOT**: 104 主机局域网真实 IP 为 `192.168.0.104`，运维与探活脚本默认指向该 IP，确保无人工配置摩擦。
-5. **单节点按需部署独立镜像隔离**: 多容器共存宿主机若仅灰度/按需更新某特定端口容器（如 8316），构建时显式打标签为专属 tag（如 `aistudio-to-api-custom:8316`），防止覆盖其他容器依赖的 `latest` 基础层，彻底实现不同节点物理隔离。
-6. **同宿主机同镜像容器更新陷阱**: 同宿主机共享镜像更新时，单凭 `docker restart` 仅重启既有容器层，不会重新根据新标签镜像创建；必须通过 `docker compose down && docker compose up -d` 重新根据最新镜像创建容器实例。
-7. **多容器端口与 WebSocket 冲突隔离**: 在同一宿主机部署同构容器实例时，不仅需分离外部业务 HTTP 端口（如 8316/8317），还必须分离绑定的内部通信端口（如 WebSocket 端口 9997 与 9998），防止端口抢占导致启动失败。
-8. **模型名前置拦截与切号防雪崩**: 客户端传入 `"-"` 等非法模型时直接前置拦截返回 400 Bad Request；404 模型不存在错误前置设置 `skipAccountSwitch=true`，严禁触发换号重试。
+5. **同宿主机同构容器绝对挂载路径隔离**: 多实例部署时 compose 相对路径易因执行目录或上下文漂移而复用错误挂载；必须显式指定宿主机绝对路径，且凭据目录确保为独立物理副本而非软链接，彻底杜绝数据交叉污染。
+6. **多容器端口与 WebSocket 冲突隔离**: 在同一宿主机部署同构容器实例时，不仅需分离外部业务 HTTP 端口（如 8316/8317），还必须分离绑定的内部通信端口（如 WebSocket 端口 9997 与 9998），防止端口抢占导致启动失败。
+7. **模型名前置拦截与切号防雪崩**: 客户端传入 `"-"` 等非法模型时直接前置拦截返回 400 Bad Request；404 模型不存在错误前置设置 `skipAccountSwitch=true`，严禁触发换号重试。
 
 ## 工作区状态 (Workspace Status)
 - 分支: `feat/deploy-104-container-failover` (与 `myfork/feat/deploy-104-container-failover` 严格对齐)

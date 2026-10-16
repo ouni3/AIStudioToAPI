@@ -121,12 +121,17 @@
    - 宿主机路径: `/home/fy/aistudio-to-api-8316/`
    - 容器镜像: `aistudio-to-api-custom:8316`
    - 端口映射: `8316 -> 7860/tcp`, `9997 -> 9998/tcp` (内部 WS 隔离端口)
+   - 挂载卷: `/home/fy/aistudio-to-api-8316/configs/auth:/app/configs/auth` 与 `/home/fy/aistudio-to-api-8316/data:/app/data` (完全物理独立)
    - 定位与职能: **专用于 Pro 模型调用通道**（如 `gemini-2.5-pro`、`gemini-pro-latest`），隔离重型长上下文推理负载，避免与 Flash 等高频轻量请求争抢凭据槽位与并发队列。
 2. **8317 端口 (主服务 / 综合模型网关容器)**:
    - 宿主机路径: `/home/fy/aistudio-to-api/`
    - 容器镜像: `aistudio-to-api-custom:latest`
    - 端口映射: `8317 -> 7860/tcp`, `9998 -> 9998/tcp`
+   - 挂载卷: `/home/fy/aistudio-to-api/configs/auth:/app/configs/auth` 与 `/home/fy/aistudio-to-api/data:/app/data` (完全物理独立)
    - 定位与职能: 承载源码定制、`ui/dist` 前端管理后台、403/404 补丁与综合模型日常推理。
+3. **8316/8317 数据卷与凭据绝对物理隔离铁律 (Phase 15 立法)**:
+   - 8316 与 8317 容器的 `configs/auth/` 与 `data/` 目录强制采用绝对路径挂载，严禁共享同一个物理目录或建立任何形式的软链接；
+   - 账号开关（`disabled`）与调用量统计（`quota-guard-state.json` / `usage-stats.jsonl`）实现 100% 独立的物理存储与生命周期管理，两容器互不干扰。
 3. **8318 端口 (备用服务 / 原生稳定镜像容器)**:
    - 宿主机路径: `/home/fy/aistudio-to-api-8318/`
    - 容器镜像: `ibuhub/aistudio-to-api:latest`

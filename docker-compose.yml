@@ -11,8 +11,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./configs/auth:/app/configs/auth
-      - ./data:/app/data
+      - /home/fy/aistudio-to-api/configs/auth:/app/configs/auth
+      - /home/fy/aistudio-to-api/data:/app/data
     environment:
       HTTP_PROXY: "http://host.docker.internal:7890"
       HTTPS_PROXY: "http://host.docker.internal:7890"

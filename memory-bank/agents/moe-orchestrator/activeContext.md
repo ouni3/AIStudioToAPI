@@ -9,12 +9,13 @@
 > - `verdict`: **KEEP**
 
 ## 1. 当前会话状态 (Current Session State)
-- **Active Phase**: `Phase 13 (Dedicated Model Daily Quota Cap & Auto-Disable Lifecycle)`
-- **Task Goal**: 8316 (gemini-flash-latest) 与 8317 (gemini-3.7-flash) 专用模型每日配额上限为 100，达到 100 自动退出轮询池并在 Web 控制台呈现关闭态，每日北京时间 15:00 自动更新重置。8316 与 8317 双容器均已成功更新上线并全量探活。
-- **Status**: [DEPLOYED_HEALTHY|8316_8317_ONLINE_PASS|ALL_PROBES_PASS]
+- **Active Phase**: `Phase 15 (8316/8317 物理凭据与统计口径绝对隔离与8317独立部署)`
+- **Task Goal**: 根治 8316 与 8317 容器此前因相对路径 Compose 解析导致共享同一套数据卷的缺陷，将挂载源显式绑定至宿主机专属绝对路径，实现两容器账户启停开关与调用量统计的物理绝对隔离，并完成 8317 独立重建与业务探活。
+- **Status**: [DEPLOYED_HEALTHY|8317_ISOLATED_PASS|ALL_PROBES_PASS]
 
 ## 2. 核心架构与编排经验 (Orchestration Insights)
-1. **账号手动启停与调度池物理隔离契约**:
+1. **多容器数据卷物理绝对隔离公理**: 当多容器共享同台宿主机且各自拥有独立业务逻辑时，必须显式在 `docker-compose.yml` 中声明绝对物理挂载路径（如 `/home/fy/aistudio-to-api/configs/auth` 与 `/home/fy/aistudio-to-api/data`），严禁使用易受当前执行上下文污染的 `./` 相对路径，彻底阻断跨容器配置与统计串线。
+2. **账号手动启停与调度池物理隔离契约**:
    - `AuthSource.js`: 在 `_buildRotationIndices()` 中基于 `disabledIndices` 彻底排除停用账号，保证被禁用的账号绝对不被分配任何 API 请求；
    - `updateAccountStatus(index, { disabled })`: 实现磁盘 JSON 文件的原子更新与内存热重载；
    - `StatusRoutes.js`: 暴露 `PUT /api/accounts/:index/status` 接口，当前活跃账号被停用时自动平滑切至下一健康账号；

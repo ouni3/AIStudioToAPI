@@ -19,15 +19,12 @@
 
 ## 2. 活跃 Phase 状态与施工记录
 
-### Phase 14: 废除100次调用上限、429错误物理熔断2小时与UI文案对齐 (ACTIVE_PHASE)
-- 废除机械的 100 次调用自动切断旧逻辑，统一 8316 与 8317 端口配额熔断治理：
-  1. `src/core/QuotaGuardService.js`: 彻底移除 100 次使用限制导致关闭账号的旧逻辑；新增 `handleQuota429()` 接口，遇到 429 物理关号 2 小时；实现双轨自愈生命周期（通道 A 满 2 小时巡检自愈，通道 B 每日 15:00 CST 兜底统一解封）；
-  2. `src/auth/AuthSource.js`: `updateAccountStatus` 支持 `disabledUntil` 状态写入与清除，提供 `disabledUntilMap` 内存索引与持久化；
-  3. `src/auth/AuthSwitcher.js` & `src/core/RequestHandler.js`: 429 报错时联动 QuotaGuardService 执行 2 小时封禁与平滑切号；
-  4. `ui/locales/zh.json`, `ui/locales/en.json` & `ui/app/pages/StatusPage.vue`: 账号标签更新为“成功调用次数 {usage}”，关闭态明确标记 429 限制；
-  5. `tests/test_quota_guard_service.mjs`: 全面更新单测套件，覆盖 100 次不熔断、429 触发 2 小时封禁与切号、双轨自愈验证 (100% PASS)；
-  6. 严格执行双容器串行金丝雀发布：8317 主节点（`aistudio-to-api-custom:latest`）与 8316 节点（`aistudio-to-api-custom:8316`）先后完成独立镜像构建、部署重启与真实端到端推理出字探活（HTTP 200 OK）；
-  7. 全量门禁验证通过 (`npm test` 11/11 PASS, `npm run verify` 全绿)。
+### Phase 15: 8316/8317 物理凭据与统计口径绝对隔离与8317独立部署 (ACTIVE_PHASE)
+- 根治两容器统计配置和账户开关完全同步问题，实现底层物理目录与生命周期的绝对解耦：
+  1. 根因阻断：发现 8317 容器此前因相对路径解析导致挂载了 8316 的物理目录；通过将两容器 Compose 挂载卷固化为独立绝对路径，物理切断共享依赖；
+  2. 独立副本保障：确认 `/home/fy/aistudio-to-api/configs/auth/` 与 `/home/fy/aistudio-to-api/data/` 均为真实独立文件，零软链接；
+  3. 8317 独立重建与探活：在正确上下文下执行 `docker compose down && docker compose up -d`，断言其实际挂载源 100% 为 `/home/fy/aistudio-to-api/...`，8316 节点保持常驻在线零中断；
+  4. 生产推理探活：8317 节点 `gemini-3.7-flash` 成功出字，两容器账户开关与调用量统计实现完全独立的生命周期。
 
 - 门禁状态: `PASS_PENDING_COMMIT`
 
@@ -51,6 +48,7 @@
 | Phase 12 | 控制台账号手动启用/停用开关与调度热隔离 | 已归档 |
 | Phase 13 | 专属模型每日100次配额硬熔断退池与15:00自动恢复生命周期 | 已归档 (`8316/8317已上线`) |
 | Phase 14 | 废除100次调用上限、429物理关号2小时与UI文案对齐 | 已归档 (`8316/8317已上线`) |
+| Phase 15 | 8316/8317物理凭据与统计口径绝对隔离与8317独立部署 | 已归档 (`8317已完成隔离上线`) |
 
 ---
 
@@ -101,11 +99,12 @@
 - [x] Phase 14 废除 100 次机械限制，实现 429 物理关号 2 小时与双轨自愈生命周期（通道 A 2小时到期自愈 + 通道 B 每日 15:00 CST 兜底解封）
 - [x] Phase 14 前端 Web 控制台文案对齐：配额标记更新为“成功调用次数”，关闭态提示 429 限制
 - [x] Phase 14 严格遵循双容器串行金丝雀发布铁律：8317 综合网关与 8316 节点先后完成独立镜像构建、平滑重启与真实端到端推理出字探活
+- [x] Phase 15 根治 8316/8317 数据卷共享串线问题，将两容器 Compose 挂载固化为独立绝对物理路径，完成 8317 独立重建与业务出字探活
 
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
-- Primary Phase: `Phase 14 (Eradicate 100-Call Limit & 429 2-Hour Ban with UI Sync)` [ACTIVE_PHASE]
+- Primary Phase: `Phase 15 (8316/8317 物理凭据与统计口径绝对隔离与8317独立部署)` [ACTIVE_PHASE]
 - Secondary Phases: 无
 
 ---

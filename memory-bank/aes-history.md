@@ -238,6 +238,30 @@
   - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
 - **核心沉淀**: 废除机械的 100 次调用自动熔断限制，仅在真实遭遇 429 时将账号物理停用 2 小时并退出轮询池；实现双轨自愈生命周期（通道 A 满 2 小时巡检自愈，通道 B 每日 15:00 CST 兜底统一解封），前端 Web 控制台同步呈现真实成功调用次数。严格执行串行金丝雀发布，双节点均已完成线上热更新并探活成功出字。
 
+---
+
+## 12. Phase 15 效能快照 (AES Summary)
+
+### [AES_SUMMARY_P15]
+- **Phase**: `Phase 15 (8316与8317物理凭据与统计口径绝对隔离及8317独立部署)`
+- **结算时间**: `2026-10-16T12:15:00+08:00`
+- **主要参与 Agent**:
+  - `moe-orchestrator` (小奏): 全局统筹调度、任务激活快照、多方验真与结算收口
+  - `moe-ask` (栞): 宿主机 Compose 挂载卷、软链接与容器元数据物理勘测
+  - `moe-debug` (千夏): 104 服务器 8317 挂载卷绝对路径锁定、容器独立重建与推理出字探活
+- **效能指标**:
+  - `avg_effectiveness`: 99.0%
+  - `first_pass_rate`: 100%
+  - `avg_rework`: 0
+  - `sentinel_triggered`: NONE
+  - `settlement_advice`: `[PASS_SETTLEMENT_RECOMMENDED]`
+- **双容器健康状态**:
+  - 8317 主节点 (`aistudio-to-api-custom:latest`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, `gemini-3.7-flash` 推理出字 200 OK, 挂载源: `/home/fy/aistudio-to-api/...`)
+  - 8316 节点 (`aistudio-to-api-custom:8316`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, 常驻在线 4+ 小时, 挂载源: `/home/fy/aistudio-to-api-8316/...`)
+  - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
+- **核心沉淀**: 根除多容器相对路径 Compose 导致底层共享同一物理数据卷与凭据目录的隐患；将两容器挂载显式锁定为专属宿主机绝对路径，实现账户启停状态（`auth-*.json`）与调用量统计（`quota-guard-state.json`）的物理绝对隔离；8317 节点完成独立重建与业务端点探活，8316 节点保持稳定在线。
+
+
 
 
 
