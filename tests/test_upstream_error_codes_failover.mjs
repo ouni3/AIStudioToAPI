@@ -136,4 +136,41 @@ assert.strictEqual(typeof rh.timeouts.STREAM_CHUNK, "number", "STREAM_CHUNK time
 assert.strictEqual(rh.timeouts.STREAM_CHUNK >= 1000, true, "STREAM_CHUNK timeout must be at least 1s");
 console.log(`✔ timeouts.STREAM_CHUNK verified: ${rh.timeouts.STREAM_CHUNK}ms`);
 
+// 6. Test Upstream Google API 400 Error Failover & Client Error Disambiguation
+console.log("--- 6. Testing Upstream Google API 400 Error Failover ---");
+const upstreamGoogle400Error = {
+    status: 400,
+    message: "Proxy browser error: Google API returned error: 400 Request contains an invalid argument.",
+};
+const localClient400Error = {
+    status: 400,
+    message: "Invalid model name",
+};
+
+// Local client error should still be identified as client parameter error
+assert.strictEqual(
+    rh._isClientParameterError(localClient400Error),
+    true,
+    "Local client 400 should be classified as client parameter error"
+);
+assert.strictEqual(
+    rh._isImmediateSwitchStatus(400, "Invalid model name"),
+    false,
+    "Local client 400 should NOT trigger account switch"
+);
+
+// Upstream Google API 400 returned via proxy browser relay MUST NOT be classified as client parameter error
+assert.strictEqual(
+    rh._isClientParameterError(upstreamGoogle400Error),
+    false,
+    "Upstream Google API 400 must NOT be classified as client parameter error"
+);
+// Upstream Google API 400 MUST trigger immediate switch
+assert.strictEqual(
+    rh._isImmediateSwitchStatus(400, upstreamGoogle400Error.message),
+    true,
+    "Upstream Google API 400 must trigger immediate account switch"
+);
+console.log("✔ Upstream Google API 400 failover assertions passed!");
+
 console.log("All upstream error codes failover tests passed successfully!");

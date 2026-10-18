@@ -9,19 +9,18 @@
 > - `verdict`: **KEEP**
 
 ## 1. 当前会话状态 (Current Session State)
-- **Active Phase**: `Phase 15 (8316/8317 物理凭据与统计口径绝对隔离与8317独立部署)`
-- **Task Goal**: 根治 8316 与 8317 容器此前因相对路径 Compose 解析导致共享同一套数据卷的缺陷，将挂载源显式绑定至宿主机专属绝对路径，实现两容器账户启停开关与调用量统计的物理绝对隔离，并完成 8317 独立重建与业务探活。
-- **Status**: [DEPLOYED_HEALTHY|8317_ISOLATED_PASS|ALL_PROBES_PASS]
+- **Active Phase**: `Phase 16 (WO-ARCH-P16 双通道中继架构支持与上游400故障自愈)`
+- **Task Goal**: 针对 8316 节点上特定账户出现的 Build 403 / Playground 400 穿透问题，落地 relay 上游错误状态码重映射（400->503）与服务端 `_isClientParameterError` 反向鉴别，并对 Build 403 实施粘性信道跳过，成功消除下游 Agent 400 阻断并完成 8316 热部署与实测出字。
+- **Status**: [HOTFIX_DEPLOYED|8316_PASS|VERIFY_PASS]
 
 ## 2. 核心架构与编排经验 (Orchestration Insights)
-1. **多容器数据卷物理绝对隔离公理**: 当多容器共享同台宿主机且各自拥有独立业务逻辑时，必须显式在 `docker-compose.yml` 中声明绝对物理挂载路径（如 `/home/fy/aistudio-to-api/configs/auth` 与 `/home/fy/aistudio-to-api/data`），严禁使用易受当前执行上下文污染的 `./` 相对路径，彻底阻断跨容器配置与统计串线。
-2. **账号手动启停与调度池物理隔离契约**:
-   - `AuthSource.js`: 在 `_buildRotationIndices()` 中基于 `disabledIndices` 彻底排除停用账号，保证被禁用的账号绝对不被分配任何 API 请求；
-   - `updateAccountStatus(index, { disabled })`: 实现磁盘 JSON 文件的原子更新与内存热重载；
-   - `StatusRoutes.js`: 暴露 `PUT /api/accounts/:index/status` 接口，当前活跃账号被停用时自动平滑切至下一健康账号；
-   - 前端 `StatusPage.vue`: 采用 Element Plus ElSwitch，支持防抖、小巧提示与状态回滚。
-2. **8316/8317 独立镜像构建隔离规范**: 8316 节点采用专用镜像标签 `aistudio-to-api-custom:8316`，8317 主节点使用 `aistudio-to-api-custom:latest`，彻底消灭双容器镜像覆盖与配置漂移。
-3. **[DISCOVERED_PITFALL] 终审派单叙事断言一致性**: 派单叙述必须逐字引用冻结文件实值，严禁与实际文件记录存在细微数字脱节；Summary 四树快照必须在暂存时保持严格自洽。
+1. **上游 Google API 400 穿透与换号故障转移防线**:
+   - 某些特定账户可能由于权限受限（如缺乏 Build API 访问权返回 403），而在 Auto 模式回退到 Playground 通道后因会话特征被 Google 拒绝返回 400 `INVALID_ARGUMENT`；
+   - 严禁将来自浏览器 Proxy Relay / Google API 抛出的 400 误判为客户端本地参数错误，服务端 `_isClientParameterError` 必须显式排除包含 `GOOGLE API RETURNED ERROR: 400` 与 `PROXY BROWSER ERROR` 的异常，同时 `_isImmediateSwitchStatus` 必须将其纳入即时切号集合，确保网关自动无缝换号重试，彻底杜绝下游调用方 Agent 因单账号异常而全员瘫痪。
+2. **Build 通道 403 权限异常粘性自愈契约**:
+   - 在 Playground Relay 中对单账号执行上下文记录 `this.buildChannelBlocked`；
+   - 一旦检测到当前账号因权限不足遭遇 Build 403，后续请求自动直通 Playground 通道，彻底消除单请求双重通道往返的时延损耗。
+3. **双容器串行金丝雀发布铁律**: 8316 节点完成独立热重构与生产部署，8317 综合网关常驻稳定在线不受任何干扰。
 
 1. **Web 控制台免密直通与 API 严格鉴权物理隔离契约**:
    - `src/routes/AuthRoutes.js`: `isAuthenticated` 中间件默认将 `req.session.isAuthenticated` 置为 `true` 并执行 `next()`，所有 `/api/status`、`/api/accounts/*`、`/api/vnc/*` 管理接口免密直通；

@@ -1,24 +1,24 @@
 # Active Context: moe-architect
 
-> **[EVOLUTION_CONTRIBUTION]** (Phase 1 测算声明 / `00-evolution-law.md §1.6`)
-> - $F_{System}$: **+** 架构师上下文维护，记录双容器部署模式与 403/404 自愈系统设计。
-> - $L_{User}$: **+** 精准沉淀系统模式与资产拓扑，降维排障与演进设计复杂度。
+> **[EVOLUTION_CONTRIBUTION]** (Phase P16 测算声明 / `00-evolution-law.md §1.6`)
+> - $F_{System}$: **+** 架构师上下文维护，记录 WO-ARCH-P16 双通道中继攻坚的跨会话稳定事实。
+> - $L_{User}$: **+** 精准沉淀注入环境陷阱与协议事实，降维下会话排障复杂度。
 > - $S_{total}$: **0** 严格控制体积（≤ 50 行），遵循负熵流原则。
-> - $Value_{Delivered}$: **+** 护航核心算力网关的架构确定性。
+> - $Value_{Delivered}$: **+** 护航核心算力网关的架构确定性与双通道额度扩容演进。
 > - `ect`: **A** (count(+)=3, count(-)=0)
-> - `verdict`: **KEEP**
+> - `verdict`: **KEEP`
 
 ## 1. 焦点与当前任务 (Focus & Active Task)
-- **项目**: `AIStudioToAPI`
-- **活跃 Phase**: `Phase 1 (Dual-Container Refactoring & Memory-Bank Setup)`
-- **职责范围**: Tier 0/1/2 核心架构资产设计、双容器部署模式规范化与 Memory-Bank 7 大白名单文件建库。
-- **最新巡检**: 完成 `src/core/FormatConverter.js` 与 `src/core/RequestHandler.js` 深度架构与异常容错代码质量审计。
+- **项目**: `AIStudioToAPI` / **WO-ARCH-P16**: 参照 `Mag1cFall/AIStudio2API` 修复 400 INVALID_ARGUMENT 全线故障，新架构 = Playground 页面内自研双通道中继（Build `ProxyStreamedCall`/`ProxyUnaryCall` + Playground `GenerateContent`，auto 模式 Build 优先失败回退）。
+- **状态**: Firefox Camoufox Xray 隔离穿透完成，8317 综合网关与 8316 Pro 专线双容器串行金丝雀发布完成。近期 kilocode 工具调用 400 已根治，Build/Playground/Auto 三通道及工具调用真实端到端验证全部 PASS。已将 `systemPatterns.md` 架构基线对齐至 Phase 16 事实。
 
-## 2. 架构决策与拓扑记录 (Architectural Decisions)
-- `[ARCH_DECISION_01]`: 固化 104 局域网服务器 (192.168.0.104) 多容器协同部署模式 (8316 Pro专线 + 8317 综合网关 + 8318 镜像备用)。
-- `[ARCH_DECISION_02]`: 设计 403 区域风控秒级换号与 404 畸形路径防护状态机，根治代理死锁。
-- `[ARCH_DECISION_03]`: 落地 K5a「全景骨架导航与精准语法重构协同法则」两级索引 SSOT：`systemPatterns.md`（核心模块功能定位地图）与 `assets.md`（关键入口与符号索引），达成 100% 架构拓扑对齐。
-- `[ARCH_DECISION_04]`: 落地 429 物理停用 2 小时与双轨自愈生命周期（通道 A 2小时到期巡检自愈 + 通道 B 每日 15:00 CST 兜底全量重置），废除机械 100 次使用量限制，保护手动禁用账号。
-- `[ARCH_DECISION_05]`: 严格维系 memory-bank 7 大白名单资产的纯净度与 Token 预算合规（G1/G2/G10 CI 门禁全绿）。
+## 2. 跨会话稳定经验 (Stable Cross-Session Facts)
+- `[FACT_P16_1]`: Playwright+Camoufox 环境处于 Firefox Xray 隔离视图，页面业务 expando（如 `default_MakerSuite`）必须通过 `window.wrappedJSObject` 访问；对页面上下文的对象注入必须避免沙箱闭包跨界，改由原生作用域同源 eval 或非侵入式外部监听。
+- `[FACT_P16_2]`: Firefox 跨界 TypedArray（如 `crypto.subtle.digest` 返回的 ArrayBuffer）存在访问禁忌，应在页面 Content 端直接转换为 hex 原始字符串跨界返回。
+- `[FACT_P16_3]`: 页面公共头捕获（`x-goog-api-key` 等）废除高危前端侵入式 hook，改由 Node.js 端 Playwright `page.on("request")` 外层捕获并回填，保持前端运行时 100% 纯净。
+- `[FACT_P16_4]`: 双通道协议事实已全面落地：Build 通道（`ProxyStreamedCall`/`ProxyUnaryCall`）与 Playground 通道（`GenerateContent`）双向兼容，支持 `x-upstream-channel: build|playground|auto` 动态切流。
+- `[FACT_P16_5]`: 双容器串行金丝雀发布（8317 综合网关先行放行，再部署 8316 Pro 专线），数据卷（`configs/auth` 与 `data`）保持绝对物理隔离。
+- `[FACT_P16_6]`: 注入客户端必须防 iframe 重复执行（`window !== window.top`），事件分发严禁继承 `EventTarget` 改用回调字段。
+- `[FACT_P16_7]`: Google 工具声明校验收紧时，Build 请求的 `parameters` 与 `parametersJsonSchema` 互斥；必须只保留后者。Playground tools 必须编码为位置数组而非 JSON 键名对象。该契约已在 8317、8316 的 kilocode 形态多工具真实调用中验证通过。
 
-(End of file - total 26 lines)
+(End of file)

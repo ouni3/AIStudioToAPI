@@ -19,12 +19,14 @@
 
 ## 2. 活跃 Phase 状态与施工记录
 
-### Phase 15: 8316/8317 物理凭据与统计口径绝对隔离与8317独立部署 (ACTIVE_PHASE)
-- 根治两容器统计配置和账户开关完全同步问题，实现底层物理目录与生命周期的绝对解耦：
-  1. 根因阻断：发现 8317 容器此前因相对路径解析导致挂载了 8316 的物理目录；通过将两容器 Compose 挂载卷固化为独立绝对路径，物理切断共享依赖；
-  2. 独立副本保障：确认 `/home/fy/aistudio-to-api/configs/auth/` 与 `/home/fy/aistudio-to-api/data/` 均为真实独立文件，零软链接；
-  3. 8317 独立重建与探活：在正确上下文下执行 `docker compose down && docker compose up -d`，断言其实际挂载源 100% 为 `/home/fy/aistudio-to-api/...`，8316 节点保持常驻在线零中断；
-  4. 生产推理探活：8317 节点 `gemini-3.7-flash` 成功出字，两容器账户开关与调用量统计实现完全独立的生命周期。
+### ACTIVE_PHASE: Phase 16 (双通道中继架构支持(Playground+Build)与8316专线独立部署)
+- 当前活跃: Phase 16
+- 根治 400 INVALID_ARGUMENT 故障，落地双通道中继架构（Playground + Build 互补）：
+  1. 支持 `x-upstream-channel: build|playground|auto` 切流与工具调用；
+  2. 新增 pure wire encoder/decoder (`src/relay/`) 与页面中继脚本 (`scripts/client/playground-relay.js`)；
+  3. 8316 节点容器独立配置 `docker-compose.8316.yml` 与部署脚本 `scripts/dev/remote_8316_deploy.sh`；
+  4. 根治上游 Google 400 穿透打崩下游 Agent 问题：加固 `RequestHandler._isClientParameterError` 与 `_isImmediateSwitchStatus`，使上游 400 自动触发切号重试；
+  5. 8316 节点完成线上独立构建部署与真实推理流式出字探活，8317 综合网关保持常驻稳定零中断。
 
 - 门禁状态: `PASS_PENDING_COMMIT`
 
@@ -34,21 +36,22 @@
 
 | Phase | 核心成果 | 状态 |
 |:---|:---|:---|
-| Phase 1 | 双容器拓扑部署与 403/404 容错自愈 | 已归档 |
-| Phase 2 | 模型 404/503 循环切号卡死修复与空返回兜底 | 已归档 |
-| Phase 3 | 模型名非法字符清洗与 8317 崩溃自愈 | 已归档 |
-| Phase 4 | 时间范围筛选收敛与 104 远程按需调度脚本 | 已归档 |
-| Phase 5 | 全景控制台 DevState 10 大门禁 100% 达标收敛 | 已归档 |
-| Phase 6 | 核心 LLM 推理引擎 SR 等级全方位整改与加固 | 已归档 |
-| Phase 7 | Thinking-Only 注入无害 Kilocode glob 操作防进程中断 | 已归档 |
-| Phase 8 | 全量 CI/CD 缺陷门禁补齐与全景 DevState 100% 合规闭环 | 已归档 (`36ab57a`) |
-| Phase 9 | 模型名 '-' 防御清洗与 404 切号防雪崩状态机加固 | 已归档 |
-| Phase 10 | 切号防抖、账号惩罚冷却、400 错误隔离与 Ambiguous Service 阻断 | 已归档 (`c84bc60`) |
-| Phase 11 | Google 404 Ambiguous Service 自愈重试与下游 503 弹性映射 | 已归档 (`f1da756`) |
-| Phase 12 | 控制台账号手动启用/停用开关与调度热隔离 | 已归档 |
-| Phase 13 | 专属模型每日100次配额硬熔断退池与15:00自动恢复生命周期 | 已归档 (`8316/8317已上线`) |
-| Phase 14 | 废除100次调用上限、429物理关号2小时与UI文案对齐 | 已归档 (`8316/8317已上线`) |
-| Phase 15 | 8316/8317物理凭据与统计口径绝对隔离与8317独立部署 | 已归档 (`8317已完成隔离上线`) |
+| 1 | 双容器拓扑部署与 403/404 容错自愈 | 已归档 |
+| 2 | 模型 404/503 循环切号卡死修复与空返回兜底 | 已归档 |
+| 3 | 模型名非法字符清洗与 8317 崩溃自愈 | 已归档 |
+| 4 | 时间范围筛选收敛与 104 远程按需调度脚本 | 已归档 |
+| 5 | 全景控制台 DevState 10 大门禁 100% 达标收敛 | 已归档 |
+| 6 | 核心 LLM 推理引擎 SR 等级全方位整改与加固 | 已归档 |
+| 7 | Thinking-Only 注入无害 Kilocode glob 操作防进程中断 | 已归档 |
+| 8 | 全量 CI/CD 缺陷门禁补齐与全景 DevState 100% 合规闭环 | 已归档 (`36ab57a`) |
+| 9 | 模型名 '-' 防御清洗与 404 切号防雪崩状态机加固 | 已归档 |
+| 10 | 切号防抖、账号惩罚冷却、400 错误隔离与 Ambiguous Service 阻断 | 已归档 (`c84bc60`) |
+| 11 | Google 404 Ambiguous Service 自愈重试与下游 503 弹性映射 | 已归档 (`f1da756`) |
+| 12 | 控制台账号手动启用/停用开关与调度热隔离 | 已归档 |
+| 13 | 专属模型每日100次配额硬熔断退池与15:00自动恢复生命周期 | 已归档 (`8316/8317已上线`) |
+| 14 | 废除100次调用上限、429物理关号2小时与UI文案对齐 | 已归档 (`8316/8317已上线`) |
+| 15 | 8316/8317物理凭据与统计口径绝对隔离与8317独立部署 | 已归档 (`3bcd59d`) |
+| 16 | 双通道中继架构支持(Playground+Build)与8316专线独立部署 | IN_PROGRESS |
 
 ---
 
@@ -100,11 +103,19 @@
 - [x] Phase 14 前端 Web 控制台文案对齐：配额标记更新为“成功调用次数”，关闭态提示 429 限制
 - [x] Phase 14 严格遵循双容器串行金丝雀发布铁律：8317 综合网关与 8316 节点先后完成独立镜像构建、平滑重启与真实端到端推理出字探活
 - [x] Phase 15 根治 8316/8317 数据卷共享串线问题，将两容器 Compose 挂载固化为独立绝对物理路径，完成 8317 独立重建与业务出字探活
+- [x] Phase 16 落地双通道中继架构支持 (Playground + Build 互补)，支持工具调用与 x-upstream-channel 切流
+- [x] Phase 16 编写 pure wire 协议编解码模块并完成单测覆盖 (41/41 单测通过)
+- [x] Phase 16 8316 节点独立部署脚本与 docker-compose.8316.yml 固化
+- [x] Phase 16 104 服务器 8316 节点部署更新与真实业务推理探活通过 (HTTP 200 OK)
 
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
-- Primary Phase: `Phase 15 (8316/8317 物理凭据与统计口径绝对隔离与8317独立部署)` [ACTIVE_PHASE]
+| Phase | 主题 | 状态 |
+|:---|:---|:---|
+| 16 | 双通道中继架构支持(Playground+Build)与8316专线独立部署 | IN_PROGRESS |
+
+- Primary Phase: `Phase 16 (双通道中继架构支持(Playground+Build)与8316专线独立部署)` [ACTIVE_PHASE]
 - Secondary Phases: 无
 
 ---

@@ -1,0 +1,23 @@
+name: aistudio-to-api-8316
+
+services:
+  app:
+    image: aistudio-to-api-custom:8316
+    container_name: aistudio-to-api-8316
+    ports:
+      - "192.168.0.104:8316:7860"
+      - "192.168.0.104:9997:9998"
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /home/fy/aistudio-to-api-8316/configs/auth:/app/configs/auth
+      - /home/fy/aistudio-to-api-8316/data:/app/data
+    environment:
+      HTTP_PROXY: "http://host.docker.internal:7890"
+      HTTPS_PROXY: "http://host.docker.internal:7890"
+      NO_PROXY: "localhost,127.0.0.1,::1"
+      API_KEYS: "sk-123456"
+      TZ: "Asia/Shanghai"
+      LOG_LEVEL: "DEBUG"
+      MAX_CONTEXTS: "2"

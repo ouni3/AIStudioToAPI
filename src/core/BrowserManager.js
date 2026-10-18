@@ -78,8 +78,14 @@ class BrowserManager {
         // Map: authIndex -> { success: boolean, failed: boolean }
         this._wsInitState = new Map();
 
-        // Target URL for AI Studio app
-        this.targetUrl = "https://ai.studio/apps/cab9ab6c-44f9-4e7a-8972-037f8ae177ab";
+        // Target URL: the AI Studio Playground chat page. The playground relay
+        // client (playground-relay.js) is injected into this page and performs
+        // all upstream generation via the MakerSuite RPC endpoint.
+        this.playgroundBootstrapModel = (this.config.playgroundBootstrapModel || "gemini-flash-latest").trim();
+        this.playgroundTemporaryChat = this.config.playgroundTemporaryChat !== false;
+        this.targetUrl = `https://aistudio.google.com/prompts/new_chat?model=${encodeURIComponent(
+            this.playgroundBootstrapModel
+        )}${this.playgroundTemporaryChat ? "&temporary=true" : ""}`;
 
         // Firefox/Camoufox does not use Chromium-style command line args.
         // We keep this empty; Camoufox has its own anti-fingerprinting optimizations built-in.
@@ -520,6 +526,78 @@ class BrowserManager {
     }
 
     /**
+     * Load the per-model output token limits from configs/models.json.
+     * Used to satisfy the mandatory wire generationConfig maxOutputTokens slot.
+     * @returns {Object} Map of model name (without "models/" prefix) to outputTokenLimit
+     */
+    _loadModelOutputLimits() {
+        if (this._modelOutputLimits) {
+            return this._modelOutputLimits;
+        }
+        const limits = {};
+        const defaultMax = 65536;
+        try {
+            const modelsPath = path.join(process.cwd(), "configs", "models.json");
+            const models = JSON.parse(fs.readFileSync(modelsPath, "utf-8"));
+            for (const model of models.models || []) {
+                const name = String(model.name || "").replace(/^models\//, "");
+                if (name && typeof model.outputTokenLimit === "number" && model.outputTokenLimit > 0) {
+                    limits[name] = model.outputTokenLimit;
+                }
+            }
+        } catch (error) {
+            this.logger.warn(`[Relay] Failed to read configs/models.json for output limits: ${error.message}`);
+        }
+        this._modelOutputLimits = { defaultMax, limits };
+        return this._modelOutputLimits;
+    }
+
+    /**
+     * Build the self-contained playground relay script for one account.
+     * Concatenates the pure wire encoder/decoder modules with the relay client,
+     * then bakes the auth index, WebSocket endpoint, bootstrap model, and model
+     * output limits into the script.
+     * @param {number} authIndex - The auth index this context serves
+     * @returns {string} The fully configured relay script
+     */
+    _buildPlaygroundRelayScript(authIndex) {
+        const { limits, defaultMax } = this._loadModelOutputLimits();
+        const relayDir = path.join(__dirname, "..", "relay");
+        const clientDir = path.join(__dirname, "..", "..", "scripts", "client");
+        const encoderSource = fs.readFileSync(path.join(relayDir, "playground-wire-encoder.js"), "utf-8");
+        const decoderSource = fs.readFileSync(path.join(relayDir, "playground-frame-decoder.js"), "utf-8");
+        const relaySource = fs.readFileSync(path.join(clientDir, "playground-relay.js"), "utf-8");
+        const wsEndpoint = `ws://127.0.0.1:${this.config.wsPort || 9998}`;
+        const upstreamChannel = (this.config.upstreamChannel || process.env.UPSTREAM_CHANNEL || "auto")
+            .trim()
+            .toLowerCase();
+
+        const script = [encoderSource, decoderSource, relaySource].join("\n;\n");
+        const configured = script
+            .replace(/__RELAY_AUTH_INDEX__/g, String(authIndex))
+            .replace(/__RELAY_WS_ENDPOINT__/g, JSON.stringify(wsEndpoint))
+            .replace(/__RELAY_BOOTSTRAP_MODEL__/g, JSON.stringify(this.playgroundBootstrapModel))
+            .replace(/__RELAY_UPSTREAM_CHANNEL__/g, JSON.stringify(upstreamChannel))
+            .replace(/__RELAY_MODEL_LIMITS__/g, JSON.stringify(limits))
+            .replace(/__RELAY_DEFAULT_MAX_OUTPUT_TOKENS__/g, String(defaultMax));
+
+        // Fail fast at build time: a broken relay script would otherwise only
+        // surface as a silent 25s WebSocket-init timeout in every context.
+        try {
+            // eslint-disable-next-line no-new-func
+            new Function(configured);
+        } catch (error) {
+            throw new Error(`Playground relay script failed syntax validation: ${error.message}`);
+        }
+
+        this.logger.info(
+            `[Relay] Built playground relay script for context #${authIndex} ` +
+                `(${Object.keys(limits).length} model limits, endpoint ${wsEndpoint}, channel ${upstreamChannel})`
+        );
+        return configured;
+    }
+
+    /**
      * Helper: Generate a consistent numeric seed from a string
      * Used to keep fingerprints consistent for the same account index
      */
@@ -581,32 +659,43 @@ class BrowserManager {
 
         return `
             (function() {
-                if (window._privacyProtectionInjected) return;
+                const pageWindow = typeof window.wrappedJSObject !== 'undefined' && window.wrappedJSObject ? window.wrappedJSObject : window;
+                if (window._privacyProtectionInjected || pageWindow._privacyProtectionInjected) return;
                 window._privacyProtectionInjected = true;
+                try {
+                    pageWindow._privacyProtectionInjected = true;
+                } catch (e) {}
 
                 try {
                     // 1. Mask WebDriver property
                     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
 
                     // 2. Mock Plugins if empty
-                    if (navigator.plugins.length === 0) {
-                        Object.defineProperty(navigator, 'plugins', {
-                            get: () => new Array(${3 + Math.floor(deterministicRandom() * 3)}),
-                        });
+                    if (navigator.plugins && navigator.plugins.length === 0) {
+                        try {
+                            Object.defineProperty(navigator, 'plugins', {
+                                get: () => new Array(${3 + Math.floor(deterministicRandom() * 3)}),
+                            });
+                        } catch (e) {}
                     }
 
                     // 3. Spoof WebGL Renderer (High Impact)
-                    const getParameterProxy = WebGLRenderingContext.prototype.getParameter;
-                    WebGLRenderingContext.prototype.getParameter = function(parameter) {
-                        // 37445: UNMASKED_VENDOR_WEBGL
-                        // 37446: UNMASKED_RENDERER_WEBGL
-                        if (parameter === 37445) return '${profile.vendor}';
-                        if (parameter === 37446) return '${profile.renderer}';
-                        return getParameterProxy.apply(this, arguments);
-                    };
+                    if (typeof WebGLRenderingContext !== 'undefined' && WebGLRenderingContext.prototype) {
+                        const getParameterProxy = WebGLRenderingContext.prototype.getParameter;
+                        WebGLRenderingContext.prototype.getParameter = function(parameter) {
+                            // 37445: UNMASKED_VENDOR_WEBGL
+                            // 37446: UNMASKED_RENDERER_WEBGL
+                            if (parameter === 37445) return '${profile.vendor}';
+                            if (parameter === 37446) return '${profile.renderer}';
+                            return getParameterProxy.apply(this, arguments);
+                        };
+                    }
 
                     // 4. Inject benign noise
                     window['_canvas_noise_${randomArtifact}'] = '${randomArtifact}';
+                    try {
+                        pageWindow['_canvas_noise_${randomArtifact}'] = '${randomArtifact}';
+                    } catch (e) {}
 
                     if (window === window.top) {
                         // @moe-logger-exempt - browser page context
@@ -614,16 +703,17 @@ class BrowserManager {
 
                         // PostMessage responder for authIndex requests from cross-origin iframes
                         // Injected via addInitScript so it's ready BEFORE any iframe loads (no race condition)
-                        window.addEventListener('message', function(event) {
+                        const onMessage = function(event) {
                             if (event.data && event.data.type === 'requestAuthIndex') {
                                 // @moe-logger-exempt - browser page context
                                 console.log('[BrowserManager] Received authIndex request, responding with: ${authIndex}');
                                 event.source.postMessage({
-                                    type: 'authIndexResponse',
-                                    authIndex: ${authIndex}
+                                    authIndex: ${authIndex},
+                                    type: 'authIndexResponse'
                                 }, '*');
                             }
-                        });
+                        };
+                        window.addEventListener('message', onMessage);
                     }
                 } catch (err) {
                     // @moe-logger-exempt - browser page context
@@ -781,39 +871,6 @@ class BrowserManager {
         this.noButtonCount = 0;
         this._startHealthMonitor();
         this._startBackgroundWakeup();
-        this._sendActiveTrigger("[Browser]", pg);
-    }
-
-    /**
-     * Helper: Send active trigger
-     * Sends a trigger request to wake up Google backend
-     * This is a fire-and-forget operation - we don't wait for the trigger request to complete
-     * @param {string} logPrefix - Log prefix for step messages (e.g., "[Browser]" or "[Reconnect]")
-     * @param {Page} page - The page object to use (defaults to this.page if not provided)
-     */
-    _sendActiveTrigger(logPrefix = "[Browser]", page = null) {
-        // Active Trigger (Hack to wake up Google Backend)
-        this.logger.info(`${logPrefix} ⚡ Sending active trigger request to Launch flow...`);
-
-        // Use provided page or fall back to this.page
-        const targetPage = page || this.page;
-
-        // Fire-and-forget: send trigger request in background without waiting
-        targetPage
-            .evaluate(async () => {
-                try {
-                    await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=ActiveTrigger", {
-                        headers: { "Content-Type": "application/json" },
-                        method: "GET",
-                    });
-                } catch (e) {
-                    // @moe-logger-exempt - browser page context
-                    console.log("[ProxyClient] Active trigger sent");
-                }
-            })
-            .catch(() => {
-                // Silently ignore errors - this is a best-effort trigger
-            });
     }
 
     /**
@@ -1018,34 +1075,27 @@ class BrowserManager {
                         }
                     }
 
-                    // 4. Popup & Overlay Cleanup
+                    // 4. Popup & Overlay Cleanup (safe for Angular Playground)
                     await page.evaluate(() => {
-                        const blockers = [
-                            "div.cdk-overlay-backdrop",
-                            "div.cdk-overlay-container",
-                            "div.cdk-global-overlay-wrapper",
-                        ];
+                        const targetTexts = ["Got it", "Dismiss", "Not now", "Continue to the app", "Skip"];
 
-                        const targetTexts = [
-                            "Reload",
-                            "Retry",
-                            "Got it",
-                            "Dismiss",
-                            "Not now",
-                            "Continue to the app",
-                            "Skip",
+                        // Dismiss specific welcome overlays without removing CDK containers
+                        const overlaySelectors = [
+                            'ms-g1-welcome-dialog button[aria-label="Close dialog"]',
+                            'button[aria-label="Close guided tour"]',
+                            "#glue-cookie-notification-bar-1 .glue-cookie-notification-bar__reject",
                         ];
-
-                        // Remove passive blockers
-                        blockers.forEach(selector => {
+                        for (const selector of overlaySelectors) {
                             // eslint-disable-next-line no-undef
-                            document.querySelectorAll(selector).forEach(el => el.remove());
-                        });
+                            const el = document.querySelector(selector);
+                            if (el && typeof el.click === "function") {
+                                el.click();
+                            }
+                        }
 
-                        // Click active buttons if visible
+                        // Click active dismiss buttons if visible
                         // eslint-disable-next-line no-undef
                         document.querySelectorAll("button").forEach(btn => {
-                            // Check if the element occupies space (simple visibility check)
                             const rect = btn.getBoundingClientRect();
                             const isVisible = rect.width > 0 && rect.height > 0;
 
@@ -1053,7 +1103,6 @@ class BrowserManager {
                                 const text = (btn.innerText || "").trim();
                                 const ariaLabel = btn.getAttribute("aria-label");
 
-                                // Match text or aria-label
                                 if (targetTexts.includes(text) || ariaLabel === "Close") {
                                     // @moe-logger-exempt - browser page context
                                     console.log(`[ProxyClient] HealthMonitor clicking: ${text || "Close Button"}`);
@@ -2090,6 +2139,10 @@ class BrowserManager {
             const privacyScript = this._getPrivacyProtectionScript(authIndex);
             await context.addInitScript(privacyScript);
 
+            // Inject Playground & Build relay client script
+            const relayScript = this._buildPlaygroundRelayScript(authIndex);
+            await context.addInitScript(relayScript);
+
             page = await context.newPage();
 
             // Pure JS Wakeup (Focus & Mouse Movement)
@@ -2155,6 +2208,28 @@ class BrowserManager {
                     );
                     const s = this._wsInitState.get(authIndex);
                     if (s) s.failed = true;
+                }
+            });
+
+            // Capture public protocol headers (x-goog-api-key, etc.) for relay client
+            page.on("request", async req => {
+                const url = req.url();
+                if (url.includes("alkalimakersuite") || url.includes("GenerateContent")) {
+                    const headers = req.headers();
+                    if (headers["x-goog-api-key"]) {
+                        await page
+                            .evaluate(h => {
+                                /* global window */
+                                const pw = window.wrappedJSObject || window;
+                                window.__aistudioRelayHeaders = h;
+                                try {
+                                    pw.__aistudioRelayHeaders = h;
+                                } catch (_err) {
+                                    // ignore
+                                }
+                            }, headers)
+                            .catch(() => {});
+                    }
                 }
             });
 
@@ -2538,8 +2613,6 @@ class BrowserManager {
                     return false;
                 }
             }
-
-            this._sendActiveTrigger("[Reconnect]", page);
 
             // [Auth Update] Save the refreshed cookies to the auth file immediately
             await this._updateAuthFile(targetAuthIndex);

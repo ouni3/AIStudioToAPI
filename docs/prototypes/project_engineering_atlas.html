@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="kawaii">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aistudio-to-api · 项目工程全息骨架与慢车道状态图谱 (Project Engineering Atlas)</title>
+  <script id="ssot-engineering-manifest" type="application/json">
+  {
+    "atlas_schema_version": "v1.0-Automated",
+    "project_metadata": {
+      "name": "aistudio-to-api",
+      "tier": "Tier 3 业务工程",
+      "rating": "SR",
+      "commercial_stage": "S2 (极客验证期) / 基础设施算力赋能网关 (COMMERCIAL_EXEMPT)"
+    },
+    "settlement_seal": {
+      "release_tag": "v1.3.6-p16",
+      "staged_tree_hash": "INITIAL_STAGED_TREE_HASH",
+      "batch_pool_size": "Phase 16 累积施工结算",
+      "e2e_pass_rate": "100%",
+      "legacy_cleansed_rate": "100%",
+      "legacy_ref_count": 0,
+      "mode_a_escalations": 0
+    },
+    "core_skeleton_layers": [
+      {
+        "layer_id": "L_GOV",
+        "layer_name": "Tier 0/1 治理与状态机中枢层",
+        "owner": "moe-orchestrator",
+        "modules": [
+          { "name": "memory-bank", "path": "memory-bank/", "role": "六核心上下文文档与单射记忆" },
+          { "name": "configs", "path": "configs/", "role": "模型字典与系统配置" }
+        ]
+      },
+      {
+        "layer_id": "L_DOMAIN",
+        "layer_name": "核心逆向LLM中继与请求编排层",
+        "owner": "moe-code",
+        "modules": [
+          { "name": "RequestHandler", "path": "src/core/RequestHandler.js", "role": "OpenAI/Claude 协议转换与负载路由" },
+          { "name": "BrowserManager", "path": "src/core/BrowserManager.js", "role": "多账号 Playwright/Camoufox 会话池调度" },
+          { "name": "RelayProtocol", "path": "src/relay/", "role": "Playground 协议帧编解码与双向中继" }
+        ]
+      },
+      {
+        "layer_id": "L_INFRA",
+        "layer_name": "多容器拓扑与部署运维层",
+        "owner": "moe-debug",
+        "modules": [
+          { "name": "Compose8316", "path": "docker-compose.8316.yml", "role": "Pro 专线推理容器拓扑" },
+          { "name": "Compose8317", "path": "docker-compose.yml", "role": "综合网关与 Web 控制台服务" },
+          { "name": "DeployScripts", "path": "scripts/dev/", "role": "双容器自愈与自动化部署探针" }
+        ]
+      },
+      {
+        "layer_id": "L_UI",
+        "layer_name": "Web 控制台与状态视图层",
+        "owner": "frontend",
+        "modules": [
+          { "name": "AdminUI", "path": "src/web/", "role": "免密凭据管理与账号启用/停用看板" }
+        ]
+      }
+    ],
+    "break_and_build_ledger": {
+      "built": [
+        "Playground 双向 Wire 协议编解码模块 (src/relay/)",
+        "8316 Pro 专线独立 Compose 拓扑与隔离部署脚本",
+        "Playground 客户端注入中继 (scripts/client/playground-relay.js)"
+      ],
+      "eradicated_legacy": [
+        "拔除已废弃一次性诊断探针 (scripts/dev/diag_playground_globals.mjs)",
+        "清退旧版本 parameters_json_schema 互斥字段逻辑"
+      ]
+    },
+    "core_invariants_and_rules": [
+      { "id": "INV_RELAY_01", "rule": "Playground 协议纯度", "assertion": "Frame 编解码必须 100% 具备单测覆盖且退出码为 0" },
+      { "id": "INV_TOPOLOGY_01", "rule": "多容器卷隔离", "assertion": "8316/8317/8318 必须保持 configs/auth 与 data 卷完全独立" }
+    ]
+  }
+  </script>
+  <style>
+    :root {
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    [data-theme="kawaii"] {
+      --bg-base: #F8F5F9;
+      --bg-plate: rgba(255, 255, 255, 0.88);
+      --accent: #E11D66;
+      --accent-sub: #BE185D;
+      --border: rgba(225, 29, 102, 0.15);
+      --text-main: #20131B;
+      --text-muted: #6B5E67;
+      --badge-bg: #FCE7F3;
+      --badge-text: #9D174D;
+      --card-bg: rgba(255, 255, 255, 0.7);
+    }
+    [data-theme="cyber"] {
+      --bg-base: #060A12;
+      --bg-plate: rgba(13, 21, 38, 0.88);
+      --accent: #00F0FF;
+      --accent-sub: #0284C7;
+      --border: rgba(0, 240, 255, 0.2);
+      --text-main: #F1F5F9;
+      --text-muted: #94A3B8;
+      --badge-bg: rgba(0, 240, 255, 0.15);
+      --badge-text: #38BDF8;
+      --card-bg: rgba(15, 23, 42, 0.6);
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-base);
+      color: var(--text-main);
+      margin: 0;
+      padding: 32px 24px;
+      display: flex;
+      justify-content: center;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+    .container {
+      width: 100%;
+      max-width: 1100px;
+    }
+    .glass-plate {
+      background: var(--bg-plate);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 16px;
+      padding: 28px 32px;
+      border: 1px solid var(--border);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.08);
+      margin-bottom: 24px;
+    }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+    }
+    .title-group h1 {
+      margin: 0 0 8px 0;
+      font-size: 24px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .title-group p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .theme-toggle {
+      background: var(--badge-bg);
+      color: var(--badge-text);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .theme-toggle:hover {
+      opacity: 0.85;
+    }
+    .grid-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .metric-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    .metric-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: var(--font-mono);
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0 0 16px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .layer-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .layer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .layer-name {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .layer-owner {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--badge-bg);
+      color: var(--badge-text);
+    }
+    .module-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .module-item {
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.03);
+      border: 1px dashed var(--border);
+    }
+    .module-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 4px;
+      font-family: var(--font-mono);
+    }
+    .module-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .break-build-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .bb-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .bb-card h3 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .bb-list {
+      margin: 0;
+      padding-left: 20px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="glass-plate">
+      <div class="header-row">
+        <div class="title-group">
+          <h1>🏛️ aistudio-to-api · 项目工程全息骨架图谱</h1>
+          <p>人机同源 SSOT 单文件微晶工程星图 · Phase 16 慢车道收口归档快照</p>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">🌓 切换视效主题</button>
+      </div>
+
+      <div class="grid-metrics">
+        <div class="metric-card">
+          <div class="metric-label">项目评级 / 阶段</div>
+          <div class="metric-value">SR · S2 算力基建</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">结算标签 / 批次</div>
+          <div class="metric-value">v1.0.0-p16</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">E2E / 单元测试通过率</div>
+          <div class="metric-value">100% PASS</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">旧逻辑拔除率 (Cleansed)</div>
+          <div class="metric-value">100% (Ref: 0)</div>
+        </div>
+      </div>
+
+      <h2 class="section-title">📦 四层核心工程架构骨架 (Core Skeleton Layers)</h2>
+      
+      <div class="layer-card">
+        <div class="layer-header">
+          <span class="layer-name">Tier 0/1 治理与状态机中枢层 (L_GOV)</span>
+          <span class="layer-owner">owner: moe-orchestrator</span>
+        </div>
+        <div class="module-list">
+          <div class="module-item">
+            <div class="module-title">memory-bank/</div>
+            <div class="module-desc">产品愿景、架构拓扑、资产总纲与单射记忆微晶资产</div>
+          </div>
+          <div class="module-item">
+            <div class="module-title">configs/</div>
+            <div class="module-desc">Gemini 模型字典映射、用量账本与系统基础配置</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer-card">
+        <div class="layer-header">
+          <span class="layer-name">核心逆向LLM中继与请求编排层 (L_DOMAIN)</span>
+          <span class="layer-owner">owner: moe-code</span>
+        </div>
+        <div class="module-list">
+          <div class="module-item">
+            <div class="module-title">src/core/RequestHandler.js</div>
+            <div class="module-desc">OpenAI / Claude 兼容协议解析、流式中继与多账号故障转移</div>
+          </div>
+          <div class="module-item">
+            <div class="module-title">src/core/BrowserManager.js</div>
+            <div class="module-desc">Camoufox 无头浏览器会话池调度与 Xray 跨沙箱安全执行</div>
+          </div>
+          <div class="module-item">
+            <div class="module-title">src/relay/</div>
+            <div class="module-desc">Playground 二进制 / 文本 Frame 纯函数解码器与 Wire 协议编码</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer-card">
+        <div class="layer-header">
+          <span class="layer-name">多容器拓扑与部署运维层 (L_INFRA)</span>
+          <span class="layer-owner">owner: moe-debug</span>
+        </div>
+        <div class="module-list">
+          <div class="module-item">
+            <div class="module-title">docker-compose.8316.yml</div>
+            <div class="module-desc">8316 Pro 专线容器隔离部署拓扑，独立端口与卷挂载</div>
+          </div>
+          <div class="module-item">
+            <div class="module-title">docker-compose.yml</div>
+            <div class="module-desc">8317 综合网关与 Web 控制台常驻服务 Compose 编排</div>
+          </div>
+          <div class="module-item">
+            <div class="module-title">scripts/dev/remote_8316_deploy.sh</div>
+            <div class="module-desc">104 局域网主机增量部署、卷保留与自愈探针脚本</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer-card">
+        <div class="layer-header">
+          <span class="layer-name">Web 控制台与状态视图层 (L_UI)</span>
+          <span class="layer-owner">owner: frontend</span>
+        </div>
+        <div class="module-list">
+          <div class="module-item">
+            <div class="module-title">src/web/</div>
+            <div class="module-desc">Vue 3 + Element Plus 免密直通管理面板与账号启停控制看板</div>
+          </div>
+        </div>
+      </div>
+
+      <h2 class="section-title">⚖️ 破立对账清单 (Break & Build Ledger)</h2>
+      <div class="break-build-grid">
+        <div class="bb-card">
+          <h3 style="color: var(--accent);">🔨 新立核心工程资产 (Built)</h3>
+          <ul class="bb-list">
+            <li>Playground 双向 Wire 协议编解码模块 (src/relay/)</li>
+            <li>8316 Pro 专线独立 Compose 拓扑与隔离部署脚本</li>
+            <li>Playground 客户端注入中继 (scripts/client/playground-relay.js)</li>
+            <li>工程全息骨架星图微晶 HTML 标配在场</li>
+          </ul>
+        </div>
+        <div class="bb-card">
+          <h3 style="color: var(--text-muted);">🧹 拔除清退旧死资产 (Eradicated Legacy)</h3>
+          <ul class="bb-list">
+            <li>拔除完成历史使命的诊断探针 (scripts/dev/diag_playground_globals.mjs)</li>
+            <li>清退上游互斥字段 parameters_json_schema 补写逻辑</li>
+            <li>零注释、零遗留符号引用 (LEGACY_REF_COUNT == 0)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme') || 'kawaii';
+      const next = current === 'kawaii' ? 'cyber' : 'kawaii';
+      html.setAttribute('data-theme', next);
+    }
+  </script>
+</body>
+</html>

@@ -8,7 +8,7 @@
 > - `ect`: **S** (count(+)=4, count(-)=0, Value_Delivered=+, S_total=+)
 > - `verdict`: **KEEP** (核心 memory-bank 资产)
 
-- **Baseline Marker**: `BASELINE_PHASE_13` (Phase 13 专属模型每日配额熔断与UI自动关闭基线已对齐)
+- **Baseline Marker**: `BASELINE_PHASE_16` (Phase 16 双通道中继架构(Playground+Build)与上游400智能切号重试基线已对齐)
 
 ## 0. 资产定级标定 (Rating & Asset Profile)
 - **项目等级**: **SR (Super Rare - 系统枢纽级)**
@@ -30,6 +30,8 @@
 | `src/core/QuotaGuardService.js` | 专属模型配额硬熔断追踪、日配额退池与每日 15:00 自动重置 | 配额熔断层 | `ConfigLoader`, `logger` |
 | `src/core/UsageStatsService.js` | 请求指标统计、每日 Token/请求数聚合与跨日持久化 | 观测指标层 | `logger` |
 | `src/core/ProxyServerSystem.js` | 代理服务实例生命周期编排与健康状态维护 | 系统核心层 | `RequestHandler`, `BrowserManager` |
+| `src/relay/playground-wire-encoder.js` | Web UI Playground 载荷纯协议编码 (JSON/RPC 序列化) | 中继协议层 | `logger` |
+| `src/relay/playground-frame-decoder.js` | Web UI Playground 流式二进制帧/SSE 解码与解析 | 中继协议层 | `logger` |
 | `src/auth/AuthSource.js` | 账号凭据加载、账号启用/停用状态追踪、轮询索引池构建 | 凭据状态层 | `ConfigLoader`, `logger` |
 | `src/auth/AuthSwitcher.js` | 故障转移账号切换决策、手动账号切换与平滑降级 | 调度决策层 | `AuthSource`, `ConnectionRegistry` |
 | `src/auth/CreateAuth.js` | AI Studio 凭据初始化、登录状态抓取与凭据文件写入 | 凭据接入层 | `StickyProxyManager` |
@@ -92,7 +94,10 @@
   - 严格等待当前账号的每一个并发在途 WebSocket 请求 100% 流式传输完毕并关闭后，才正式执行切号与清理旧 Context，杜绝并发请求被腰斩。
 - **即时切号重试与页面错误精准感知 (Fast Failover & Page Error Detection)**:
   - **扩充即时切号契约**: `immediateSwitchStatusCodes` 囊括 403 区域受限 (`Region not supported` / `PERMISSION_DENIED`)、404 (含 Google Ambiguous Service)、429 速率限制，以及上游服务端异常 500、502、503、504。遇此错误立即标记当前凭据异常并切至下一健康凭据重放，杜绝盲目重试导致客户端长时间阻塞。
-  - **切号全局防抖与账号惩罚冷却 (Anti-Thrashing Guard)**: 引入 5 秒全局切换防抖 (`minSwitchIntervalMs: 5000`) 与 60 秒故障账号冷却惩罚 (`accountCooldownMap`)，当发生异常切号时降权故障账号，优先轮询未受限账号；同时在 `handleRequestFailureAndSwitch` 与 `RequestHandler` 中对 400 客户端参数错误实施阻断拦截，杜绝全池账号高速轮转雪崩。
+  - **切号全局防抖与账号惩罚冷却 (Anti-Thrashing Guard)**: 引入 5 秒全局切换防抖 (`minSwitchIntervalMs: 5000`) 与 60 秒故障账号冷却惩罚 (`accountCooldownMap`)，当发生异常切号时降权故障账号，优先轮询未受限账号；
+  - **400 错误精准分流与上游故障智能切号 (Phase 16 加固)**:
+    - **本地客户端参数 400 阻断**: 对客户端发起的畸形入参或非法的本地请求参数错误（经由 `RequestHandler._isClientParameterError` 判定为非上游异常），严格阻断切号，直接向调用端返回 400，杜绝全池账号高速轮转雪崩；
+    - **上游 Google API / 代理通道 400 自动切号重试**: 来自代理层或 Google 上游 API 的 400 故障（如账户风控、通道失效或特定的上游 `INVALID_ARGUMENT` 报错），被系统智能鉴别为账户/信道异常故障，自动纳入即时切号重试集合，触发立即换号重放，彻底阻断下游 Agent 遭遇偶发 400 瘫痪或进程中断。
   - **下游 503 弹性降级映射契约**: 在 OpenAI 与 Claude 流式/非流式出口，对上游返回的生成式 404/403 错误，在多轮换号重试耗尽后优雅映射为 503 Service Unavailable，支持下游客户端平滑重试，杜绝客户端直接中断。
   - 精准识别页面硬路由崩溃特征（如 `Page not found` + `Go to Build`），避免将 Google 偶发非阻塞 Toast 提示（如 `Please try again`）误判为致命错误。
   - 设定最大重试轮次（Max Retry Quorum），保障请求不陷入死循环，并在全部凭据耗尽时规范返回标准上游错误。
@@ -115,7 +120,20 @@
 - **Token 计数异步队列超时注入**: 针对 Claude `countTokens` 与 OpenAI `inputTokens` 等辅助接口，底层的 `messageQueue.dequeue()` 显式绑定超时阈值（`this.timeouts.STREAM_CHUNK`），杜绝因上游连接中断无响应而导致的挂死死锁。
 - **代理路径防重规范化清洗**: 网关在 `_buildProxyRequest` 代理转发与 `_extractModelFromPath` 模型提取链路中，通过正则严格清洗 `/models/` 重复前缀（如 `/models/(?:models/)+/` 规范化为 `/models/`），杜绝畸形 404 扩散。
 
-### 2.3 多容器协同拓扑与端口职能分离 (Multi-Container Topology)
+### 2.4 双通道中继架构 (Dual-Channel Relay Architecture: Playground + Build - Phase 16)
+为了彻底根治上游 `400 INVALID_ARGUMENT` 故障并兼顾流式性能与工具调用能力，系统构建了 Build 逆向端点与 Web UI Playground 双通道中继架构：
+1. **通道切流与自适应策略 (`x-upstream-channel: build | playground | auto`)**:
+   - `build`: 走传统的 Build API 逆向端点通道，适合纯文本与高吞吐请求；
+   - `playground`: 走 Google AI Studio Web UI Playground 逆向通道，具备完整的原生工具调用、原生长上下文与多模态兼容能力；
+   - `auto`: 智能自适应调度，默认优先或依据请求特征（如是否携带 tools / function calling）在两通道间自动分流。
+2. **Wire 纯编解码与协议解耦**:
+   - `src/relay/playground-wire-encoder.js`: 专注于请求协议到 Playground 格式的纯编解码，确保无副作用与可确定性测试；
+   - `src/relay/playground-frame-decoder.js`: 专注于二进制流式帧与 SSE 消息的解析和还原，消除跨平台解码乱码。
+3. **页面中继与粘性信道跳过 (Sticky Channel Optimization)**:
+   - 客户端页面中继脚本 (`scripts/client/playground-relay.js`) 维持逆向 Web 页面长连；
+   - 遇粘性信道不可用或中继异常时，自适应跳过故障信道平滑降级，杜绝请求被单一通道故障挂死。
+
+### 2.5 多容器协同拓扑与端口职能分离 (Multi-Container Topology)
 在 104 局域网服务器 (192.168.0.104) 采用多容器并行协同与流量分流模式：
 1. **8316 端口 (Pro 模型专用专线 / 源码同构容器)**:
    - 宿主机路径: `/home/fy/aistudio-to-api-8316/`

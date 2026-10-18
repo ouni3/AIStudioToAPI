@@ -9,23 +9,35 @@
 > - `verdict`: **KEEP**
 
 ## 当前阶段 (Active Phase)
-- **Phase Target**: Phase 15 验证与 Git 物理提交收口 (8316与8317物理凭据与统计口径绝对隔离及8317独立部署).
-- **Status**: `npm run verify` 全绿 100% PASS，准备执行 Git 物理提交。
+- **Phase Target**: 8316 Pro 专线节点串行同步部署与双节点健康/kilocode形态工具调用可用性验证，完成工程骨架星图版本号对齐与阶段文件暂存。
+- **Status**: 8316 节点同步部署完成 (exit 0)；configs/auth 与 data 数据卷独立完整隔离；8316 与 8317 双节点 /health 均 HTTP 200 且 browserConnected: true；8316 非流式 kilocode 形态工具调用 PASS；已初始化标配工程骨架星图 project_engineering_atlas.html 并对齐 release_tag 为 v1.3.6-p16；全量测试全绿。
 
 ## 最新验证与提交记录
-1. **104 服务器 8316 与 8317 物理凭据与统计口径绝对隔离**:
-   - `docker-compose.yml` volumes 与挂载路径彻底解耦，明确物理隔离。
-   - 验证独立凭据与统计口径，避免 8316/8317 互相干扰。
-   - `npm run verify` (lint, test, lint:ci) 全绿 100% PASS。
+1. **8316 Pro 专线节点同步部署与数据卷隔离 (PASS)**:
+   - 部署执行: `bash scripts/dev/remote_8316_deploy.sh` -> exit 0，镜像增量层构建完成；
+   - 卷隔离校验: 远程 `configs/auth` 与 `data` 严格排除覆盖，原有凭据池与用量账本完整保留；
+   - 容器状态: `aistudio-to-api-8316` Up (healthy)。
+2. **双节点健康状态探活断言 (PASS)**:
+   - 8316 `/health`: HTTP 200 (`browserConnected: true, status: "ok"`)；
+   - 8317 `/health`: HTTP 200 (`browserConnected: true, status: "ok"`)。
+3. **8316 kilocode 开放 Schema 工具调用断言 (PASS)**:
+   - 载荷: 包含 `get_weather`、`additionalProperties: false` 开放 Schema 特征；
+   - Auto 通道: HTTP 200, `tool_calls[0].function.name: "get_weather"`, arguments: `{"location":"Tokyo"}`；
+   - Build 通道: HTTP 200, `tool_calls[0].function.name: "get_weather"`, arguments: `{"location":"Tokyo"}`；
+   - 日志排查: 8316 容器日志中 `parameters_json_schema must not be set` 互斥错误为 0，上游工具请求 400 次数为 0。
+4. **例保洗礼与打回整改 (PASS)**:
+   - 安全移除使命完成的诊断探针 `scripts/dev/diag_playground_globals.mjs`；
+   - 初始化标配工程星图 `docs/prototypes/project_engineering_atlas.html` (内嵌 SSOT manifest)；
+   - 工作区纯净度检查无残留，原子暂存快照重新锚定。
 
 ## 沉淀经验条目 (Core Debugging & Healthcheck Lessons)
-1. **GitHub Remote 凭据通道一致性**: 本地环境具备系统级全局 HTTPS GitHub Token (`credential.helper=store`)，遇 SSH 交互式阻断或超时应优先切换为标准 HTTPS remote 协议直通推送。
-2. **多 Remote 分支跟踪断言**: 本地特性分支所跟踪的远端为 `myfork`，在执行推送及检查时应显式以跟踪分支 `myfork/<branch>` 为基准进行二值化状态校验。
-3. **网络抖动代理通道自愈切换**: 当本地代理 (`127.0.0.1:7897`) 偶发报 `HTTP 408 / RPC failed` 阻断 git push 时，可平滑采用 104 局域网代理网关通道 (`192.168.0.104:7890`) 直通推送，保障网络发布任务零摩擦。
-4. **104 局域网 IP SSOT**: 104 主机局域网真实 IP 为 `192.168.0.104`，运维与探活脚本默认指向该 IP，确保无人工配置摩擦。
-5. **同宿主机同构容器绝对挂载路径隔离**: 多实例部署时 compose 相对路径易因执行目录或上下文漂移而复用错误挂载；必须显式指定宿主机绝对路径，且凭据目录确保为独立物理副本而非软链接，彻底杜绝数据交叉污染。
-6. **多容器端口与 WebSocket 冲突隔离**: 在同一宿主机部署同构容器实例时，不仅需分离外部业务 HTTP 端口（如 8316/8317），还必须分离绑定的内部通信端口（如 WebSocket 端口 9997 与 9998），防止端口抢占导致启动失败。
-7. **模型名前置拦截与切号防雪崩**: 客户端传入 `"-"` 等非法模型时直接前置拦截返回 400 Bad Request；404 模型不存在错误前置设置 `skipAccountSwitch=true`，严禁触发换号重试。
+1. **Build 通道 parametersJsonSchema 互斥校验与双通道工具编码 (P0)**: `normalizeBuildRequestBody` 严禁为 `parameters` 补写 `parametersJsonSchema`，否则触发上游 Google API 互斥校验 400；Playground 通道则通过位置参数数组准确传递工具列表；探活必须以返回合法 `tool_calls` 为二值成功判定。
+2. **网络代理通道与 104 局域网 SSOT**: 代理偶发 408/超时平滑使用 104 局域网代理网关 (`192.168.0.104:7890`)；局域网主机真实 IP SSOT 为 `192.168.0.104`。
+3. **同宿主机多容器隔离与端口防抢占 (P0)**: 同宿主机部署同构容器必须显式隔离 Compose 文件、业务 HTTP 端口 (8316/8317/8318) 与 WebSocket 端口 (9997/9998)，避免配置覆盖与端口占用死锁。
+4. **模型名前置拦截与切号防雪崩**: 非法模型名直接前置拦截返回 400 Bad Request；404 模型不存在错误前置标记 `skipAccountSwitch=true`，严禁触发空转换号重试。
+5. **Camoufox/Firefox Xray 跨边界沙箱穿透与零污染 Hook (P0)**: 严禁从 Sandbox 向 Content Window 属性直接赋普通 Sandbox 函数（会触发 `Permission denied to access object` 导致 Angular 顶层崩溃）；必须通过 `pageWindow.eval` 在 Content 作用域内创建原生 wrapper。
+6. **Xray TypedArray 跨界访问禁忌与字符串纯化 (P0)**: 严禁跨 Xray 边界读写 TypedArray/ArrayBuffer（会触发 `Accessing TypedArray data over Xrays is slow, and forbidden` 导致 Build 渠道降级）；哈希与摘要计算通过 Content 端 Helper 完成，仅跨界传递 primitive string。
+7. **协议头捕获非侵入化 (Playwright request 监听代替 fetch 劫持)**: 前端侵入式重写 `window.fetch` 易破坏 CSP 与引发 Xray 权限崩溃；通过 Node 端 Playwright `page.on("request")` 纯外层非侵入捕获 public headers 并回填，实现页面 100% 原生加载。
 
 ## 工作区状态 (Workspace Status)
 - 分支: `feat/deploy-104-container-failover` (与 `myfork/feat/deploy-104-container-failover` 严格对齐)

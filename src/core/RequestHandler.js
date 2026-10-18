@@ -368,6 +368,14 @@ class RequestHandler {
         if (!error) return false;
         const status = Number(error.status);
         if (!Number.isFinite(status)) return false;
+
+        // Upstream Google API errors (even if reported with status 400) returned via proxy browser relay
+        // are account/session/channel failures, NOT local client parameter errors, and must be eligible for failover.
+        const msgStr = String(error.message || "").toUpperCase();
+        if (msgStr.includes("GOOGLE API RETURNED ERROR: 400") || msgStr.includes("PROXY BROWSER ERROR")) {
+            return false;
+        }
+
         return status === 400 || (status >= 400 && status < 500 && status !== 403 && status !== 404 && status !== 429);
     }
 
@@ -757,12 +765,27 @@ class RequestHandler {
         const statusCode = Number(status);
         if (isNaN(statusCode)) return false;
 
+        const msgStr = String(message || "").toUpperCase();
+        const isUpstreamProxy400 =
+            statusCode === 400 &&
+            (msgStr.includes("GOOGLE API RETURNED ERROR: 400") || msgStr.includes("PROXY BROWSER ERROR"));
+
         // Status 400 Bad Request or 4xx client parameter error (excluding 403, 404, 429): never trigger immediate account switch
+        // UNLESS it is an upstream proxy browser 400 error which represents an account/channel failure.
         if (
-            statusCode === 400 ||
-            (statusCode >= 400 && statusCode < 500 && statusCode !== 403 && statusCode !== 404 && statusCode !== 429)
+            !isUpstreamProxy400 &&
+            (statusCode === 400 ||
+                (statusCode >= 400 &&
+                    statusCode < 500 &&
+                    statusCode !== 403 &&
+                    statusCode !== 404 &&
+                    statusCode !== 429))
         ) {
             return false;
+        }
+
+        if (isUpstreamProxy400) {
+            return true;
         }
 
         // If it is 404, check if it's a model not found error (non-retryable client error)
@@ -1107,7 +1130,7 @@ class RequestHandler {
 
             const proxyRequest = this._buildProxyRequest(req, requestId);
             proxyRequest.is_generative = isGenerativeRequest;
-            this._initializeProxyRequestAttempt(proxyRequest);
+            this._initializeProxyRequestAttempt(proxyRequest, req);
 
             const wantsStream = req.path.includes(":streamGenerateContent");
             res.__proxyResponseStreamMode = wantsStream ? proxyRequest.streaming_mode : null;
@@ -1216,7 +1239,7 @@ class RequestHandler {
                 streaming_mode: "fake",
                 tracking_model: cleanModelName,
             };
-            this._initializeProxyRequestAttempt(proxyRequest);
+            this._initializeProxyRequestAttempt(proxyRequest, req);
             this._updateTrackedRequest(
                 requestId,
                 {
@@ -1282,7 +1305,7 @@ class RequestHandler {
                 request_id: requestId,
                 streaming_mode: "fake", // Uploads always return a single JSON response
             };
-            this._initializeProxyRequestAttempt(proxyRequest);
+            this._initializeProxyRequestAttempt(proxyRequest, req);
             this._updateTrackedRequest(requestId, {
                 path: proxyRequest.path,
             });
@@ -2403,7 +2426,7 @@ class RequestHandler {
                 request_id: requestId,
                 streaming_mode: useRealStream ? "real" : "fake",
             };
-            this._initializeProxyRequestAttempt(proxyRequest);
+            this._initializeProxyRequestAttempt(proxyRequest, req);
             res.__proxyResponseStreamMode = isClaudeStream ? (useRealStream ? "real" : "fake") : null;
             this._updateTrackedRequest(
                 requestId,
@@ -2819,7 +2842,7 @@ class RequestHandler {
                 query_params: {},
                 request_id: requestId,
             };
-            this._initializeProxyRequestAttempt(proxyRequest);
+            this._initializeProxyRequestAttempt(proxyRequest, req);
             this._updateTrackedRequest(
                 requestId,
                 {
@@ -3010,7 +3033,7 @@ class RequestHandler {
                 query_params: {},
                 request_id: requestId,
             };
-            this._initializeProxyRequestAttempt(proxyRequest);
+            this._initializeProxyRequestAttempt(proxyRequest, req);
             this._updateTrackedRequest(
                 requestId,
                 {
@@ -5067,7 +5090,20 @@ class RequestHandler {
         };
     }
 
-    _initializeProxyRequestAttempt(proxyRequest) {
+    _extractChannel(req) {
+        const raw =
+            (req && req.headers && (req.headers["x-upstream-channel"] || req.headers["x-channel"])) ||
+            (req && req.query && req.query.channel);
+        if (typeof raw === "string") {
+            const ch = raw.trim().toLowerCase();
+            if (["build", "playground", "auto"].includes(ch)) {
+                return ch;
+            }
+        }
+        return this.config.upstreamChannel || "auto";
+    }
+
+    _initializeProxyRequestAttempt(proxyRequest, req = null) {
         if (!proxyRequest.request_attempt_number) {
             proxyRequest.request_attempt_number = 1;
         }
@@ -5075,6 +5111,9 @@ class RequestHandler {
             proxyRequest.request_id,
             proxyRequest.request_attempt_number
         );
+        if (!proxyRequest.channel) {
+            proxyRequest.channel = this._extractChannel(req);
+        }
     }
 
     _advanceProxyRequestAttempt(proxyRequest) {

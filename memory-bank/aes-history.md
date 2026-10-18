@@ -261,6 +261,33 @@
   - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
 - **核心沉淀**: 根除多容器相对路径 Compose 导致底层共享同一物理数据卷与凭据目录的隐患；将两容器挂载显式锁定为专属宿主机绝对路径，实现账户启停状态（`auth-*.json`）与调用量统计（`quota-guard-state.json`）的物理绝对隔离；8317 节点完成独立重建与业务端点探活，8316 节点保持稳定在线。
 
+---
+
+## 13. Phase 16 效能快照 (AES Summary)
+
+### [AES_SUMMARY_P16]
+- **Phase**: `Phase 16 (双通道中继架构支持(Playground+Build)与8316专线独立部署)`
+- **结算时间**: `2026-10-18T10:30:00+08:00`
+- **主要参与 Agent**:
+  - `moe-orchestrator` (小奏): 全局统筹调度、任务激活快照、多方验真与结算收口
+  - `moe-architect` (伊织): WO-ARCH-P16 双通道架构方案设计与协议建模
+  - `moe-code` (诺诺): pure wire 编解码器与 playground-relay 客户端脚本实现
+  - `moe-debug` (千夏): 单测覆盖、8316 节点独立镜像构建与生产出字探活
+  - `audit` (克莱尔): 关卡 1 纯黑盒 Caller DX 微观体验走查与部署档案审查 (PASS)
+  - `audit_p0` (经济师总监): 关卡 2 商业生命周期与微账本宏观评估 (PASS)
+- **效能指标**:
+  - `avg_effectiveness`: UNKNOWN
+  - `first_pass_rate`: 0% (phase_first_pass=false: 发生重试、被动修补或快照重构)
+  - `avg_rework`: 0
+  - `sentinel_triggered`: NONE
+  - `settlement_advice`: `[PASS_SETTLEMENT_RECOMMENDED]`
+- **双容器健康状态**:
+  - 8316 节点 (`aistudio-to-api-custom:8316`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, `v1.3.6-p16`, Playground/Build 双通道推理出字 200 OK)
+  - 8317 主节点 (`aistudio-to-api-custom:latest`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, 综合模型网关常驻稳定在线)
+  - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
+- **核心沉淀**: 彻底根除 Google AI Studio 400 INVALID_ARGUMENT 报错阻断；实现双通道（Playground + Build）中继架构与 `x-upstream-channel: build|playground|auto` 动态切流，支持复杂工具调用；8316 节点专属镜像与 docker-compose.8316.yml 固化并上线，各服务器体验良好。
+
+
 
 
 

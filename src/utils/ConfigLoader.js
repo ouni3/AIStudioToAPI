@@ -37,11 +37,14 @@ class ConfigLoader {
             immediateSwitchStatusCodes: [403, 404, 429, 500, 502, 503, 504], // Upstream Google AI Studio error codes (403 region, 404 missing route, 429 rate limit, 500/502/503/504 server/gateway errors) requiring account switching and auto-healing
             maxContexts: 1,
             maxRetries: 3,
+            playgroundBootstrapModel: "gemini-flash-latest",
+            playgroundTemporaryChat: true,
             retryDelay: 2000,
             safetySettingsThreshold: "OFF",
             streamingMode: "real",
             streamTimeoutMs: 60000,
             switchOnUses: 40,
+            upstreamChannel: "auto",
             wsPort: 9998,
         };
 
@@ -91,6 +94,21 @@ class ConfigLoader {
         if (process.env.MAX_CONTEXTS) {
             const parsed = parseInt(process.env.MAX_CONTEXTS, 10);
             config.maxContexts = Number.isFinite(parsed) ? Math.max(0, parsed) : config.maxContexts;
+        }
+        if (process.env.PLAYGROUND_BOOTSTRAP_MODEL) {
+            const model = process.env.PLAYGROUND_BOOTSTRAP_MODEL.trim();
+            if (model) config.playgroundBootstrapModel = model;
+        }
+        if (process.env.PLAYGROUND_TEMPORARY_CHAT) {
+            config.playgroundTemporaryChat = !["0", "false", "no"].includes(
+                process.env.PLAYGROUND_TEMPORARY_CHAT.trim().toLowerCase()
+            );
+        }
+        if (process.env.UPSTREAM_CHANNEL) {
+            const ch = process.env.UPSTREAM_CHANNEL.trim().toLowerCase();
+            if (["build", "playground", "auto"].includes(ch)) {
+                config.upstreamChannel = ch;
+            }
         }
         if (process.env.CAMOUFOX_EXECUTABLE_PATH) config.browserExecutablePath = process.env.CAMOUFOX_EXECUTABLE_PATH;
         if (process.env.API_KEYS) {
