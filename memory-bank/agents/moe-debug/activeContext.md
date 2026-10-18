@@ -37,4 +37,6 @@
 
 ## 工作区状态 (Workspace Status)
 - 分支: `feat/deploy-104-container-failover` (与 `myfork/feat/deploy-104-container-failover` 严格对齐)
-- 状态: 提交与 Tag 同步完毕，断言通过。
+- 提交: `ca8a5c0e92f838d50f562b9e557e2a8972bc070d`
+- Tag: `v1.3.7-p17`
+- 状态: 提交与 Tag 同步完毕，物理发布断言全部通过。
