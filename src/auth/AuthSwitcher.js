@@ -369,7 +369,16 @@ class AuthSwitcher {
         // 400 Bad Request or 4xx client parameter error isolation:
         // Exclude 403 (forbidden/location unsupported) and 429 (rate limit) which are account-specific.
         // Status 400 or other 4xx client parameter error indicates client-side payload issue.
-        const isClientError = status === 400 || (status >= 400 && status < 500 && status !== 403 && status !== 429);
+        // UNLESS it is an upstream proxy browser 400 error (e.g. Google API returned error: 400) which represents an account/channel failure!
+        const msgStr = String(errorDetails?.message || "").toUpperCase();
+        const isUpstreamProxy400 =
+            status === 400 &&
+            (msgStr.includes("GOOGLE API RETURNED ERROR: 400") || msgStr.includes("PROXY BROWSER ERROR"));
+
+        const isClientError =
+            !isUpstreamProxy400 &&
+            (status === 400 || (status >= 400 && status < 500 && status !== 403 && status !== 429));
+
         if (isClientError) {
             this.logger.warn(
                 `⚠️ [Auth] Client parameter error received (status ${status}, message: ${errorDetails?.message || "Client error"}). Skipping failure count increment and account switch.`

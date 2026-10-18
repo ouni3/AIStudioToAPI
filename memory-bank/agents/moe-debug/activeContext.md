@@ -9,26 +9,22 @@
 > - `verdict`: **KEEP**
 
 ## 当前阶段 (Active Phase)
-- **Phase Target**: 8316 Pro 专线节点串行同步部署与双节点健康/kilocode形态工具调用可用性验证，完成工程骨架星图版本号对齐与阶段文件暂存。
-- **Status**: 8316 节点同步部署完成 (exit 0)；configs/auth 与 data 数据卷独立完整隔离；8316 与 8317 双节点 /health 均 HTTP 200 且 browserConnected: true；8316 非流式 kilocode 形态工具调用 PASS；已初始化标配工程骨架星图 project_engineering_atlas.html 并对齐 release_tag 为 v1.3.6-p16；全量测试全绿。
+- **Phase Target**: Phase 17 结算关卡 2.1 四维洗礼脱脂与工程骨架星图增量编译刷新。
+- **Status**: 四维洗礼全部通过，全套单元测试 100% PASS (46/46, 退出码 0)，工程星图 Manifest 内嵌 712 Tokens 守恒 (≤3500 Tokens)，出具 `[ROUTINE_MAINTENANCE_CLEANSED: PASS]` 凭据。
 
 ## 最新验证与提交记录
-1. **8316 Pro 专线节点同步部署与数据卷隔离 (PASS)**:
-   - 部署执行: `bash scripts/dev/remote_8316_deploy.sh` -> exit 0，镜像增量层构建完成；
-   - 卷隔离校验: 远程 `configs/auth` 与 `data` 严格排除覆盖，原有凭据池与用量账本完整保留；
-   - 容器状态: `aistudio-to-api-8316` Up (healthy)。
-2. **双节点健康状态探活断言 (PASS)**:
-   - 8316 `/health`: HTTP 200 (`browserConnected: true, status: "ok"`)；
-   - 8317 `/health`: HTTP 200 (`browserConnected: true, status: "ok"`)。
-3. **8316 kilocode 开放 Schema 工具调用断言 (PASS)**:
-   - 载荷: 包含 `get_weather`、`additionalProperties: false` 开放 Schema 特征；
-   - Auto 通道: HTTP 200, `tool_calls[0].function.name: "get_weather"`, arguments: `{"location":"Tokyo"}`；
-   - Build 通道: HTTP 200, `tool_calls[0].function.name: "get_weather"`, arguments: `{"location":"Tokyo"}`；
-   - 日志排查: 8316 容器日志中 `parameters_json_schema must not be set` 互斥错误为 0，上游工具请求 400 次数为 0。
-4. **例保洗礼与打回整改 (PASS)**:
-   - 安全移除使命完成的诊断探针 `scripts/dev/diag_playground_globals.mjs`；
-   - 初始化标配工程星图 `docs/prototypes/project_engineering_atlas.html` (内嵌 SSOT manifest)；
-   - 工作区纯净度检查无残留，原子暂存快照重新锚定。
+1. **本地单元测试集执行 (PASS)**:
+   - 运行: `npm test` -> 46/46 passed (0 fail, 0 skipped), 退出码 0。
+   - 包含新增 `tests/test_relay_channel_behavior.mjs` 测试集：验证 400 状态码保真、上游 400 绝不篡改重写为 503、双 429 耗尽保护等断言 100% 成立。
+2. **关卡 2.1 四维洗礼脱脂与星图刷新 (PASS)**:
+   - 临时探针/mock 碎屑扫描: 清洗完毕，无死代码与无用探针残留；
+   - 单元测试与质量契约: 46/46 PASS，退出码 0；
+   - 记忆库脱脂巡检: 核心文件单文件全部守恒在 ≤16000 字符 / ≤4000 Tokens 红线以内；
+   - 工程骨架星图增量刷新: `docs/prototypes/project_engineering_atlas.html` 增量编译完成，Manifest 约 712 Tokens (≤3500 Tokens 预算)。
+3. **8317 综合网关金丝雀发布与真实推理断言 (PASS)**:
+   - 增量同步与容器重启，健康探活 HTTP 200，真实流式推理成功出字。
+4. **8316 Pro 专线节点发布与真实推理断言 (PASS)**:
+   - 专属镜像构建与容器重启，健康探活 HTTP 200，真实流式推理成功出字。
 
 ## 沉淀经验条目 (Core Debugging & Healthcheck Lessons)
 1. **Build 通道 parametersJsonSchema 互斥校验与双通道工具编码 (P0)**: `normalizeBuildRequestBody` 严禁为 `parameters` 补写 `parametersJsonSchema`，否则触发上游 Google API 互斥校验 400；Playground 通道则通过位置参数数组准确传递工具列表；探活必须以返回合法 `tool_calls` 为二值成功判定。

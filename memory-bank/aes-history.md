@@ -285,7 +285,32 @@
   - 8316 节点 (`aistudio-to-api-custom:8316`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, `v1.3.6-p16`, Playground/Build 双通道推理出字 200 OK)
   - 8317 主节点 (`aistudio-to-api-custom:latest`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, 综合模型网关常驻稳定在线)
   - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
-- **核心沉淀**: 彻底根除 Google AI Studio 400 INVALID_ARGUMENT 报错阻断；实现双通道（Playground + Build）中继架构与 `x-upstream-channel: build|playground|auto` 动态切流，支持复杂工具调用；8316 节点专属镜像与 docker-compose.8316.yml 固化并上线，各服务器体验良好。
+- **核心沉淀**: 彻底根除 Google AI Studio 400 INVALID_ARGUMENT 报错阻断；实现双通道（Playground + Build）中继架构与 `x-upstream-channel: build|playground|auto` 动态切流，支持复杂工具调用；贯彻 Build 通道与 Playground 网页端独立配额契约，彻底消除中继盲目改写 400/429 为 503 伪装，确立“二者皆耗尽方激活 429 物理熔断”准则，消灭全池账号 503 震荡雪崩；8316/8317 双节点完成金丝雀更新上线，端到端推理出字正常。
+
+---
+
+## 14. Phase 17 效能快照 (AES Summary)
+
+### [AES_SUMMARY_P17]
+- **Phase**: `Phase 17 (8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线)`
+- **结算时间**: `2026-10-18T16:25:00+08:00`
+- **主要参与 Agent**:
+  - `moe-orchestrator` (小奏): 全局统筹调度、任务激活快照、多方验真与结算收口
+  - `moe-architect` (伊织): 模式 A 单兵攻坚排查定位 8317 容器 400 根因并加固 AuthSwitcher
+  - `moe-debug` (千夏): 四维洗礼脱脂、单测 46/46 PASS、增量构建与生产端到端出字探活
+  - `audit` (克莱尔): 关卡 1 纯黑盒 Caller DX 微观体验走查与部署档案审查 (PASS)
+  - `audit_p0` (经济师总监): 关卡 2 商业生命周期与微账本宏观评估 (PASS)
+- **效能指标**:
+  - `avg_effectiveness`: 95.0%
+  - `first_pass_rate`: 0% (phase_first_pass=false: 关卡3 R1/R2 阻断打回，如实记录资产档案/首通率字段修正)
+  - `avg_rework`: 0
+  - `sentinel_triggered`: NONE
+  - `settlement_advice`: `[PASS_SETTLEMENT_RECOMMENDED]`
+- **双容器健康状态**:
+  - 8317 主节点 (`aistudio-to-api-custom:latest`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, `v1.3.7-p17`, 真实流式与带 Tool Calling 出字 200 OK)
+  - 8316 节点 (`aistudio-to-api-custom:8316`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, `v1.3.6-p16`, 常驻在线)
+  - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
+- **核心沉淀**: 彻底解决 8317 综合网关对 Google API 抛出的 400 错误由于未在 AuthSwitcher 排除而误断为客户端入参错误跳过切号换号重试的问题；将上游代理 400 异常与客户端入参错误严格解耦，确保遇到 Google 远端 400 故障顺畅触发换号自愈重试；完成 8317 容器轻量层增量重建与平滑重启上线，真实业务推理全面恢复。
 
 
 

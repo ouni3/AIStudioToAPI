@@ -8,7 +8,7 @@
 > - `ect`: **S** (count(+)=4, count(-)=0, Value_Delivered=+, S_total=+)
 > - `verdict`: **KEEP** (核心 memory-bank 资产)
 
-- **Baseline Marker**: `BASELINE_PHASE_16` (Phase 16 双通道中继架构(Playground+Build)与上游400智能切号重试基线已对齐)
+- **Baseline Marker**: `BASELINE_PHASE_17` (Phase 17 8317综合网关400根治与双通道架构平权升级基线已对齐)
 
 ## 0. 资产定级标定 (Rating & Asset Profile)
 - **项目等级**: **SR (Super Rare - 系统枢纽级)**
@@ -132,6 +132,9 @@
 3. **页面中继与粘性信道跳过 (Sticky Channel Optimization)**:
    - 客户端页面中继脚本 (`scripts/client/playground-relay.js`) 维持逆向 Web 页面长连；
    - 遇粘性信道不可用或中继异常时，自适应跳过故障信道平滑降级，杜绝请求被单一通道故障挂死。
+4. **双通道独立配额与 429 级联耗尽判定契约 (Phase 16 加固 / 理事长最高指示)**:
+   - **独立配额原则**: Build 通道与 Playground 网页通道的配额彼此独立，在 `auto` 模式下 Build 通道遇到 429 配额用尽时，系统标记 Build 通道受限，并无缝回退至 Playground 网页端使用其独立配额；
+   - **双通道耗尽方激活 429 物理熔断**: 严禁将 400 或 429 随意改写成 503 伪装；只有在同一请求中 Build 与 Playground **双通道均遭遇 429 / 配额耗尽**时，才向服务端网关上抛 429，精准激活 `QuotaGuardService.handleQuota429` 关停 2 小时机制；若仅单通道受限而另一通道可用，则正常交付，彻底终结全池账号 503 震荡雪崩。
 
 ### 2.5 多容器协同拓扑与端口职能分离 (Multi-Container Topology)
 在 104 局域网服务器 (192.168.0.104) 采用多容器并行协同与流量分流模式：

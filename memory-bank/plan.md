@@ -19,14 +19,13 @@
 
 ## 2. 活跃 Phase 状态与施工记录
 
-### ACTIVE_PHASE: Phase 16 (双通道中继架构支持(Playground+Build)与8316专线独立部署)
-- 当前活跃: Phase 16
-- 根治 400 INVALID_ARGUMENT 故障，落地双通道中继架构（Playground + Build 互补）：
-  1. 支持 `x-upstream-channel: build|playground|auto` 切流与工具调用；
-  2. 新增 pure wire encoder/decoder (`src/relay/`) 与页面中继脚本 (`scripts/client/playground-relay.js`)；
-  3. 8316 节点容器独立配置 `docker-compose.8316.yml` 与部署脚本 `scripts/dev/remote_8316_deploy.sh`；
-  4. 根治上游 Google 400 穿透打崩下游 Agent 问题：加固 `RequestHandler._isClientParameterError` 与 `_isImmediateSwitchStatus`，使上游 400 自动触发切号重试；
-  5. 8316 节点完成线上独立构建部署与真实推理流式出字探活，8317 综合网关保持常驻稳定零中断。
+### ACTIVE_PHASE: Phase 17 (8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线)
+- 当前活跃: Phase 17
+- 目标与成果:
+  1. 根治 8317 综合网关因上游 Google API 400 报错打崩下游客户端故障；
+  2. 加固 `src/auth/AuthSwitcher.js`，将上游代理 `isUpstreamProxy400` 排除在本地客户端错误外，确保 Google 上游信道 400 顺畅触发切号换号自愈重试；
+  3. 104 服务器 8317 容器完成增量轻量镜像重新构建与平滑重启上线，真实推理探活（非流式、流式、流式带 Tool Calling）100% PASS；
+  4. 8316 节点常驻高可用在线，双节点拓扑稳定。
 
 - 门禁状态: `PASS_PENDING_COMMIT`
 
@@ -51,7 +50,8 @@
 | 13 | 专属模型每日100次配额硬熔断退池与15:00自动恢复生命周期 | 已归档 (`8316/8317已上线`) |
 | 14 | 废除100次调用上限、429物理关号2小时与UI文案对齐 | 已归档 (`8316/8317已上线`) |
 | 15 | 8316/8317物理凭据与统计口径绝对隔离与8317独立部署 | 已归档 (`3bcd59d`) |
-| 16 | 双通道中继架构支持(Playground+Build)与8316专线独立部署 | IN_PROGRESS |
+| 16 | 双通道中继架构支持(Playground+Build)与8316专线独立部署 | 已归档 (`b4bbcf2`) |
+| 17 | 8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线 | IN_PROGRESS |
 
 ---
 
@@ -107,15 +107,17 @@
 - [x] Phase 16 编写 pure wire 协议编解码模块并完成单测覆盖 (41/41 单测通过)
 - [x] Phase 16 8316 节点独立部署脚本与 docker-compose.8316.yml 固化
 - [x] Phase 16 104 服务器 8316 节点部署更新与真实业务推理探活通过 (HTTP 200 OK)
+- [x] Phase 16 贯彻双通道独立配额与耗尽判定契约，消除 400/429 伪装 503 缺陷，双通道皆耗尽方激活 429 物理熔断
+- [x] Phase 16 104 双节点 (8317/8316) 串行金丝雀增量部署与真实流式出字端到端验证通过 (HTTP 200 OK)
 
 ---
 
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
 | Phase | 主题 | 状态 |
 |:---|:---|:---|
-| 16 | 双通道中继架构支持(Playground+Build)与8316专线独立部署 | IN_PROGRESS |
+| 17 | 8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线 | IN_PROGRESS |
 
-- Primary Phase: `Phase 16 (双通道中继架构支持(Playground+Build)与8316专线独立部署)` [ACTIVE_PHASE]
+- Primary Phase: `Phase 17 (8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线)` [ACTIVE_PHASE]
 - Secondary Phases: 无
 
 ---

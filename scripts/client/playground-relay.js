@@ -794,14 +794,7 @@
 
         _sendErrorResponse(error, operationId, requestAttemptId) {
             if (!operationId) return;
-            let status = error.status || 504;
-            // Upstream Google API errors (even if reported as 400 INVALID_ARGUMENT on one account/session)
-            // are account/session/channel failures, not client parameter errors.
-            // Remap upstream 400 to 503 so server-side RequestHandler initiates an immediate account switch
-            // to a healthy account instead of crashing downstream client agents.
-            if (error.__relayUpstream && status === 400) {
-                status = 503;
-            }
+            const status = error.status || 504;
             this.transmit({
                 event_type: "error",
                 message: `Proxy browser error: ${error.message || "Unknown error"}`,
@@ -954,27 +947,60 @@
                 if (
                     error &&
                     (error.status === 403 ||
+                        error.status === 429 ||
                         String(error.message || "")
                             .toLowerCase()
-                            .includes("permission"))
+                            .includes("permission") ||
+                        String(error.message || "")
+                            .toLowerCase()
+                            .includes("resourceexhausted") ||
+                        String(error.message || "")
+                            .toLowerCase()
+                            .includes("quota"))
                 ) {
                     this.buildChannelBlocked = true;
                     Logger.warn(
-                        `[Relay] Account lacks Build API permission (403), sticking to Playground channel for future requests.`
+                        `[Relay] Account Build API restricted or exhausted (status=${error.status}, msg=${error.message}), switching to Playground channel for fallback and future requests.`
                     );
                 }
                 if (this._canFallbackChannel(error, attemptKey)) {
                     Logger.warn(
                         `[Relay] Build channel failed (${error.message}), falling back to Playground channel...`
                     );
-                    await this._executePlaygroundUnary(
-                        restBody,
-                        model,
-                        operation,
-                        operationId,
-                        requestAttemptId,
-                        attemptKey
-                    );
+                    try {
+                        await this._executePlaygroundUnary(
+                            restBody,
+                            model,
+                            operation,
+                            operationId,
+                            requestAttemptId,
+                            attemptKey
+                        );
+                    } catch (playgroundError) {
+                        // If both Build and Playground returned 429/quota exhaustion, preserve 429 so gateway can trigger QuotaGuard
+                        const isBuildQuota =
+                            error.status === 429 ||
+                            String(error.message || "")
+                                .toLowerCase()
+                                .includes("resourceexhausted") ||
+                            String(error.message || "")
+                                .toLowerCase()
+                                .includes("quota");
+                        const isPlaygroundQuota =
+                            playgroundError &&
+                            (playgroundError.status === 429 ||
+                                String(playgroundError.message || "")
+                                    .toLowerCase()
+                                    .includes("resourceexhausted") ||
+                                String(playgroundError.message || "")
+                                    .toLowerCase()
+                                    .includes("quota"));
+
+                        if (isBuildQuota && isPlaygroundQuota) {
+                            playgroundError.status = 429;
+                        }
+                        throw playgroundError;
+                    }
                 } else {
                     throw error;
                 }
@@ -1028,28 +1054,61 @@
                 if (
                     error &&
                     (error.status === 403 ||
+                        error.status === 429 ||
                         String(error.message || "")
                             .toLowerCase()
-                            .includes("permission"))
+                            .includes("permission") ||
+                        String(error.message || "")
+                            .toLowerCase()
+                            .includes("resourceexhausted") ||
+                        String(error.message || "")
+                            .toLowerCase()
+                            .includes("quota"))
                 ) {
                     this.buildChannelBlocked = true;
                     Logger.warn(
-                        `[Relay] Account lacks Build API permission (403), sticking to Playground channel for future requests.`
+                        `[Relay] Account Build API restricted or exhausted (status=${error.status}, msg=${error.message}), switching to Playground channel for fallback and future requests.`
                     );
                 }
                 if (this._canFallbackChannel(error, attemptKey)) {
                     Logger.warn(
                         `[Relay] Build channel failed (${error.message}), falling back to Playground channel...`
                     );
-                    await this._executePlaygroundStream(
-                        restBody,
-                        model,
-                        alt,
-                        operation,
-                        operationId,
-                        requestAttemptId,
-                        attemptKey
-                    );
+                    try {
+                        await this._executePlaygroundStream(
+                            restBody,
+                            model,
+                            alt,
+                            operation,
+                            operationId,
+                            requestAttemptId,
+                            attemptKey
+                        );
+                    } catch (playgroundError) {
+                        // If both Build and Playground returned 429/quota exhaustion, preserve 429 so gateway can trigger QuotaGuard
+                        const isBuildQuota =
+                            error.status === 429 ||
+                            String(error.message || "")
+                                .toLowerCase()
+                                .includes("resourceexhausted") ||
+                            String(error.message || "")
+                                .toLowerCase()
+                                .includes("quota");
+                        const isPlaygroundQuota =
+                            playgroundError &&
+                            (playgroundError.status === 429 ||
+                                String(playgroundError.message || "")
+                                    .toLowerCase()
+                                    .includes("resourceexhausted") ||
+                                String(playgroundError.message || "")
+                                    .toLowerCase()
+                                    .includes("quota"));
+
+                        if (isBuildQuota && isPlaygroundQuota) {
+                            playgroundError.status = 429;
+                        }
+                        throw playgroundError;
+                    }
                 } else {
                     throw error;
                 }

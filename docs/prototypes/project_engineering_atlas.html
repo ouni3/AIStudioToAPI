@@ -64,12 +64,14 @@
     "break_and_build_ledger": {
       "built": [
         "Playground 双向 Wire 协议编解码模块 (src/relay/)",
-        "8316 Pro 专线独立 Compose 拓扑与隔离部署脚本",
-        "Playground 客户端注入中继 (scripts/client/playground-relay.js)"
+        "8316 Pro 专线独立 Compose 拓扑与隔离部署脚本 (docker-compose.8316.yml)",
+        "双通道智能容错降级与错误状态码保真机制 (scripts/client/playground-relay.js, src/auth/AuthSwitcher.js)",
+        "多容器 8316/8317 真实端到端推理探活测试集 (tests/test_relay_channel_behavior.mjs)"
       ],
       "eradicated_legacy": [
         "拔除已废弃一次性诊断探针 (scripts/dev/diag_playground_globals.mjs)",
-        "清退旧版本 parameters_json_schema 互斥字段逻辑"
+        "清退上游 400 强制重写为 503 的粗暴错误码篡改逻辑 (playground-relay.js)",
+        "消除客户端参数报错与账号级上游错误混淆引发的账号误封锁 (AuthSwitcher.js)"
       ]
     },
     "core_invariants_and_rules": [
@@ -381,16 +383,16 @@
           <h3 style="color: var(--accent);">🔨 新立核心工程资产 (Built)</h3>
           <ul class="bb-list">
             <li>Playground 双向 Wire 协议编解码模块 (src/relay/)</li>
-            <li>8316 Pro 专线独立 Compose 拓扑与隔离部署脚本</li>
-            <li>Playground 客户端注入中继 (scripts/client/playground-relay.js)</li>
-            <li>工程全息骨架星图微晶 HTML 标配在场</li>
+            <li>8316 Pro 专线独立 Compose 拓扑与隔离部署脚本 (docker-compose.8316.yml)</li>
+            <li>双通道中继错误状态码保真与双 429 耗尽熔断机制 (scripts/client/playground-relay.js)</li>
+            <li>多容器 8316/8317 串行金丝雀发布与真实端到端推理探活测试集 (tests/test_relay_channel_behavior.mjs)</li>
           </ul>
         </div>
         <div class="bb-card">
           <h3 style="color: var(--text-muted);">🧹 拔除清退旧死资产 (Eradicated Legacy)</h3>
           <ul class="bb-list">
             <li>拔除完成历史使命的诊断探针 (scripts/dev/diag_playground_globals.mjs)</li>
-            <li>清退上游互斥字段 parameters_json_schema 补写逻辑</li>
+            <li>清退上游 400 强制重写为 503 的粗暴错误码篡改逻辑</li>
             <li>零注释、零遗留符号引用 (LEGACY_REF_COUNT == 0)</li>
           </ul>
         </div>

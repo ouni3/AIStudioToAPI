@@ -9,9 +9,9 @@
 > - `verdict`: **KEEP**
 
 ## 1. 当前会话状态 (Current Session State)
-- **Active Phase**: `Phase 16 (WO-ARCH-P16 双通道中继架构支持与上游400故障自愈)`
-- **Task Goal**: 针对 8316 节点上特定账户出现的 Build 403 / Playground 400 穿透问题，落地 relay 上游错误状态码重映射（400->503）与服务端 `_isClientParameterError` 反向鉴别，并对 Build 403 实施粘性信道跳过，成功消除下游 Agent 400 阻断并完成 8316 热部署与实测出字。
-- **Status**: [HOTFIX_DEPLOYED|8316_PASS|VERIFY_PASS]
+- **Active Phase**: `Phase 17 (8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线)`
+- **Task Goal**: 根治 8317 综合网关因上游 Google API 400 报错打崩下游客户端故障，加固 `src/auth/AuthSwitcher.js` 排除上游代理 400 异常，重新构建部署 8317 容器并验证推理出字。
+- **Status**: [DEPLOYED|8317_PASS|8316_ONLINE|VERIFY_PASS]
 
 ## 2. 核心架构与编排经验 (Orchestration Insights)
 1. **上游 Google API 400 穿透与换号故障转移防线**:
