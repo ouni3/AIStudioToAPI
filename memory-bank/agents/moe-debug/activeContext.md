@@ -37,6 +37,6 @@
 
 ## 工作区状态 (Workspace Status)
 - 分支: `feat/deploy-104-container-failover` (与 `myfork/feat/deploy-104-container-failover` 严格对齐)
-- 提交: `ca8a5c0e92f838d50f562b9e557e2a8972bc070d`
+- 提交: `623957778b056110f0f4b3c43555ae3b2f2115e5`
 - Tag: `v1.3.7-p17`
-- 状态: 提交与 Tag 同步完毕，物理发布断言全部通过。
+- 状态: 后置状态机续保提交与推送完成，工作区保持物理零污染 (clean)。
