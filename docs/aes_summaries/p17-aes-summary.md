@@ -11,10 +11,10 @@
 - **Phase**: 17
 - **Theme**: 8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线
 - **Task Grade**: A 级任务
-- **Status**: 🟡 PASS_PENDING_COMMIT
+- **Status**: 🟢 SETTLED_RELEASED
 - **Project**: AIStudioToAPI
 - **Settlement Date**: 2026-10-18
-- **Commit**: 待提交 (Pending 库级审计收口)
+- **Commit**: ca8a5c0e92f838d50f562b9e557e2a8972bc070d
 - **Tag**: v1.3.7-p17
 
 ## 2. 核心效能指标

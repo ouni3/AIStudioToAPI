@@ -19,15 +19,15 @@
 
 ## 2. 活跃 Phase 状态与施工记录
 
-### ACTIVE_PHASE: Phase 17 (8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线)
-- 当前活跃: Phase 17
-- 目标与成果:
-  1. 根治 8317 综合网关因上游 Google API 400 报错打崩下游客户端故障；
-  2. 加固 `src/auth/AuthSwitcher.js`，将上游代理 `isUpstreamProxy400` 排除在本地客户端错误外，确保 Google 上游信道 400 顺畅触发切号换号自愈重试；
-  3. 104 服务器 8317 容器完成增量轻量镜像重新构建与平滑重启上线，真实推理探活（非流式、流式、流式带 Tool Calling）100% PASS；
-  4. 8316 节点常驻高可用在线，双节点拓扑稳定。
-
-- 门禁状态: `PASS_PENDING_COMMIT`
+### ACTIVE_PHASE: IDLE_NO_ACTIVE_PHASE
+- 当前状态: 全局空闲，Phase 17 已完成库级结算与发布闭环。
+- Release Receipt:
+  - Phase: 17
+  - Commit: ca8a5c0
+  - Tag: v1.3.7-p17
+  - Remote Push: SUCCESS (myfork: origin / v1.3.7-p17)
+  - Closed: 2026-10-18T17:58:00+08:00
+  - Status: SETTLED_RELEASED
 
 ---
 
@@ -51,7 +51,7 @@
 | 14 | 废除100次调用上限、429物理关号2小时与UI文案对齐 | 已归档 (`8316/8317已上线`) |
 | 15 | 8316/8317物理凭据与统计口径绝对隔离与8317独立部署 | 已归档 (`3bcd59d`) |
 | 16 | 双通道中继架构支持(Playground+Build)与8316专线独立部署 | 已归档 (`b4bbcf2`) |
-| 17 | 8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线 | IN_PROGRESS |
+| 17 | 8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线 | 已归档 (`ca8a5c0`) |
 
 ---
 
@@ -115,9 +115,10 @@
 ## 5. 多 Phase 并行登记 (Multi-Phase Registry)
 | Phase | 主题 | 状态 |
 |:---|:---|:---|
-| 17 | 8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线 | IN_PROGRESS |
+| 17 | 8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线 | 已结项 |
 
-- Primary Phase: `Phase 17 (8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线)` [ACTIVE_PHASE]
+- Primary Phase: `IDLE_NO_ACTIVE_PHASE`
+- Secondary Phases: 无
 - Secondary Phases: 无
 
 ---

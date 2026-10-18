@@ -9,9 +9,10 @@
 > - `verdict`: **KEEP**
 
 ## 1. 当前会话状态 (Current Session State)
-- **Active Phase**: `Phase 17 (8317 综合网关 400 根治与双通道架构平权升级及金丝雀上线)`
-- **Task Goal**: 根治 8317 综合网关因上游 Google API 400 报错打崩下游客户端故障，加固 `src/auth/AuthSwitcher.js` 排除上游代理 400 异常，重新构建部署 8317 容器并验证推理出字。
-- **Status**: [DEPLOYED|8317_PASS|8316_ONLINE|VERIFY_PASS]
+- **Active Phase**: `IDLE_NO_ACTIVE_PHASE`
+- **Recent Settled**: `[PHASE_17_SETTLED@ca8a5c0|v1.3.7-p17|CI=PASS|2026-10-18T17:58:00+08:00]`
+- **Task Goal**: 8317 综合网关 400 根治与双通道架构平权升级已全部闭环，完成终审放行与物理双远程推送。
+- **Status**: [SETTLED_RELEASED|ALL_PASS]
 
 ## 2. 核心架构与编排经验 (Orchestration Insights)
 1. **上游 Google API 400 穿透与换号故障转移防线**:
