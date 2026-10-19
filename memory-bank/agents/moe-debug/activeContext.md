@@ -9,25 +9,24 @@
 > - `verdict`: **KEEP**
 
 ## 当前阶段 (Active Phase)
-- **Phase Target**: Phase 18 关卡 2.1b 四维例保洗礼脱脂与契约预验。
-- **Status**: 例保巡检与四维脱脂全绿通过 (PASS)。全量 48/48 项单测 100% PASS；Token 审计全部 ≤4096 Tokens；核心文件格式及 ECT 评级全绿；无未受控临时文件或探针碎屑；已出具法定 `[ROUTINE_MAINTENANCE_CLEANSED: PASS]` 凭据。
+- **Phase Target**: Phase 18 结算治理账本提交与工作区零污染收口。
+- **Status**: 结算治理文件物理提交与推送全部完成 (PASS)。工作区 100% 洁净。
 
 ## 最新验证与提交记录
-1. **全套单测运行 (PASS)**:
+1. **结算治理账本提交与推送 (PASS / 本期)**:
+   - 依法将小奏在结算白名单内更新的治理账本文件（`docs/aes_summaries/p18-aes-summary.md`、`memory-bank/aes-history.md`、`memory-bank/plan.md`、`memory-bank/agents/moe-orchestrator/activeContext.md`）提交至本地仓库；
+   - 提交哈希: `c98b668` (`docs(settlement): close phase 18 settlement ledger and release receipt`)；
+   - 成功推送到远端 `myfork/feat/deploy-104-container-failover`，工作区达到完全洁净状态 (`working tree clean`)。
+2. **全套单测运行 (PASS)**:
    - 全套单测 `npm test`: 48/48 PASS，退出码 0；
    - 覆盖 Build 429 降级 Playground 400 强保 429 状态码断言、403 buildChannelBlocked 标志位设置、跨账号 400 同签名早停及 QuotaGuard 2 小时熔断。
-2. **8317 独立金丝雀部署与隔离断言 (PASS)**:
+3. **8317 独立金丝雀部署与隔离断言 (PASS)**:
    - 8316 独立容器（`aistudio-to-api-8316`）全程保持 Up & healthy，零重启、零触碰；
    - 8317 (`aistudio-to-api`) 经 `remote_8317_deploy.sh` 完成 UI 构建、代码增量 rsync、镜像构建与容器平滑重启；
-   - 8317 容器内核心文件 MD5 与本地 HEAD 严格对齐：
-     - `scripts/client/playground-relay.js`: `81fc54102c58bad51f2329ad3536d680`
-     - `src/core/RequestHandler.js`: `c78319fc69d054c8a4fa951abed72097`
-     - `src/auth/AuthSwitcher.js`: `dada9e95f95fe98f1348911d86b26157`
-3. **8316 专线金丝雀同步与全链路验收 (PASS / 本期)**:
-   - `remote_8316_deploy.sh` 执行成功（UI 本地构建 → 增量 rsync → 专用 compose 覆写 → 增量层镜像构建 → 仅 8316 compose 目录重启）；MCP 请求超时后按 zero-touch 自愈原位恢复，进程未杀未重派，直接终态核验；
-   - 容器内 3 文件 MD5 与本地严格一致（同上 3 个哈希值），`CROSS_ACCOUNT_400_EARLY_STOP_THRESHOLD` 容器内计数 = 3，旧 `isBuildQuota && isPlaygroundQuota` 严苛分支 `LEGACY_REF_COUNT == 0`；
-   - `/health` HTTP 200 (`browserConnected: true`)；真实推理 `POST /v1/chat/completions`（Bearer 鉴权，模型 `gemini-flash-latest`）完整出字 `"8316 CANARY OK"`，`finish_reason: stop`，HTTP 200；
-   - 8317 全程零触碰，部署前后均 Up & healthy，`/health` HTTP 200。
+   - 8317 容器内核心文件 MD5 与本地 HEAD 严格对齐。
+4. **8316 专线金丝雀同步与全链路验收 (PASS)**:
+   - `remote_8316_deploy.sh` 执行成功，容器内 3 文件 MD5 严格一致；
+   - `/health` HTTP 200，真实推理 `POST /v1/chat/completions` 完整出字 `"8316 CANARY OK"`，HTTP 200。
 
 ## 沉淀经验条目 (Core Debugging & Healthcheck Lessons)
 1. **Build 通道 429 配额保真与熔断切号自愈 (P0)**: Build 通道 429 降级 Playground 失败严禁被 400/503 掩盖，必须强制保真 429 状态码与 Google 配额特征；`buildChannelBlocked` 仅对 403 权限异常置 true，429 仅触发 QuotaGuard 2 小时临时熔断与即时切号自愈。
