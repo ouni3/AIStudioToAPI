@@ -312,6 +312,31 @@
   - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
 - **核心沉淀**: 彻底解决 8317 综合网关对 Google API 抛出的 400 错误由于未在 AuthSwitcher 排除而误断为客户端入参错误跳过切号换号重试的问题；将上游代理 400 异常与客户端入参错误严格解耦，确保遇到 Google 远端 400 故障顺畅触发换号自愈重试；完成 8317 容器轻量层增量重建与平滑重启上线，真实业务推理全面恢复。
 
+---
+
+## 15. Phase 18 效能快照 (AES Summary)
+
+### [AES_SUMMARY_P18]
+- **Phase**: `Phase 18 (8316/8317 双节点 400 早停守卫与 429 配额保真平权升级及金丝雀上线)`
+- **结算时间**: `2026-10-19T16:26:00+08:00`
+- **主要参与 Agent**:
+  - `moe-orchestrator` (小奏): 全局统筹调度、任务快照推进、前置两步门禁执行与结算收口
+  - `audit` (克莱尔): 关卡 1 纯黑盒 Caller DX 体验走查与双档案审查 (`CLAIRE_VERDICT: PASS`)
+  - `audit_p0` (经济师总监): 关卡 2.1a 商业生命周期与微账本宏观评估 (`AUDIT_P0_VERDICT: PASS`)
+  - `moe-code` (诺诺): 400 早停守卫与 playground-relay 429 状态码保真原子代码施工
+  - `moe-debug` (千夏): 四维例保洗礼脱脂、单测 48/48 PASS、双容器串行金丝雀发布与 Git 物理提交闭环
+- **效能指标**:
+  - `avg_effectiveness`: 100%
+  - `first_pass_rate`: 100%
+  - `avg_rework`: 0
+  - `sentinel_triggered`: NONE
+  - `settlement_advice`: `[PASS_SETTLEMENT_RECOMMENDED]`
+- **双容器健康状态**:
+  - 8316 专线容器 (`aistudio-to-api-custom:8316`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, `v1.3.8-p18`, Bearer 鉴权推理出字 `8316 CANARY OK` 200 OK)
+  - 8317 综合网关 (`aistudio-to-api-custom:latest`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, `v1.3.8-p18`, 429 熔断与自愈换号出字 200 OK)
+  - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
+- **核心沉淀**: 落地跨账号同签名 400 上游错误早停守卫 (`CROSS_ACCOUNT_400_EARLY_STOP_THRESHOLD = 3`)，将全池 25 账号穷举 11 分钟无效等待压缩至 1.5 分钟；彻底修复 Build 429 配额用尽被降级 Playground 400 掩盖漏洞，状态码绝对保真为 429 并精准触发 2 小时熔断与换号自愈；收敛 `buildChannelBlocked` 仅在 403 权限不足时生效，杜绝 429 误阻断主通道；8316 专线与 8317 综合网关串行金丝雀独立升级上线，真实端到端推理出字探活均通过 (HTTP 200 OK)；工程全息骨架星图与系统架构向导同步刷新，全套 48 项测试 100% PASS。
+
 
 
 

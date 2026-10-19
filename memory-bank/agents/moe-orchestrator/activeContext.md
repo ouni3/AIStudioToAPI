@@ -10,9 +10,8 @@
 
 ## 1. 当前会话状态 (Current Session State)
 - **Active Phase**: `IDLE_NO_ACTIVE_PHASE`
-- **Recent Settled**: `[PHASE_17_SETTLED@ca8a5c0|v1.3.7-p17|CI=PASS|2026-10-18T17:58:00+08:00]`
-- **Hotfix Closed**: `[HOTFIX_8317_429_MASKED_AS_400_ROOT_FIX@2026-10-18T23:58+08:00]`
-- **Task Goal**: 8317 节点 429 掩盖为 400 根治、buildChannelBlocked 误标修复与代码同步上线，端到端推理出字自愈验证恢复 200 OK。
+- **Recent Settled**: `[PHASE_18_SETTLED@1d36346|v1.3.8-p18|CI=PASS|2026-10-19T16:26:00+08:00]`
+- **Task Goal**: Phase 18 双节点 400 早停守卫与 429 配额保真平权升级已全部闭环，完成终审放行、Tag 打标与物理双远程推送。
 - **Status**: [SETTLED_RELEASED|ALL_PASS]
 
 ## 2. 核心架构与编排经验 (Orchestration Insights)
