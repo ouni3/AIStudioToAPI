@@ -4,8 +4,8 @@
  * Verifies:
  * 1. Upstream 400 errors preserve status 400 (not remapped to 503).
  * 2. Build 429 falling back to Playground: if Playground also 429 / ResourceExhausted, 429 is preserved.
- * 3. Build 429 falling back to Playground: if Playground succeeds or fails with 400, proper status is delivered.
- * 4. Build 429 marks buildChannelBlocked for subsequent requests on the same session.
+ * 3. Build 429 falling back to Playground: if Playground fails with 400, 429 is preserved (quota error not masked).
+ * 4. Build 403 marks buildChannelBlocked, while Build 429 does NOT mark buildChannelBlocked.
  */
 
 import test from "node:test";
@@ -30,6 +30,19 @@ test("Playground relay channel behavior & error status fidelity", async (t) => {
             scriptCode.includes("error.__relayUpstream && status === 400"),
             false,
             "Legacy error.__relayUpstream 400 check must be removed"
+        );
+    });
+
+    await t.test("static check: 429 does not mark buildChannelBlocked and isBuildQuota unconditionally preserves 429", () => {
+        assert.equal(
+            scriptCode.includes("isBuildQuota && isPlaygroundQuota"),
+            false,
+            "Legacy isBuildQuota && isPlaygroundQuota condition must be physically eradicated"
+        );
+        assert.equal(
+            scriptCode.includes("Account Build API restricted or exhausted"),
+            false,
+            "Exhausted message should be removed from buildChannelBlocked warning"
         );
     });
 
@@ -107,9 +120,7 @@ test("Playground relay channel behavior & error status fidelity", async (t) => {
                     if (
                         error &&
                         (error.status === 403 ||
-                            error.status === 429 ||
-                            String(error.message || "").toLowerCase().includes("resourceexhausted") ||
-                            String(error.message || "").toLowerCase().includes("quota"))
+                            String(error.message || "").toLowerCase().includes("permission"))
                     ) {
                         this.buildChannelBlocked = true;
                     }
@@ -118,17 +129,19 @@ test("Playground relay channel behavior & error status fidelity", async (t) => {
                             await this._executePlaygroundUnary();
                         } catch (playgroundError) {
                             const isBuildQuota =
-                                error.status === 429 ||
-                                String(error.message || "").toLowerCase().includes("resourceexhausted") ||
-                                String(error.message || "").toLowerCase().includes("quota");
-                            const isPlaygroundQuota =
-                                playgroundError &&
-                                (playgroundError.status === 429 ||
-                                    String(playgroundError.message || "").toLowerCase().includes("resourceexhausted") ||
-                                    String(playgroundError.message || "").toLowerCase().includes("quota"));
+                                error &&
+                                (error.status === 429 ||
+                                    String(error.message || "").toLowerCase().includes("resourceexhausted") ||
+                                    String(error.message || "").toLowerCase().includes("quota"));
 
-                            if (isBuildQuota && isPlaygroundQuota) {
+                            if (isBuildQuota) {
                                 playgroundError.status = 429;
+                                if (
+                                    !String(playgroundError.message || "").toLowerCase().includes("quota") &&
+                                    !String(playgroundError.message || "").toLowerCase().includes("resourceexhausted")
+                                ) {
+                                    playgroundError.message = `Google API returned error: 429 You exceeded your current quota (Playground fallback also failed: ${playgroundError.message})`;
+                                }
                             }
                             throw playgroundError;
                         }
@@ -149,12 +162,12 @@ test("Playground relay channel behavior & error status fidelity", async (t) => {
 
         assert.ok(buildAttempted, "Build channel should be attempted first in auto mode");
         assert.ok(playgroundAttempted, "Playground channel should be attempted as fallback");
-        assert.equal(runner.buildChannelBlocked, true, "buildChannelBlocked must be true after Build 429");
+        assert.equal(runner.buildChannelBlocked, false, "buildChannelBlocked must NOT be true after Build 429 (transient quota exhaustion)");
         assert.ok(thrownError, "Should throw error when both channels exhausted");
         assert.equal(thrownError.status, 429, "Thrown error status must be 429 when both channels exhausted");
     });
 
-    await t.test("Build 429 with Playground 400 preserves 400 status", async () => {
+    await t.test("Build 429 with Playground 400 preserves 429 status (quota not masked by 400)", async () => {
         class ChannelMock400 {
             constructor() {
                 this.buildChannelBlocked = false;
@@ -175,14 +188,30 @@ test("Playground relay channel behavior & error status fidelity", async (t) => {
                 try {
                     await this._executeBuildUnary();
                 } catch (error) {
-                    if (error.status === 429) this.buildChannelBlocked = true;
+                    if (
+                        error &&
+                        (error.status === 403 ||
+                            String(error.message || "").toLowerCase().includes("permission"))
+                    ) {
+                        this.buildChannelBlocked = true;
+                    }
                     try {
                         await this._executePlaygroundUnary();
                     } catch (playgroundError) {
-                        const isBuildQuota = error.status === 429;
-                        const isPlaygroundQuota = playgroundError && playgroundError.status === 429;
-                        if (isBuildQuota && isPlaygroundQuota) {
+                        const isBuildQuota =
+                            error &&
+                            (error.status === 429 ||
+                                String(error.message || "").toLowerCase().includes("resourceexhausted") ||
+                                String(error.message || "").toLowerCase().includes("quota"));
+
+                        if (isBuildQuota) {
                             playgroundError.status = 429;
+                            if (
+                                !String(playgroundError.message || "").toLowerCase().includes("quota") &&
+                                !String(playgroundError.message || "").toLowerCase().includes("resourceexhausted")
+                            ) {
+                                playgroundError.message = `Google API returned error: 429 You exceeded your current quota (Playground fallback also failed: ${playgroundError.message})`;
+                            }
                         }
                         throw playgroundError;
                     }
@@ -198,6 +227,50 @@ test("Playground relay channel behavior & error status fidelity", async (t) => {
             thrown = e;
         }
         assert.ok(thrown);
-        assert.equal(thrown.status, 400, "Must preserve Playground 400 status when only Build was 429");
+        assert.equal(thrown.status, 429, "Must preserve Build 429 status when Playground fails with 400");
+        assert.ok(
+            thrown.message.includes("429") && thrown.message.includes("quota"),
+            "Error message must contain Google 429 quota exhaustion pattern"
+        );
+        assert.equal(runner.buildChannelBlocked, false, "buildChannelBlocked must NOT be true on 429");
+    });
+
+    await t.test("Build 403 sets buildChannelBlocked to true for future requests", async () => {
+        class ChannelMock403 {
+            constructor() {
+                this.buildChannelBlocked = false;
+            }
+            _canFallbackChannel() { return true; }
+            async _executeBuildUnary() {
+                const err = new Error("403 PERMISSION_DENIED: User not in allowlist");
+                err.status = 403;
+                throw err;
+            }
+            async _executePlaygroundUnary() {
+                return { ok: true };
+            }
+            async _executeUnaryGenerate() {
+                try {
+                    await this._executeBuildUnary();
+                } catch (error) {
+                    if (
+                        error &&
+                        (error.status === 403 ||
+                            String(error.message || "").toLowerCase().includes("permission"))
+                    ) {
+                        this.buildChannelBlocked = true;
+                    }
+                    if (this._canFallbackChannel(error)) {
+                        return await this._executePlaygroundUnary();
+                    }
+                    throw error;
+                }
+            }
+        }
+
+        const runner = new ChannelMock403();
+        const res = await runner._executeUnaryGenerate();
+        assert.equal(res.ok, true);
+        assert.equal(runner.buildChannelBlocked, true, "buildChannelBlocked must be true on 403 permission error");
     });
 });

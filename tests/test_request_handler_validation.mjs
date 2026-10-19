@@ -196,3 +196,34 @@ assert.strictEqual(googleStatus, 400, "Google invalid model should return HTTP 4
 assert.strictEqual(googleBody?.error?.message.includes('Invalid model: "-"'), true);
 
 console.log("✔ _sendInvalidModelError regression tests passed for model '-' across all formats!");
+
+// 5. Test upstream 400 Google API error identification and failover classification
+console.log("--- 5. Testing upstream 400 Google API error failover classification ---");
+const testCases = [
+    "Proxy browser error: Google API returned error: 400 Request contains an invalid argument.",
+    "Google API returned error: 400",
+    "Proxy browser error: [Google 400] Bad Request",
+    "INVALID_ARGUMENT: parameter count mismatch",
+    "Request contains an invalid argument."
+];
+
+for (const msg of testCases) {
+    const errObj = { status: 400, message: msg };
+    assert.strictEqual(
+        rh._isClientParameterError(errObj),
+        false,
+        `Message "${msg}" must NOT be classified as client parameter error`
+    );
+    assert.strictEqual(
+        rh._isImmediateSwitchStatus(400, msg),
+        true,
+        `Message "${msg}" MUST trigger immediate account switch`
+    );
+}
+
+// Local client error should still be identified as client parameter error
+const localErr = { status: 400, message: "Missing required query parameter" };
+assert.strictEqual(rh._isClientParameterError(localErr), true);
+assert.strictEqual(rh._isImmediateSwitchStatus(400, localErr.message), false);
+
+console.log("✔ Upstream 400 Google API error failover tests passed!");

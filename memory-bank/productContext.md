@@ -14,7 +14,7 @@
 > **项目类型**: **infrastructure** — 底层算力网关服务与代理出墙
 > **项目受众**: **Moe开发团队与全系Agent舰队** — 提供高并发、免人工干预的 Gemini 原生与兼容协议推理中继
 
-- **Baseline Marker**: `BASELINE_PHASE_17` (Phase 17 8317综合网关400根治与双通道平权升级基线已对齐)
+- **Baseline Marker**: `BASELINE_PHASE_18` (Phase 18 双节点 400 早停守卫与 429 配额保真平权升级基线已对齐)
 
 ## 0. 评级与商业化基准 (Project Rating & Stage)
 - **当前等级**: **SR (Super Rare - 系统枢纽级)**

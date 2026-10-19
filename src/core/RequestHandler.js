@@ -17,6 +17,9 @@ const { QueueClosedError, QueueTimeoutError } = require("../utils/MessageQueue")
 const WS_RECONNECT_WAIT_MS = 130000;
 const WS_CONNECTION_READY_TIMEOUT_MS = 10000;
 
+// Cross-account identical upstream 400 error early stop threshold (>=3 distinct accounts)
+const CROSS_ACCOUNT_400_EARLY_STOP_THRESHOLD = 3;
+
 // Default timeout constants (in milliseconds)
 const DEFAULT_TIMEOUTS = {
     FAKE_STREAM: 300000, // 300 seconds (5 minutes) - timeout for fake streaming (buffered response)
@@ -24,6 +27,8 @@ const DEFAULT_TIMEOUTS = {
 };
 
 class RequestHandler {
+    static CROSS_ACCOUNT_400_EARLY_STOP_THRESHOLD = CROSS_ACCOUNT_400_EARLY_STOP_THRESHOLD;
+
     constructor(serverSystem, connectionRegistry, logger, browserManager, config, authSource) {
         this.serverSystem = serverSystem;
         this.connectionRegistry = connectionRegistry;
@@ -371,8 +376,7 @@ class RequestHandler {
 
         // Upstream Google API errors (even if reported with status 400) returned via proxy browser relay
         // are account/session/channel failures, NOT local client parameter errors, and must be eligible for failover.
-        const msgStr = String(error.message || "").toUpperCase();
-        if (msgStr.includes("GOOGLE API RETURNED ERROR: 400") || msgStr.includes("PROXY BROWSER ERROR")) {
+        if (status === 400 && this._isUpstreamProxy400(status, error.message)) {
             return false;
         }
 
@@ -752,12 +756,76 @@ class RequestHandler {
         return true;
     }
 
+    _isUpstreamProxy400(status, message) {
+        if (!status) return false;
+        const statusCode = Number(status);
+        if (statusCode !== 400) return false;
+        const msgStr = String(message || "").toUpperCase();
+        return (
+            msgStr.includes("GOOGLE API RETURNED ERROR: 400") ||
+            msgStr.includes("PROXY BROWSER ERROR") ||
+            msgStr.includes("INVALID_ARGUMENT") ||
+            msgStr.includes("REQUEST CONTAINS AN INVALID ARGUMENT")
+        );
+    }
+
+    _normalizeErrorSignature(message) {
+        return String(message || "")
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, " ");
+    }
+
     _createImmediateSwitchTracker(initialAuthIndex = this.currentAuthIndex) {
         const attemptedAuthIndices = new Set();
         if (Number.isInteger(initialAuthIndex) && initialAuthIndex >= 0) {
             attemptedAuthIndices.add(initialAuthIndex);
         }
-        return { attemptedAuthIndices };
+        return {
+            attemptedAuthIndices,
+            upstream400Signatures: new Map(),
+        };
+    }
+
+    _checkCrossAccount400EarlyStop(errorDetails, requestId, tracker, sourceAuthIndex) {
+        if (!tracker) return false;
+        if (!this._isUpstreamProxy400(errorDetails?.status, errorDetails?.message)) {
+            return false;
+        }
+
+        const reportedAuthIndex =
+            Number.isInteger(sourceAuthIndex) && sourceAuthIndex >= 0
+                ? sourceAuthIndex
+                : this.currentAuthIndex;
+        const signature = this._normalizeErrorSignature(errorDetails?.message);
+
+        if (!tracker.upstream400Signatures) {
+            tracker.upstream400Signatures = new Map();
+        }
+
+        let accountSet = tracker.upstream400Signatures.get(signature);
+        if (!accountSet) {
+            accountSet = new Set();
+            tracker.upstream400Signatures.set(signature, accountSet);
+        }
+
+        if (Number.isInteger(reportedAuthIndex) && reportedAuthIndex >= 0) {
+            accountSet.add(reportedAuthIndex);
+        }
+
+        if (accountSet.size >= CROSS_ACCOUNT_400_EARLY_STOP_THRESHOLD) {
+            const accountsList = Array.from(accountSet)
+                .sort((a, b) => a - b)
+                .join(", ");
+            this.logger.warn(
+                `[Request] Cross-account identical upstream 400 error guard triggered for request #${requestId}: ` +
+                    `identical upstream 400 signature observed across ${accountSet.size} distinct accounts (${accountsList}). ` +
+                    `Stopping account switch early to prevent request-level error loop.`
+            );
+            return true;
+        }
+
+        return false;
     }
 
     _isImmediateSwitchStatus(status, message) {
@@ -765,10 +833,7 @@ class RequestHandler {
         const statusCode = Number(status);
         if (isNaN(statusCode)) return false;
 
-        const msgStr = String(message || "").toUpperCase();
-        const isUpstreamProxy400 =
-            statusCode === 400 &&
-            (msgStr.includes("GOOGLE API RETURNED ERROR: 400") || msgStr.includes("PROXY BROWSER ERROR"));
+        const isUpstreamProxy400 = this._isUpstreamProxy400(statusCode, message);
 
         // Status 400 Bad Request or 4xx client parameter error (excluding 403, 404, 429): never trigger immediate account switch
         // UNLESS it is an upstream proxy browser 400 error which represents an account/channel failure.
@@ -867,6 +932,10 @@ class RequestHandler {
     }
 
     async _prepareImmediateStatusRetry(errorDetails, requestId, tracker, sourceAuthIndex) {
+        if (this._checkCrossAccount400EarlyStop(errorDetails, requestId, tracker, sourceAuthIndex)) {
+            return false;
+        }
+
         const currentAuthIndex = this.currentAuthIndex;
         const hasSourceAuth = Number.isInteger(sourceAuthIndex) && sourceAuthIndex >= 0;
         const hasCurrentAuth = Number.isInteger(currentAuthIndex) && currentAuthIndex >= 0;

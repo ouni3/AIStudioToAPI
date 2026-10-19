@@ -9,28 +9,31 @@
 > - `verdict`: **KEEP**
 
 ## 当前阶段 (Active Phase)
-- **Phase Target**: Phase 17 结算关卡 2.1 四维洗礼脱脂与工程骨架星图增量编译刷新。
-- **Status**: 四维洗礼全部通过，全套单元测试 100% PASS (46/46, 退出码 0)，工程星图 Manifest 内嵌 712 Tokens 守恒 (≤3500 Tokens)，出具 `[ROUTINE_MAINTENANCE_CLEANSED: PASS]` 凭据。
+- **Phase Target**: Phase 18 关卡 2.1b 四维例保洗礼脱脂与契约预验。
+- **Status**: 例保巡检与四维脱脂全绿通过 (PASS)。全量 48/48 项单测 100% PASS；Token 审计全部 ≤4096 Tokens；核心文件格式及 ECT 评级全绿；无未受控临时文件或探针碎屑；已出具法定 `[ROUTINE_MAINTENANCE_CLEANSED: PASS]` 凭据。
 
 ## 最新验证与提交记录
-1. **本地单元测试集执行 (PASS)**:
-   - 运行: `npm test` -> 46/46 passed (0 fail, 0 skipped), 退出码 0。
-   - 包含新增 `tests/test_relay_channel_behavior.mjs` 测试集：验证 400 状态码保真、上游 400 绝不篡改重写为 503、双 429 耗尽保护等断言 100% 成立。
-2. **关卡 2.1 四维洗礼脱脂与星图刷新 (PASS)**:
-   - 临时探针/mock 碎屑扫描: 清洗完毕，无死代码与无用探针残留；
-   - 单元测试与质量契约: 46/46 PASS，退出码 0；
-   - 记忆库脱脂巡检: 核心文件单文件全部守恒在 ≤16000 字符 / ≤4000 Tokens 红线以内；
-   - 工程骨架星图增量刷新: `docs/prototypes/project_engineering_atlas.html` 增量编译完成，Manifest 约 712 Tokens (≤3500 Tokens 预算)。
-3. **8317 综合网关金丝雀发布与真实推理断言 (PASS)**:
-   - 增量同步与容器重启，健康探活 HTTP 200，真实流式推理成功出字。
-4. **8316 Pro 专线节点发布与真实推理断言 (PASS)**:
-   - 专属镜像构建与容器重启，健康探活 HTTP 200，真实流式推理成功出字。
+1. **全套单测运行 (PASS)**:
+   - 全套单测 `npm test`: 48/48 PASS，退出码 0；
+   - 覆盖 Build 429 降级 Playground 400 强保 429 状态码断言、403 buildChannelBlocked 标志位设置、跨账号 400 同签名早停及 QuotaGuard 2 小时熔断。
+2. **8317 独立金丝雀部署与隔离断言 (PASS)**:
+   - 8316 独立容器（`aistudio-to-api-8316`）全程保持 Up & healthy，零重启、零触碰；
+   - 8317 (`aistudio-to-api`) 经 `remote_8317_deploy.sh` 完成 UI 构建、代码增量 rsync、镜像构建与容器平滑重启；
+   - 8317 容器内核心文件 MD5 与本地 HEAD 严格对齐：
+     - `scripts/client/playground-relay.js`: `81fc54102c58bad51f2329ad3536d680`
+     - `src/core/RequestHandler.js`: `c78319fc69d054c8a4fa951abed72097`
+     - `src/auth/AuthSwitcher.js`: `dada9e95f95fe98f1348911d86b26157`
+3. **8316 专线金丝雀同步与全链路验收 (PASS / 本期)**:
+   - `remote_8316_deploy.sh` 执行成功（UI 本地构建 → 增量 rsync → 专用 compose 覆写 → 增量层镜像构建 → 仅 8316 compose 目录重启）；MCP 请求超时后按 zero-touch 自愈原位恢复，进程未杀未重派，直接终态核验；
+   - 容器内 3 文件 MD5 与本地严格一致（同上 3 个哈希值），`CROSS_ACCOUNT_400_EARLY_STOP_THRESHOLD` 容器内计数 = 3，旧 `isBuildQuota && isPlaygroundQuota` 严苛分支 `LEGACY_REF_COUNT == 0`；
+   - `/health` HTTP 200 (`browserConnected: true`)；真实推理 `POST /v1/chat/completions`（Bearer 鉴权，模型 `gemini-flash-latest`）完整出字 `"8316 CANARY OK"`，`finish_reason: stop`，HTTP 200；
+   - 8317 全程零触碰，部署前后均 Up & healthy，`/health` HTTP 200。
 
 ## 沉淀经验条目 (Core Debugging & Healthcheck Lessons)
-1. **Build 通道 parametersJsonSchema 互斥校验与双通道工具编码 (P0)**: `normalizeBuildRequestBody` 严禁为 `parameters` 补写 `parametersJsonSchema`，否则触发上游 Google API 互斥校验 400；Playground 通道则通过位置参数数组准确传递工具列表；探活必须以返回合法 `tool_calls` 为二值成功判定。
-2. **网络代理通道与 104 局域网 SSOT**: 代理偶发 408/超时平滑使用 104 局域网代理网关 (`192.168.0.104:7890`)；局域网主机真实 IP SSOT 为 `192.168.0.104`。
-3. **同宿主机多容器隔离与端口防抢占 (P0)**: 同宿主机部署同构容器必须显式隔离 Compose 文件、业务 HTTP 端口 (8316/8317/8318) 与 WebSocket 端口 (9997/9998)，避免配置覆盖与端口占用死锁。
-4. **模型名前置拦截与切号防雪崩**: 非法模型名直接前置拦截返回 400 Bad Request；404 模型不存在错误前置标记 `skipAccountSwitch=true`，严禁触发空转换号重试。
+1. **Build 通道 429 配额保真与熔断切号自愈 (P0)**: Build 通道 429 降级 Playground 失败严禁被 400/503 掩盖，必须强制保真 429 状态码与 Google 配额特征；`buildChannelBlocked` 仅对 403 权限异常置 true，429 仅触发 QuotaGuard 2 小时临时熔断与即时切号自愈。
+2. **上游 400 智能切号与跨账号同签名早停守卫 (P0)**: `isUpstreamProxy400` 识别 Google 400 即时切号；同一请求在 ≥3 个不同账号遇到完全相同的 400 错误签名时触发早停守卫，终止全池穷举盲等（由 11 分钟降至秒级），保真直传原始 400 并标记 `skipFinalFailureSwitch` 阻止多余切号。
+3. **同宿主机多容器双轨隔离与串行金丝雀发布 (P0)**: 同宿主机部署同构容器（8316 专线 / 8317 综合网关）必须显式隔离 Compose 文件、业务 HTTP 端口与 WebSocket 端口；部署时恪守串行金丝雀铁律，逐节点升级验证，严禁全量同时重启。**8316 专线启用 `API_KEYS` 鉴权（部署链内事实，见 `docker-compose.8316.yml`），真实推理探针必须携带 `Authorization: Bearer <KEY>`，裸 curl 会获 401 假阴性。**
+4. **Build 通道 parametersJsonSchema 互斥校验与双通道工具编码 (P0)**: `normalizeBuildRequestBody` 严禁为 `parameters` 补写 `parametersJsonSchema`，否则触发上游 Google API 互斥校验 400；Playground 通道则通过位置参数数组准确传递工具列表；探活必须以返回合法 `tool_calls` 为二值成功判定。
 5. **Camoufox/Firefox Xray 跨边界沙箱穿透与零污染 Hook (P0)**: 严禁从 Sandbox 向 Content Window 属性直接赋普通 Sandbox 函数（会触发 `Permission denied to access object` 导致 Angular 顶层崩溃）；必须通过 `pageWindow.eval` 在 Content 作用域内创建原生 wrapper。
 6. **Xray TypedArray 跨界访问禁忌与字符串纯化 (P0)**: 严禁跨 Xray 边界读写 TypedArray/ArrayBuffer（会触发 `Accessing TypedArray data over Xrays is slow, and forbidden` 导致 Build 渠道降级）；哈希与摘要计算通过 Content 端 Helper 完成，仅跨界传递 primitive string。
 7. **协议头捕获非侵入化 (Playwright request 监听代替 fetch 劫持)**: 前端侵入式重写 `window.fetch` 易破坏 CSP 与引发 Xray 权限崩溃；通过 Node 端 Playwright `page.on("request")` 纯外层非侵入捕获 public headers 并回填，实现页面 100% 原生加载。

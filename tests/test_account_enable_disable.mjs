@@ -115,5 +115,33 @@ assert.strictEqual(switchActiveResult.success, true, "switchToSpecificAuth(2) mu
 assert.strictEqual(mockBrowserManager.currentAuthIndex, 2, "currentAuthIndex must be updated to 2");
 console.log("   • switchToSpecificAuth(2) succeeded for enabled account.");
 
+// 4. Test AuthSwitcher.handleRequestFailureAndSwitch behavior with upstream 400 errors
+console.log("✓ 4. Testing AuthSwitcher.handleRequestFailureAndSwitch with upstream 400 error...");
+let switched = false;
+authSwitcher.switchToNextAuth = async (opts) => {
+    switched = true;
+    return { success: true, newIndex: 0 };
+};
+
+// 4.1 Regular client 400: should NOT switch
+switched = false;
+await authSwitcher.handleRequestFailureAndSwitch({ status: 400, message: "Invalid request payload" });
+assert.strictEqual(switched, false, "Regular client 400 should not trigger account switch");
+
+// 4.2 Upstream 400: MUST switch
+const upstreamMessages = [
+    "Proxy browser error: Google API returned error: 400 Request contains an invalid argument.",
+    "Google API returned error: 400",
+    "INVALID_ARGUMENT",
+    "Request contains an invalid argument."
+];
+
+for (const msg of upstreamMessages) {
+    switched = false;
+    await authSwitcher.handleRequestFailureAndSwitch({ status: 400, message: msg });
+    assert.strictEqual(switched, true, `Upstream 400 with message "${msg}" MUST trigger account switch`);
+}
+console.log("   • Upstream 400 triggers immediate switch in AuthSwitcher successfully.");
+
 console.log("✓ All account enable/disable behavioral assertions passed successfully.");
 console.log("=== test_account_enable_disable.mjs PASSED ===");

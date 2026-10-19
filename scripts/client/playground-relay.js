@@ -947,20 +947,13 @@
                 if (
                     error &&
                     (error.status === 403 ||
-                        error.status === 429 ||
                         String(error.message || "")
                             .toLowerCase()
-                            .includes("permission") ||
-                        String(error.message || "")
-                            .toLowerCase()
-                            .includes("resourceexhausted") ||
-                        String(error.message || "")
-                            .toLowerCase()
-                            .includes("quota"))
+                            .includes("permission"))
                 ) {
                     this.buildChannelBlocked = true;
                     Logger.warn(
-                        `[Relay] Account Build API restricted or exhausted (status=${error.status}, msg=${error.message}), switching to Playground channel for fallback and future requests.`
+                        `[Relay] Account Build API restricted (status=${error.status}, msg=${error.message}), switching to Playground channel for fallback and future requests.`
                     );
                 }
                 if (this._canFallbackChannel(error, attemptKey)) {
@@ -977,27 +970,29 @@
                             attemptKey
                         );
                     } catch (playgroundError) {
-                        // If both Build and Playground returned 429/quota exhaustion, preserve 429 so gateway can trigger QuotaGuard
+                        // If Build returned 429/quota exhaustion, preserve 429 so gateway can trigger QuotaGuard
                         const isBuildQuota =
-                            error.status === 429 ||
-                            String(error.message || "")
-                                .toLowerCase()
-                                .includes("resourceexhausted") ||
-                            String(error.message || "")
-                                .toLowerCase()
-                                .includes("quota");
-                        const isPlaygroundQuota =
-                            playgroundError &&
-                            (playgroundError.status === 429 ||
-                                String(playgroundError.message || "")
+                            error &&
+                            (error.status === 429 ||
+                                String(error.message || "")
                                     .toLowerCase()
                                     .includes("resourceexhausted") ||
-                                String(playgroundError.message || "")
+                                String(error.message || "")
                                     .toLowerCase()
                                     .includes("quota"));
 
-                        if (isBuildQuota && isPlaygroundQuota) {
+                        if (isBuildQuota) {
                             playgroundError.status = 429;
+                            if (
+                                !String(playgroundError.message || "")
+                                    .toLowerCase()
+                                    .includes("quota") &&
+                                !String(playgroundError.message || "")
+                                    .toLowerCase()
+                                    .includes("resourceexhausted")
+                            ) {
+                                playgroundError.message = `Google API returned error: 429 You exceeded your current quota (Playground fallback also failed: ${playgroundError.message})`;
+                            }
                         }
                         throw playgroundError;
                     }
@@ -1054,20 +1049,13 @@
                 if (
                     error &&
                     (error.status === 403 ||
-                        error.status === 429 ||
                         String(error.message || "")
                             .toLowerCase()
-                            .includes("permission") ||
-                        String(error.message || "")
-                            .toLowerCase()
-                            .includes("resourceexhausted") ||
-                        String(error.message || "")
-                            .toLowerCase()
-                            .includes("quota"))
+                            .includes("permission"))
                 ) {
                     this.buildChannelBlocked = true;
                     Logger.warn(
-                        `[Relay] Account Build API restricted or exhausted (status=${error.status}, msg=${error.message}), switching to Playground channel for fallback and future requests.`
+                        `[Relay] Account Build API restricted (status=${error.status}, msg=${error.message}), switching to Playground channel for fallback and future requests.`
                     );
                 }
                 if (this._canFallbackChannel(error, attemptKey)) {
@@ -1085,27 +1073,29 @@
                             attemptKey
                         );
                     } catch (playgroundError) {
-                        // If both Build and Playground returned 429/quota exhaustion, preserve 429 so gateway can trigger QuotaGuard
+                        // If Build returned 429/quota exhaustion, preserve 429 so gateway can trigger QuotaGuard
                         const isBuildQuota =
-                            error.status === 429 ||
-                            String(error.message || "")
-                                .toLowerCase()
-                                .includes("resourceexhausted") ||
-                            String(error.message || "")
-                                .toLowerCase()
-                                .includes("quota");
-                        const isPlaygroundQuota =
-                            playgroundError &&
-                            (playgroundError.status === 429 ||
-                                String(playgroundError.message || "")
+                            error &&
+                            (error.status === 429 ||
+                                String(error.message || "")
                                     .toLowerCase()
                                     .includes("resourceexhausted") ||
-                                String(playgroundError.message || "")
+                                String(error.message || "")
                                     .toLowerCase()
                                     .includes("quota"));
 
-                        if (isBuildQuota && isPlaygroundQuota) {
+                        if (isBuildQuota) {
                             playgroundError.status = 429;
+                            if (
+                                !String(playgroundError.message || "")
+                                    .toLowerCase()
+                                    .includes("quota") &&
+                                !String(playgroundError.message || "")
+                                    .toLowerCase()
+                                    .includes("resourceexhausted")
+                            ) {
+                                playgroundError.message = `Google API returned error: 429 You exceeded your current quota (Playground fallback also failed: ${playgroundError.message})`;
+                            }
                         }
                         throw playgroundError;
                     }

@@ -11,27 +11,25 @@
 ## 1. 当前会话状态 (Current Session State)
 - **Active Phase**: `IDLE_NO_ACTIVE_PHASE`
 - **Recent Settled**: `[PHASE_17_SETTLED@ca8a5c0|v1.3.7-p17|CI=PASS|2026-10-18T17:58:00+08:00]`
-- **Task Goal**: 8317 综合网关 400 根治与双通道架构平权升级已全部闭环，完成终审放行与物理双远程推送。
+- **Hotfix Closed**: `[HOTFIX_8317_429_MASKED_AS_400_ROOT_FIX@2026-10-18T23:58+08:00]`
+- **Task Goal**: 8317 节点 429 掩盖为 400 根治、buildChannelBlocked 误标修复与代码同步上线，端到端推理出字自愈验证恢复 200 OK。
 - **Status**: [SETTLED_RELEASED|ALL_PASS]
 
 ## 2. 核心架构与编排经验 (Orchestration Insights)
-1. **上游 Google API 400 穿透与换号故障转移防线**:
-   - 某些特定账户可能由于权限受限（如缺乏 Build API 访问权返回 403），而在 Auto 模式回退到 Playground 通道后因会话特征被 Google 拒绝返回 400 `INVALID_ARGUMENT`；
-   - 严禁将来自浏览器 Proxy Relay / Google API 抛出的 400 误判为客户端本地参数错误，服务端 `_isClientParameterError` 必须显式排除包含 `GOOGLE API RETURNED ERROR: 400` 与 `PROXY BROWSER ERROR` 的异常，同时 `_isImmediateSwitchStatus` 必须将其纳入即时切号集合，确保网关自动无缝换号重试，彻底杜绝下游调用方 Agent 因单账号异常而全员瘫痪。
-2. **Build 通道 403 权限异常粘性自愈契约**:
-   - 在 Playground Relay 中对单账号执行上下文记录 `this.buildChannelBlocked`；
-   - 一旦检测到当前账号因权限不足遭遇 Build 403，后续请求自动直通 Playground 通道，彻底消除单请求双重通道往返的时延损耗。
-3. **双容器串行金丝雀发布铁律**: 8316 节点完成独立热重构与生产部署，8317 综合网关常驻稳定在线不受任何干扰。
-
-1. **Web 控制台免密直通与 API 严格鉴权物理隔离契约**:
-   - `src/routes/AuthRoutes.js`: `isAuthenticated` 中间件默认将 `req.session.isAuthenticated` 置为 `true` 并执行 `next()`，所有 `/api/status`、`/api/accounts/*`、`/api/vnc/*` 管理接口免密直通；
-   - `ui/app/router/index.js`: Vue Router 移除阻塞式鉴权探针，访问 `/login` 自动跳回状态页，实现访问即入；
-   - **严格 API Key 隔离不变性**: `src/core/ProxyServerSystem.js` 中的 `_createAuthMiddleware` 保持未修改，所有 `/v1/chat/completions`、`/v1/messages` 等核心 API 推理接口依然强制校验 `API_KEYS`，杜绝未授权调用风险。
-2. **8316 Pro 模型专用通道架构契约**: 104 服务器部署同构独立容器 `aistudio-to-api-8316`，对外暴露 `8316:7860`，宿主机内部 WebSocket 端口映射调整为 `9997:9998`，彻底避免与 8317 主容器的 `9998` 端口冲突。8316 专职承载 `gemini-2.5-pro`、`gemini-pro-latest` 等重型大模型长上下文推理，实现大模型与高频 Flash/日常请求凭据池与队列的物理隔离。
-3. **故障换号穿透防抖契约**: `AuthSwitcher.switchToNextAuth({ force: true })` 支持强制绕过全局 5 秒防抖（`minSwitchIntervalMs`）。常规使用轮询受防抖保护防震荡，但遇到 403 (Region not supported)、429 (Rate limit) 或 5xx 等异常触发的故障切换时，必须无条件穿透防抖立即换号，彻底阻断坏账号连续报错穿透至下游。
-4. **切号防抖与账号惩罚冷却契约**: 引入 5 秒全局防抖与 60 秒故障账号冷却惩罚 (`accountCooldownMap`)，当账号故障切走后打上时间戳冷却沉底，优先调度健康账号，阻断全池轮询雪崩。
-5. **客户端 400 与 Google Ambiguous Service 错误隔离**: 客户端自身参数错误绝对不可计入账号 `failureCount`；将 Google `Ambiguous request for service ''` 移出不可重试模型错误名单，纳入立即切号自愈重试并在 OpenAI/Claude 出口统一映射 503。
-6. **Thinking-Only 兜底契约升级**: 当模型仅输出 thought/reasoning 且未输出正文时注入无害 `glob` 工具调用（`{"pattern":"*"}`），并将 finish_reason 设为 tool_calls/tool_use，彻底阻断下游客户端解析崩溃。
-7. **多协议状态机统一**: OpenAI SSE 流、Claude SSE 流、OpenAI Response API 及非流式请求均统一注入 glob tool_call / tool_use。
-8. **多节点状态感知运维体系**: 8316 (Pro专线) 与 8317 (主网关) 保持强活跃 HTTP 200，8318 冷备节点在端口未监听时识别为 `[STANDBY]` 合规放行，避免误报。
-9. **DevState 探针 100% 合规闭环**: 精准对齐全景控制台 10 大门禁抽取规则，通过零依赖脚本实现 G1 (Token限制)、G2 (Memory-Bank纯净度)、G3 (Git Gate工作流)、G6 (UI对比度) 与 G10 (重构文档同步)，消除所有 UNWIRED 债务。
+1. **双通道 429 配额错误保真与熔断切号自愈契约 (Phase 17 补齐)**:
+   - 当 Build 通道遭遇 429（配额用尽）时，即使降级到 Playground 网页通道后因参数或 tools 报错 400，也绝不可让 400 掩盖原始 429；
+   - 只要 Build 是 429，降级失败抛出的状态码必须强制锁定为 429，并在 message 中保留配额耗尽特征；
+   - 此举确保网关服务端的 `QuotaGuardService` 能精准捕获 429 并将超额账号关停 2 小时，同时触发 `AuthSwitcher` 立即换号，下游客户端完全无感自愈。
+2. **`buildChannelBlocked` 触发范围严格收敛**:
+   - 仅对 403 / permission denied（永久无权限）才标记 `this.buildChannelBlocked = true`；
+   - 429 / quota 仅属瞬态或特定模型超额，绝不永久阻断 Build 通道，避免账号被误判沦为“强制走网页端报 400”的毒账号。
+3. **8317 与 8316 双节点高防切号代码全量对齐与串行金丝雀发布**:
+   - 8317 完成独立增量镜像构建与平滑重启，`src/core/RequestHandler.js`、`src/auth/AuthSwitcher.js` 及 `scripts/client/playground-relay.js` MD5 100% 对齐；
+   - 上游 400 立即切号、跨账号同签名早停、429 配额保真三层防线双节点完全齐备；
+   - 8316 专线容器全程常驻在线零干扰，双节点端到端推理均已实测恢复 HTTP 200 出字。
+4. **跨账号同签名 400 早停守卫**:
+   - 「同一请求在 ≥3 个不同账号上返回完全相同的上游 400 签名」判定为请求级 payload 错误，立即终止全池穷举并保真上抛 400（严禁伪装 503）；
+   - 单账号/双账号偶发 400 仍保持立即切号自愈路径不变。
+5. **双容器串行金丝雀发布铁律**:
+   - 严禁双节点同时发布或重启；
+   - 8316 与 8317 独立同构部署，每次代码更新必须串行先行验证单节点健康，再推进次节点。

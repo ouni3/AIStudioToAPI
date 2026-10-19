@@ -173,4 +173,137 @@ assert.strictEqual(
 );
 console.log("✔ Upstream Google API 400 failover assertions passed!");
 
+// 7. Test Cross-Account Identical Upstream 400 Early Stop Guard
+console.log("--- 7. Testing Cross-Account Identical Upstream 400 Early Stop Guard ---");
+
+// 7.1 Threshold constant assertion
+assert.strictEqual(
+    RequestHandler.CROSS_ACCOUNT_400_EARLY_STOP_THRESHOLD,
+    3,
+    "CROSS_ACCOUNT_400_EARLY_STOP_THRESHOLD must be defined as 3"
+);
+
+// 7.2 Mock RequestHandler for early stop simulation
+let currentMockAuth = 0;
+let switchCallCount = 0;
+let loggedWarnMessages = [];
+const customMockLogger = {
+    info: () => {},
+    warn: (msg) => loggedWarnMessages.push(String(msg)),
+    debug: () => {},
+    error: () => {},
+};
+
+const earlyStopRh = new RequestHandler(mockServerSystem, {}, customMockLogger, {}, defaultConfig, {});
+const mockAuthSwitcher = {
+    get currentAuthIndex() {
+        return currentMockAuth;
+    },
+    handleRequestFailureAndSwitch: async () => {
+        switchCallCount++;
+        currentMockAuth++;
+        return { success: true };
+    },
+    isAccountInCooldown: () => false,
+};
+earlyStopRh.authSwitcher = mockAuthSwitcher;
+earlyStopRh._waitForSystemAndConnectionIfBusy = async () => true;
+
+// Scenario A: 3 distinct accounts return identical upstream 400 signature on the same request
+const req1Tracker = earlyStopRh._createImmediateSwitchTracker(0);
+const identical400Error = {
+    status: 400,
+    message: "Proxy browser error: Google API returned error: 400 Request contains an invalid argument.",
+};
+
+// Attempt 1 on Account 0: should allow switch to Account 1
+const resAttempt1 = await earlyStopRh._prepareImmediateStatusRetry(
+    identical400Error,
+    "req-test-identical-400",
+    req1Tracker,
+    0
+);
+assert.strictEqual(resAttempt1, true, "1st 400 failure on account 0 should allow retry switch");
+assert.strictEqual(currentMockAuth, 1, "Should have switched to account 1");
+assert.strictEqual(switchCallCount, 1, "Switch count should be 1");
+
+// Attempt 2 on Account 1: should allow switch to Account 2
+const resAttempt2 = await earlyStopRh._prepareImmediateStatusRetry(
+    identical400Error,
+    "req-test-identical-400",
+    req1Tracker,
+    1
+);
+assert.strictEqual(resAttempt2, true, "2nd 400 failure on account 1 should allow retry switch");
+assert.strictEqual(currentMockAuth, 2, "Should have switched to account 2");
+assert.strictEqual(switchCallCount, 2, "Switch count should be 2");
+
+// Attempt 3 on Account 2: 3rd distinct account with identical 400 -> EARLY STOP triggered!
+const resAttempt3 = await earlyStopRh._prepareImmediateStatusRetry(
+    identical400Error,
+    "req-test-identical-400",
+    req1Tracker,
+    2
+);
+assert.strictEqual(
+    resAttempt3,
+    false,
+    "3rd identical upstream 400 failure across distinct accounts MUST trigger early stop (return false)"
+);
+assert.strictEqual(
+    currentMockAuth,
+    2,
+    "Account index must remain 2; account 3 must NOT be attempted"
+);
+assert.strictEqual(
+    switchCallCount,
+    2,
+    "No further account switch must be performed when early stop triggers"
+);
+assert.strictEqual(
+    loggedWarnMessages.some((m) => m.includes("Cross-account identical upstream 400 error guard triggered")),
+    true,
+    "Explicit WARN log must be recorded when early stop triggers"
+);
+console.log("✔ Early stop triggered after 3 distinct accounts with identical 400; 4th account was not attempted!");
+
+// Scenario B: Single account 400 self-healing must NOT be hindered
+currentMockAuth = 0;
+switchCallCount = 0;
+const healTracker = earlyStopRh._createImmediateSwitchTracker(0);
+const resHeal1 = await earlyStopRh._prepareImmediateStatusRetry(
+    identical400Error,
+    "req-test-healing",
+    healTracker,
+    0
+);
+assert.strictEqual(resHeal1, true, "Single account 400 must switch and allow healing");
+assert.strictEqual(switchCallCount, 1, "Switch happened for healing");
+console.log("✔ Single account 400 self-healing path preserved!");
+
+// Scenario C: Normalized signature matching (case and whitespace insensitivity)
+currentMockAuth = 0;
+switchCallCount = 0;
+const normTracker = earlyStopRh._createImmediateSwitchTracker(0);
+const var1 = {
+    status: 400,
+    message: "  proxy browser error: google api returned error: 400 request contains an invalid argument.  ",
+};
+const var2 = {
+    status: 400,
+    message: "PROXY BROWSER ERROR: GOOGLE API RETURNED ERROR: 400   REQUEST CONTAINS AN INVALID ARGUMENT.",
+};
+const var3 = {
+    status: 400,
+    message: "Proxy Browser Error: Google API Returned Error: 400 Request Contains An Invalid Argument.",
+};
+assert.strictEqual(await earlyStopRh._prepareImmediateStatusRetry(var1, "req-norm", normTracker, 0), true);
+assert.strictEqual(await earlyStopRh._prepareImmediateStatusRetry(var2, "req-norm", normTracker, 1), true);
+assert.strictEqual(
+    await earlyStopRh._prepareImmediateStatusRetry(var3, "req-norm", normTracker, 2),
+    false,
+    "Whitespace and case variations must normalize to the same signature and trigger early stop"
+);
+console.log("✔ Signature normalization (case & whitespace invariance) verified!");
+
 console.log("All upstream error codes failover tests passed successfully!");

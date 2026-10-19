@@ -369,11 +369,14 @@ class AuthSwitcher {
         // 400 Bad Request or 4xx client parameter error isolation:
         // Exclude 403 (forbidden/location unsupported) and 429 (rate limit) which are account-specific.
         // Status 400 or other 4xx client parameter error indicates client-side payload issue.
-        // UNLESS it is an upstream proxy browser 400 error (e.g. Google API returned error: 400) which represents an account/channel failure!
+        // UNLESS it is an upstream proxy browser error (e.g. Google API returned error: 400, INVALID_ARGUMENT, etc.)
+        // which represents an upstream/account/channel failure and MUST trigger failover!
         const msgStr = String(errorDetails?.message || "").toUpperCase();
         const isUpstreamProxy400 =
-            status === 400 &&
-            (msgStr.includes("GOOGLE API RETURNED ERROR: 400") || msgStr.includes("PROXY BROWSER ERROR"));
+            msgStr.includes("GOOGLE API RETURNED ERROR: 400") ||
+            msgStr.includes("PROXY BROWSER ERROR") ||
+            msgStr.includes("INVALID_ARGUMENT") ||
+            msgStr.includes("REQUEST CONTAINS AN INVALID ARGUMENT");
 
         const isClientError =
             !isUpstreamProxy400 &&
@@ -433,18 +436,21 @@ class AuthSwitcher {
             );
         }
 
-        const isImmediateSwitch = this.config.immediateSwitchStatusCodes.includes(status);
+        const isImmediateSwitch =
+            isUpstreamProxy400 || (this.config.immediateSwitchStatusCodes?.includes(status) ?? false);
         const isThresholdReached =
             this.config.failureThreshold > 0 && this.failureCount >= this.config.failureThreshold;
 
         if (isImmediateSwitch || isThresholdReached) {
-            // Apply cooldown penalty to current failing account if error is 403, 429, or 5xx
-            if (this.currentAuthIndex >= 0 && (status === 403 || status === 429 || status >= 500)) {
+            // Apply cooldown penalty to current failing account if error is 403, 429, 5xx, or upstream proxy 400
+            if (this.currentAuthIndex >= 0 && (status === 403 || status === 429 || status >= 500 || isUpstreamProxy400)) {
                 this.setAccountCooldown(this.currentAuthIndex, this.accountCooldownMs);
             }
 
             if (isImmediateSwitch) {
-                this.logger.warn(`🔴 [Auth] Received status code ${status}, triggering immediate account switch...`);
+                this.logger.warn(
+                    `🔴 [Auth] Received status code ${status} (upstream failure: ${isUpstreamProxy400}), triggering immediate account switch...`
+                );
             } else {
                 this.logger.warn(
                     `🔴 [Auth] Failure threshold reached (${this.failureCount}/${this.config.failureThreshold})! Preparing to switch account...`

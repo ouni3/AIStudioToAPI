@@ -8,7 +8,7 @@
 > - `ect`: **S** (count(+)=4, count(-)=0, Value_Delivered=+, S_total=+)
 > - `verdict`: **KEEP** (核心 memory-bank 资产)
 
-- **Baseline Marker**: `BASELINE_PHASE_17` (Phase 17 8317综合网关400根治与双通道架构平权升级基线已对齐)
+- **Baseline Marker**: `BASELINE_PHASE_18` (Phase 18 双节点 400 早停守卫与 429 配额保真平权升级基线已对齐)
 
 ## 0. 资产定级标定 (Rating & Asset Profile)
 - **项目等级**: **SR (Super Rare - 系统枢纽级)**
@@ -23,7 +23,7 @@
 | 模块目录 / 文件 | 核心功能定位 | 架构分层 | 协同依赖 |
 |:---|:---|:---|:---|
 | `main.js` | 服务初始化、中间件挂载、路由绑定与优雅停机 | 入口编排层 | `ProxyServerSystem`, `ConfigLoader`, `WebRoutes` |
-| `src/core/RequestHandler.js` | OpenAI/Claude 协议路由分发、流式聚合、403/404/503 切号故障转移 | 请求调度中枢 | `FormatConverter`, `BrowserManager`, `ConnectionRegistry` |
+| `src/core/RequestHandler.js` | OpenAI/Claude 协议路由分发、流式聚合、上游 400 即时切号与跨账号同签名 400 早停 | 请求调度中枢 | `FormatConverter`, `BrowserManager`, `ConnectionRegistry`, `AuthSwitcher` |
 | `src/core/FormatConverter.js` | 双向协议载荷转换、模型名清洗、Thinking 提取与 Kilocode 兜底 | 协议适配层 | `CustomErrors`, `logger` |
 | `src/core/BrowserManager.js` | 逆向 WebSocket 会话管理、Token 刷新、Context 池伸缩 | 逆向会话层 | `AuthSource`, `AuthSwitcher`, `ConnectionRegistry` |
 | `src/core/ConnectionRegistry.js` | WebSocket 与 HTTP 在途连接追踪、在途请求平滑排空 (Drain) | 流量守卫层 | `logger` |
@@ -32,8 +32,10 @@
 | `src/core/ProxyServerSystem.js` | 代理服务实例生命周期编排与健康状态维护 | 系统核心层 | `RequestHandler`, `BrowserManager` |
 | `src/relay/playground-wire-encoder.js` | Web UI Playground 载荷纯协议编码 (JSON/RPC 序列化) | 中继协议层 | `logger` |
 | `src/relay/playground-frame-decoder.js` | Web UI Playground 流式二进制帧/SSE 解码与解析 | 中继协议层 | `logger` |
+| `scripts/client/playground-relay.js` | 浏览器端 Playground 逆向中继通信载体与双通道降级执行 | 客户端中继层 | `playground-wire-encoder.js`, `playground-frame-decoder.js`, `BrowserManager` |
 | `src/auth/AuthSource.js` | 账号凭据加载、账号启用/停用状态追踪、轮询索引池构建 | 凭据状态层 | `ConfigLoader`, `logger` |
 | `src/auth/AuthSwitcher.js` | 故障转移账号切换决策、手动账号切换与平滑降级 | 调度决策层 | `AuthSource`, `ConnectionRegistry` |
+| `scripts/client/playground-relay.js` | Build / Playground 双通道浏览器中继、429 配额状态码保真与权限通道粘性隔离 | 客户端中继层 | `BrowserManager`, `QuotaGuardService`, `AuthSwitcher` |
 | `src/auth/CreateAuth.js` | AI Studio 凭据初始化、登录状态抓取与凭据文件写入 | 凭据接入层 | `StickyProxyManager` |
 | `src/routes/WebRoutes.js` | API 推理端点路由绑定 (`/v1/chat/completions`, `/v1/messages`, `/v1/models`) | 外部接口层 | `RequestHandler`, `AuthRoutes` |
 | `src/routes/StatusRoutes.js` | 管理控制台状态接口与账号启停管理 (`/api/accounts/:index/status`) | 运维管理层 | `BrowserManager`, `QuotaGuardService` |
@@ -97,7 +99,11 @@
   - **切号全局防抖与账号惩罚冷却 (Anti-Thrashing Guard)**: 引入 5 秒全局切换防抖 (`minSwitchIntervalMs: 5000`) 与 60 秒故障账号冷却惩罚 (`accountCooldownMap`)，当发生异常切号时降权故障账号，优先轮询未受限账号；
   - **400 错误精准分流与上游故障智能切号 (Phase 16 加固)**:
     - **本地客户端参数 400 阻断**: 对客户端发起的畸形入参或非法的本地请求参数错误（经由 `RequestHandler._isClientParameterError` 判定为非上游异常），严格阻断切号，直接向调用端返回 400，杜绝全池账号高速轮转雪崩；
-    - **上游 Google API / 代理通道 400 自动切号重试**: 来自代理层或 Google 上游 API 的 400 故障（如账户风控、通道失效或特定的上游 `INVALID_ARGUMENT` 报错），被系统智能鉴别为账户/信道异常故障，自动纳入即时切号重试集合，触发立即换号重放，彻底阻断下游 Agent 遭遇偶发 400 瘫痪或进程中断。
+    - **上游 Google API / 代理通道 400 自动切号重试**: 来自代理层或 Google 上游 API 的 400 故障（如账户风控、通道失效或特定的上游 `INVALID_ARGUMENT` 报错），被系统智能鉴别为账户/信道异常故障，自动纳入即时切号重试集合，触发立即换号重放，彻底阻断下游 Agent 遭遇偶发 400 瘫痪或进程中断；
+    - **跨账号同签名 400 上游错误早停守卫 (`CROSS_ACCOUNT_400_EARLY_STOP_THRESHOLD = 3`)**:
+      - 单个请求因上游 400 触发换号重试时，`RequestHandler` 实时通过 `_normalizeErrorSignature` 记录错误特征与报错账号集合 (`upstream400Signatures`)；
+      - 当在 3 个及以上独立账号中（`accountSet.size >= 3`）观察到完全相同的上游 400 错误签名时，判定该错误为该特定请求载荷本身引发的上游一致性拒绝，而非单账号风控或通道失效；
+      - 立即触发早停阻断（Early Stop），就地终止后续换号重试并返回错误响应，彻底杜绝请求级跨全池账号无限空转轮询风暴。
   - **下游 503 弹性降级映射契约**: 在 OpenAI 与 Claude 流式/非流式出口，对上游返回的生成式 404/403 错误，在多轮换号重试耗尽后优雅映射为 503 Service Unavailable，支持下游客户端平滑重试，杜绝客户端直接中断。
   - 精准识别页面硬路由崩溃特征（如 `Page not found` + `Go to Build`），避免将 Google 偶发非阻塞 Toast 提示（如 `Please try again`）误判为致命错误。
   - 设定最大重试轮次（Max Retry Quorum），保障请求不陷入死循环，并在全部凭据耗尽时规范返回标准上游错误。
@@ -131,10 +137,12 @@
    - `src/relay/playground-frame-decoder.js`: 专注于二进制流式帧与 SSE 消息的解析和还原，消除跨平台解码乱码。
 3. **页面中继与粘性信道跳过 (Sticky Channel Optimization)**:
    - 客户端页面中继脚本 (`scripts/client/playground-relay.js`) 维持逆向 Web 页面长连；
+   - **`buildChannelBlocked` 触发范围收敛契约 (Phase 17 加固)**: `buildChannelBlocked` 仅在遇到 **403 权限不足**（如账号缺失 Build API 权限、`PERMISSION_DENIED`）时标记为 `true`，使后续请求持久粘性切换至 Playground 通道；**绝不将 429 配额耗尽误标记为 `buildChannelBlocked`**，因 429 属短时配额超限而非账号通道权限缺失，避免账号在配额重置后丧失 Build 通道的高吞吐能力；
    - 遇粘性信道不可用或中继异常时，自适应跳过故障信道平滑降级，杜绝请求被单一通道故障挂死。
-4. **双通道独立配额与 429 级联耗尽判定契约 (Phase 16 加固 / 理事长最高指示)**:
-   - **独立配额原则**: Build 通道与 Playground 网页通道的配额彼此独立，在 `auto` 模式下 Build 通道遇到 429 配额用尽时，系统标记 Build 通道受限，并无缝回退至 Playground 网页端使用其独立配额；
-   - **双通道耗尽方激活 429 物理熔断**: 严禁将 400 或 429 随意改写成 503 伪装；只有在同一请求中 Build 与 Playground **双通道均遭遇 429 / 配额耗尽**时，才向服务端网关上抛 429，精准激活 `QuotaGuardService.handleQuota429` 关停 2 小时机制；若仅单通道受限而另一通道可用，则正常交付，彻底终结全池账号 503 震荡雪崩。
+4. **双通道独立配额与 429 配额耗尽错误保真契约 (Phase 16/17 加固 / 理事长最高指示)**:
+   - **独立配额与无缝降级**: Build 通道与 Playground 网页通道的配额彼此独立，在 `auto` 模式下 Build 通道遇到 429 配额耗尽时，系统标记 Build 通道单次受限，并无缝降级回退至 Playground 网页端使用其独立配额；
+   - **429 错误状态码保真契约 (State Code Fidelity Invariance)**: 严禁将 400 或 429 随意改写成 500/503/504 等模糊错误；若降级至 Playground 后依然失败，且 Build 通道原发错误为 429 / 配额耗尽（`ResourceExhausted` / `quota`），则在客户端中继异常链中**必须严格保真 429 状态码与配额耗尽特征语义**（`Google API returned error: 429 You exceeded your current quota...`）；
+   - **Build 配额优先熔断契约**: 若 Build 通道已明确遭遇 429 / 配额耗尽，Playground 降级仅在成功交付时可掩蔽该失败；一旦 Playground 降级也失败（包括返回 400 参数或工具兼容错误），必须仍向服务端上抛保真的 429，以精准激活 `QuotaGuardService.handleQuota429` 关停 2 小时并立即切号，绝不让 Playground 400 掩盖真实配额耗尽。
 
 ### 2.5 多容器协同拓扑与端口职能分离 (Multi-Container Topology)
 在 104 局域网服务器 (192.168.0.104) 采用多容器并行协同与流量分流模式：
