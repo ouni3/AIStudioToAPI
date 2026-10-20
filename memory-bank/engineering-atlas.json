@@ -1,0 +1,154 @@
+{
+  "atlas_schema_version": "v1.0-Automated",
+  "project_metadata": {
+    "name": "aistudio-to-api",
+    "tier": "Tier 3 业务工程",
+    "rating": "SR",
+    "commercial_stage": "S2 (极客验证期) / 基础设施算力赋能网关 (COMMERCIAL_EXEMPT)"
+  },
+  "settlement_seal": {
+    "release_tag": "v1.3.8-p18",
+    "commit_hash": "HEAD_STAGED_COMMIT",
+    "staged_tree_hash": "INITIAL_STAGED_TREE_HASH",
+    "batch_pool_size": "Phase 18 双节点 400 早停守卫与 429 配额保真平权升级结算",
+    "e2e_pass_rate": "100% (48/48 PASS)",
+    "legacy_cleansed_rate": "100%",
+    "legacy_ref_count": 0,
+    "mode_a_escalations": 0,
+    "source_tree_hash": "d0505ca2bbe67295cf27da4f4fd9f054a630c6fe",
+    "net_entropy_ratio": {
+      "added_lines": 852,
+      "deleted_lines": 220,
+      "net_delta": 632,
+      "status": "CONTROLLED_EXPANSION"
+    }
+  },
+  "core_skeleton_layers": [
+    {
+      "layer_id": "L_GOV",
+      "layer_name": "Tier 0/1 治理与状态机中枢层",
+      "owner": "moe-orchestrator",
+      "modules": [
+        {
+          "name": "memory-bank",
+          "path": "memory-bank/",
+          "role": "六核心上下文文档与单射记忆"
+        },
+        {
+          "name": "configs",
+          "path": "configs/",
+          "role": "模型字典与系统配置"
+        }
+      ]
+    },
+    {
+      "layer_id": "L_DOMAIN",
+      "layer_name": "核心逆向LLM中继与请求编排层",
+      "owner": "moe-code",
+      "modules": [
+        {
+          "name": "RequestHandler",
+          "path": "src/core/RequestHandler.js",
+          "role": "OpenAI/Claude 协议转换与负载路由"
+        },
+        {
+          "name": "BrowserManager",
+          "path": "src/core/BrowserManager.js",
+          "role": "多账号 Playwright/Camoufox 会话池调度"
+        },
+        {
+          "name": "AuthSwitcher",
+          "path": "src/auth/AuthSwitcher.js",
+          "role": "智能切号调度、冷却惩罚与跨账号 400 早停守卫 (阈值: 3)"
+        },
+        {
+          "name": "QuotaGuardService",
+          "path": "src/core/QuotaGuardService.js",
+          "role": "429 速率限制守卫与 2 小时自动熔断解封调度"
+        },
+        {
+          "name": "PlaygroundRelay",
+          "path": "scripts/client/playground-relay.js",
+          "role": "Build/Playground 双通道平权、429 配额错误保真与状态码透传"
+        },
+        {
+          "name": "RelayProtocol",
+          "path": "src/relay/",
+          "role": "Playground 协议帧编解码与双向中继"
+        }
+      ]
+    },
+    {
+      "layer_id": "L_INFRA",
+      "layer_name": "多容器拓扑与部署运维层",
+      "owner": "moe-debug",
+      "modules": [
+        {
+          "name": "Compose8316",
+          "path": "docker-compose.8316.yml",
+          "role": "Pro 专线推理容器拓扑"
+        },
+        {
+          "name": "Compose8317",
+          "path": "docker-compose.yml",
+          "role": "综合网关与 Web 控制台服务"
+        },
+        {
+          "name": "DeployScripts",
+          "path": "scripts/dev/",
+          "role": "双容器自愈与自动化部署探针"
+        }
+      ]
+    },
+    {
+      "layer_id": "L_UI",
+      "layer_name": "Web 控制台与状态视图层",
+      "owner": "frontend",
+      "modules": [
+        {
+          "name": "AdminUI",
+          "path": "src/web/",
+          "role": "免密凭据管理与账号启用/停用看板"
+        }
+      ]
+    }
+  ],
+  "break_and_build_ledger": {
+    "built": [
+      "8316 节点跨账号同签名 400 早停守卫机制 (CROSS_ACCOUNT_400_EARLY_STOP_THRESHOLD = 3，将无效等待压缩至 1.5 分钟)",
+      "8317 综合网关 Build 429 配额错误保真机制，彻底杜绝被 Playground 400 掩盖，精准触发 QuotaGuardService 2 小时自动熔断换号",
+      "QuotaGuardService 2 小时配额熔断与双轨恢复调度机制 (到期自动解封 + 每日 15:00 CST 兜底重置)",
+      "Build 与 Playground 双通道平权架构与动态自适应降级中继 (scripts/client/playground-relay.js)",
+      "多容器 8316/8317 金丝雀双节点部署拓扑与 48 项全量自动化测试套件 (100% PASS)"
+    ],
+    "eradicated_legacy": [
+      "彻底拔除 Build 429 被降级 Playground 400 掩盖的严重漏洞与旧 isBuildQuota && isPlaygroundQuota 严苛分支",
+      "清退 429 速率限制误标记 buildChannelBlocked 导致账号沦为永久毒账号的错误逻辑",
+      "拔除上游 400 强制重写为 503 的粗暴错误码篡改逻辑 (playground-relay.js)",
+      "清退无界 400 切号穷举机制，消除客户端参数报错与账号级上游错误混淆引发的账号误封锁 (AuthSwitcher.js)",
+      "零注释残留与零遗留废弃符号引用 (LEGACY_REF_COUNT == 0)"
+    ]
+  },
+  "core_invariants_and_rules": [
+    {
+      "id": "INV_RELAY_01",
+      "rule": "Playground 协议纯度",
+      "assertion": "Frame 编解码必须 100% 具备单测覆盖且退出码为 0"
+    },
+    {
+      "id": "INV_TOPOLOGY_01",
+      "rule": "多容器卷隔离",
+      "assertion": "8316/8317/8318 必须保持 configs/auth 与 data 卷完全独立"
+    },
+    {
+      "id": "INV_QUOTA_01",
+      "rule": "429 状态码绝对保真",
+      "assertion": "Build 429 降级 Playground 失败时状态码强制保留 429，严禁被 400 掩盖"
+    },
+    {
+      "id": "INV_STOP_01",
+      "rule": "跨账号 400 早停铁律",
+      "assertion": "同一请求在 ≥3 个不同账号遇到同签名 400 时强制早停上抛，严禁穷举全池"
+    }
+  ]
+}

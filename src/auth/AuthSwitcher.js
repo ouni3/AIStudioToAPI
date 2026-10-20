@@ -29,6 +29,29 @@ class AuthSwitcher {
         this.quotaGuardService = quotaGuardService;
     }
 
+    /**
+     * Compute the absolute UTC millisecond timestamp of the next daily 15:00 CST (UTC+8) quota refresh.
+     * Fallback algorithm mirroring QuotaGuardService.getNextResetTimestamp, used when no
+     * quotaGuardService reference is attached.
+     * @param {Date} [nowDate]
+     * @returns {number} Absolute UTC ms timestamp of next 15:00 CST (now + diff, diff >= 1000)
+     */
+    _computeNextResetTimestamp(nowDate = new Date()) {
+        const now = nowDate instanceof Date ? nowDate : new Date(nowDate);
+        // Convert to UTC+8 timestamp
+        const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+        const beijingTime = new Date(utcTime + 8 * 3600 * 1000);
+
+        const nextReset = new Date(beijingTime);
+        if (beijingTime.getHours() >= 15) {
+            nextReset.setDate(nextReset.getDate() + 1);
+        }
+        nextReset.setHours(15, 0, 0, 0);
+
+        const diff = nextReset.getTime() - beijingTime.getTime();
+        return now.getTime() + Math.max(diff, 1000);
+    }
+
     get currentAuthIndex() {
         return this.browserManager.currentAuthIndex;
     }
@@ -390,14 +413,14 @@ class AuthSwitcher {
         }
 
         // Upstream 429 Quota Exhaustion handling:
-        // If status is 429, trigger QuotaGuardService.handleQuota429 to disable the account for 2 hours
-        // and physically remove it from the rotation pool.
+        // If status is 429, trigger QuotaGuardService.handleQuota429 to disable the account until
+        // the next daily 15:00 CST quota reset and physically remove it from the rotation pool.
         if (status === 429 && this.currentAuthIndex >= 0) {
             const failingIndex = this.currentAuthIndex;
             const modelName = errorDetails?.model || null;
             if (this.quotaGuardService && typeof this.quotaGuardService.handleQuota429 === "function") {
                 this.logger.warn(
-                    `🛑 [Auth] 429 rate limit / quota exhaustion detected on account #${failingIndex}. Invoking QuotaGuardService.handleQuota429 to disable for 2 hours...`
+                    `🛑 [Auth] 429 rate limit / quota exhaustion detected on account #${failingIndex}. Invoking QuotaGuardService.handleQuota429 to disable until the next daily 15:00 CST refresh...`
                 );
                 try {
                     await this.quotaGuardService.handleQuota429(failingIndex, modelName);
@@ -408,9 +431,9 @@ class AuthSwitcher {
                 }
             } else if (this.authSource && typeof this.authSource.updateAccountStatus === "function") {
                 // Fallback direct disable if quotaGuardService reference not explicitly attached
-                const disabledUntil = Date.now() + 2 * 3600 * 1000;
+                const disabledUntil = this._computeNextResetTimestamp();
                 this.logger.warn(
-                    `🛑 [Auth] 429 rate limit / quota exhaustion detected on account #${failingIndex}. Fallback direct disable for 2 hours (until ${new Date(disabledUntil).toISOString()})...`
+                    `🛑 [Auth] 429 rate limit / quota exhaustion detected on account #${failingIndex}. Fallback direct disable until the next daily 15:00 CST refresh (until ${new Date(disabledUntil).toISOString()})...`
                 );
                 try {
                     await this.authSource.updateAccountStatus(failingIndex, {

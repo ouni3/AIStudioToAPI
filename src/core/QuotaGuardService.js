@@ -29,9 +29,6 @@ class QuotaGuardService {
         this.quotaLimit = 100;
         this.targetModel = process.env.TARGET_QUOTA_MODEL || null;
 
-        // 2 hours ban duration in milliseconds
-        this.banDurationMs = 2 * 3600 * 1000;
-
         // Current cycle key, e.g. "2026-10-10_15:00_CST"
         this.currentCycleKey = this._calculateCurrentCycleKey();
 
@@ -84,11 +81,14 @@ class QuotaGuardService {
     }
 
     /**
-     * Calculate milliseconds remaining until next 15:00 Beijing Time.
-     * @param {Date} [now]
-     * @returns {number} ms until next 15:00 UTC+8
+     * Compute the absolute UTC millisecond timestamp of the next daily 15:00 CST (UTC+8) quota refresh.
+     * Single source of truth for 429 ban duration: bans persist until the next refresh time.
+     * @param {Date} [nowDate]
+     * @returns {number} Absolute UTC ms timestamp of next 15:00 CST (now + diff, diff >= 1000)
      */
-    _getMsUntilNextReset(now = new Date()) {
+    getNextResetTimestamp(nowDate = new Date()) {
+        const now = nowDate instanceof Date ? nowDate : new Date(nowDate);
+        // Convert to UTC+8 timestamp
         const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
         const beijingTime = new Date(utcTime + 8 * 3600 * 1000);
 
@@ -99,7 +99,16 @@ class QuotaGuardService {
         nextReset.setHours(15, 0, 0, 0);
 
         const diff = nextReset.getTime() - beijingTime.getTime();
-        return Math.max(diff, 1000);
+        return now.getTime() + Math.max(diff, 1000);
+    }
+
+    /**
+     * Calculate milliseconds remaining until next 15:00 Beijing Time.
+     * @param {Date} [now]
+     * @returns {number} ms until next 15:00 UTC+8
+     */
+    _getMsUntilNextReset(now = new Date()) {
+        return this.getNextResetTimestamp(now) - now.getTime();
     }
 
     /**
@@ -227,7 +236,8 @@ class QuotaGuardService {
 
     /**
      * Handle upstream 429 quota exhaustion error.
-     * Directly disables the account for 2 hours (disabled = true, disabledReason = 'quota_exhausted', disabledUntil = Date.now() + 2h).
+     * Directly disables the account until the next daily 15:00 CST quota refresh (disabled = true,
+     * disabledReason = 'quota_exhausted', disabledUntil = getNextResetTimestamp()).
      * Automatically triggers account switch if the account is currently active.
      * @param {number} authIndex
      * @param {string} [modelName]
@@ -238,10 +248,10 @@ class QuotaGuardService {
             return false;
         }
 
-        const disabledUntil = Date.now() + this.banDurationMs;
+        const disabledUntil = this.getNextResetTimestamp();
         const modelDesc = modelName ? ` on model "${modelName}"` : "";
         this.logger.warn(
-            `[QuotaGuard] 🚫 Account #${authIndex} received 429 quota exhaustion${modelDesc}. Disabling account for 2 hours (until ${new Date(disabledUntil).toISOString()}).`
+            `[QuotaGuard] 🚫 Account #${authIndex} received 429 quota exhaustion${modelDesc}. Disabling account until the next daily 15:00 CST refresh (until ${new Date(disabledUntil).toISOString()}).`
         );
 
         await this._triggerQuotaExhausted(authIndex, disabledUntil);
@@ -255,7 +265,7 @@ class QuotaGuardService {
      */
     async _triggerQuotaExhausted(authIndex, disabledUntil = null) {
         try {
-            const until = disabledUntil || Date.now() + this.banDurationMs;
+            const until = disabledUntil || this.getNextResetTimestamp();
             await this.authSource.updateAccountStatus(authIndex, {
                 disabled: true,
                 disabledReason: "quota_exhausted",
@@ -297,7 +307,7 @@ class QuotaGuardService {
 
     /**
      * Inspect disabled accounts and auto-restore those whose disabledUntil timestamp has passed.
-     * Channel A: 2-hour expiration auto-heal.
+     * Channel A: ban expiration auto-heal (disabledUntil reached).
      * Manual disabled accounts (without disabledReason === 'quota_exhausted') MUST NOT be modified.
      * @returns {Promise<number[]>} Array of restored account indices
      */
@@ -335,7 +345,7 @@ class QuotaGuardService {
                 const isQuotaExhausted = disabledReason === "quota_exhausted";
                 if (isDisabled && isQuotaExhausted && disabledUntil && now >= disabledUntil) {
                     this.logger.info(
-                        `[QuotaGuard] ⏰ Account #${index} 2-hour quota ban has expired (disabledUntil: ${new Date(disabledUntil).toISOString()}). Auto-restoring account.`
+                        `[QuotaGuard] ⏰ Account #${index} quota ban has expired (disabledUntil: ${new Date(disabledUntil).toISOString()}). Auto-restoring account.`
                     );
                     await this.authSource.updateAccountStatus(index, {
                         disabled: false,
@@ -390,7 +400,7 @@ class QuotaGuardService {
     }
 
     /**
-     * Start the daily 15:00 UTC+8 reset scheduler and periodic 2-hour expiration sweep (Channel A + B)
+     * Start the daily 15:00 UTC+8 reset scheduler and periodic ban-expiration sweep (Channel A + B)
      */
     startScheduler() {
         this.stopScheduler();
@@ -419,7 +429,7 @@ class QuotaGuardService {
 
         scheduleNext();
 
-        // Channel A: Periodic inspection for 2-hour ban expiration (every 60 seconds)
+        // Channel A: Periodic inspection for expired quota bans (every 60 seconds)
         this.expiryCheckInterval = setInterval(async () => {
             try {
                 await this.checkAndRestoreExpiredBans();

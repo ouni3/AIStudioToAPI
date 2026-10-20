@@ -63,7 +63,7 @@ assert.strictEqual(guard._calculateCurrentCycleKey(exactResetTime), "2026-10-10_
 console.log("✓ 15:00 UTC+8 cycle calculation verified.");
 
 // 3. Test quota accumulation (telemetry only) and handleQuota429 circuit breaker
-console.log("3. Testing quota accumulation and handleQuota429 2-hour circuit breaker...");
+console.log("3. Testing quota accumulation and handleQuota429 until-15:00-refresh circuit breaker...");
 guard.targetModel = null; // restore default
 let accountUpdated = null;
 let switchTriggered = false;
@@ -151,7 +151,7 @@ for (let i = 1; i <= 150; i++) {
 assert.strictEqual(accountUpdated, null, "100+ requests must not disable account");
 assert.strictEqual(switchTriggered, false, "100+ requests must not trigger account switch");
 
-// Upstream 429 received -> handleQuota429 disables account for 2 hours and triggers switch
+// Upstream 429 received -> handleQuota429 disables account until next daily 15:00 CST reset and triggers switch
 const beforeBan = Date.now();
 const banSuccess = await activeGuard.handleQuota429(0, "gemini-3.8-flash");
 assert.strictEqual(banSuccess, true);
@@ -159,13 +159,17 @@ assert.ok(accountUpdated, "handleQuota429 must update account status");
 assert.strictEqual(accountUpdated.index, 0);
 assert.strictEqual(accountUpdated.status.disabled, true);
 assert.strictEqual(accountUpdated.status.disabledReason, "quota_exhausted");
-assert.ok(accountUpdated.status.disabledUntil >= beforeBan + 7190000, "disabledUntil should be ~2 hours in the future");
+assert.ok(accountUpdated.status.disabledUntil > beforeBan, "disabledUntil must be in the future");
+assert.ok(
+    Math.abs(accountUpdated.status.disabledUntil - activeGuard.getNextResetTimestamp()) < 5000,
+    "disabledUntil should be the next daily 15:00 CST reset timestamp"
+);
 assert.strictEqual(switchTriggered, true, "_switchToNextAuth must be triggered for active account upon 429");
 
-console.log("✓ Decommission of 100-limit and new 429 2-hour physical ban verified.");
+console.log("✓ Decommission of 100-limit and new 429 until-next-refresh physical ban verified.");
 
-// 4. Test Channel A (2-hour auto-heal) and Channel B (daily 15:00 CST reset)
-console.log("4. Testing Channel A (2-hour ban expiration) and Channel B (15:00 CST reset)...");
+// 4. Test Channel A (ban expiration auto-heal) and Channel B (daily 15:00 CST reset)
+console.log("4. Testing Channel A (ban expiration auto-heal) and Channel B (15:00 CST reset)...");
 
 // 4a. Channel A: checkAndRestoreExpiredBans()
 // Account 2 has an expired ban (disabledUntil in past, quota_exhausted) -> MUST be restored
@@ -204,7 +208,7 @@ assert.ok(restoredIndices.includes(0), "Account 0 must be restored by 15:00 rese
 assert.ok(restoredIndices.includes(2), "Account 2 must be restored by 15:00 reset");
 assert.ok(!restoredIndices.includes(1), "Manual disabled Account 1 must NOT be restored by 15:00 reset");
 
-console.log("✓ Channel A (2-hour auto-heal) and Channel B (15:00 CST reset) verified.");
+console.log("✓ Channel A (ban expiration auto-heal) and Channel B (15:00 CST reset) verified.");
 
 // 5. Test RequestHandler integration: only successful requests increment quota, failures/aborts do not
 console.log("5. Testing RequestHandler and QuotaGuard collaboration on success vs failure/abort...");
@@ -301,7 +305,7 @@ assert.strictEqual(recordedCalls.length, 0, "503 error must NOT increment quota"
 console.log("✓ RequestHandler quota counting gating on success (and rejection on 4xx/5xx/abort) verified.");
 
 // 6. Test AuthSwitcher 429 integration invoking QuotaGuardService.handleQuota429
-console.log("6. Testing AuthSwitcher 429 interception and QuotaGuardService 2-hour disable triggering...");
+console.log("6. Testing AuthSwitcher 429 interception and QuotaGuardService until-refresh disable triggering...");
 const asModule = await import("../src/auth/AuthSwitcher.js");
 const AuthSwitcher = asModule.default;
 

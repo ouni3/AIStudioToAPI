@@ -16,23 +16,28 @@
 4. **双通道工具声明编码契约 (Build/Playground Wire, kilocode 400 根因修复)**: Build 通道 Gemini REST 函数声明必须仅保留 `parametersJsonSchema`（`parameters` 与之互斥，Google 400 报 `parameters_json_schema must not be set when parameters is set`），归一化含 null 键清除与 `{}`/`true` → `{"type":"object"}`；Playground 通道函数声明走 proto 位置数组（`generate[6]=[null,[[name,desc,paramsWire]]]`，paramsWire `[0]`typeCode…`[7]`required），位置数组无法表达的开放 schema 特征（如 `additionalProperties`）回退追加到 parameters wire`[2]` description：`\nArguments must follow this JSON Schema: ` + JSON.stringify(raw)。
 5. **账号启用/停用与轮询调度隔离模式**: `AuthSource` 跟踪 `disabledIndices` 与 `disabledUntilMap`，在 `_buildRotationIndices()` 中将已停用账号与已过期账号一并从 `rotationIndices` 中彻底剔除，并在 `AuthSwitcher.switchToSpecificAuth()` 中拦截对停用账号的手动切号；在停用当前正在使用的账号时平滑触发 `_switchToNextAuth()` 切号并安全释放旧 Context。
 6. **单元测试纯内存隔离与防脏文件模式**: 测试 `AuthSource` / `AuthSwitcher` 行为时，通过重写 `_discoverAvailableIndices` 和 `_getAuthContent` 构造纯内存 mock 数据源，杜绝在工作区产生临时脏文件与污染现有 `configs/auth` 磁盘目录。
-7. **双轨配额恢复与人治隔离铁律 (Dual-Channel Restoration & Manual Ban Invariance)**:
-   - 通道 A：2小时到期自动恢复（巡检 `disabledUntil` 到期解封）；
-   - 通道 B：每日北京时间 15:00 CST 统一重置兜底；
-   - 铁律约束：仅解封 `disabledReason === 'quota_exhausted'` 的账号，严禁恢复人治手动停用的账号（`disabledReason !== 'quota_exhausted'`）。
+7. **429 熔断 Until-Refresh 单一权威源与双轨恢复铁律 (Until-Refresh SSOT & Dual-Channel Restoration)**:
+   - 429 熔断时长唯一权威源：`QuotaGuardService.getNextResetTimestamp()`（遇 429 直接关号直到下一个每日 15:00 CST 刷新；CST 小时 <15 → 今日 15:00，≥15 → 明日 15:00，diff 地板 1000ms；`_getMsUntilNextReset()` 由其派生，严禁再引入独立时长常量）；
+   - `AuthSwitcher` 429 fallback 在无 `quotaGuardService` 引用时以 `_computeNextResetTimestamp()` 镜像同等算法；
+   - 通道 A：`disabledUntil` 到期自动解封巡检；通道 B：每日 15:00 CST 统一重置兜底；
+   - 铁律约束：仅解封 `disabledReason === 'quota_exhausted'` 的账号，严禁恢复人治手动停用的账号（`disabledReason !== 'quota_exhausted'`）；
+   - F2P 时序：语义变更先落盘红灯单测再改业务码；旧测试中锚定被拔除行为的硬编码时长断言（如 `>= before + 7190000`）属派生清退对象必须同步物理更新，且用固定 UTC 输入 + 独立 oracle 断言杜绝时钟漂移。
 8. **Firefox Camoufox Xray 隔离穿透与鸭子类型适配模式**: Playwright+Firefox 在 `addInitScript` 中受 Xray 隔离，普通 `window` 看不到页面 main world 定义的 expando 全局变量（如 `default_MakerSuite`）；必须通过 `window.wrappedJSObject || window` 获取 `pageWindow`，且对跨 world 传入的 `Headers`/`Request` 严禁使用脆弱的 `instanceof`，必须统一通过 `typeof forEach === 'function'` / `entries` / `get` 鸭子类型提取。
 
 ## 当前进展 (Active Phase)
-1. **项目工程全息骨架星图增量刷新 (Phase 17 收口与双节点加固)**:
-   - `docs/prototypes/project_engineering_atlas.html`:
-     * 内嵌 `ssot-engineering-manifest` 增量刷新：`release_tag` 更新为 `v1.3.7-p17`，`commit_hash` 记录为 `ca8a5c0`，`e2e_pass_rate` 对齐 `100% (48/48 PASS)`。
-     * 核心工程骨架 L_DOMAIN 补齐 `AuthSwitcher.js` (400 早停阈值 3)、`QuotaGuardService.js` (429 速率守卫与 2 小时熔断解封)、`PlaygroundRelay` (429 配额保真与双通道平权)。
-     * 破立对账清单 Built 记录 400 早停机制、429 配额保真、2 小时熔断与 48 项测试集；Eradicated 记录 429 掩盖漏洞拔除、buildChannelBlocked 误标清退与 400->503 篡改拔除。
-     * 页面前端视效卡片与双主题切换机制保持 100% 同步且 JSON Manifest 严格合法。
-- 状态：施工完成；移交 NEXT_OWNER: moe-debug 进行验证。
+1. **429 熔断 Until-Refresh 机制升级 (理事长最高指示收口)**:
+   - 遇 429 直接关号直到下一个每日 15:00 CST 刷新，废除固定 2 小时时长；
+   - 破：`QuotaGuardService.getNextResetTimestamp()` 新增权威源 + `_getMsUntilNextReset()` 派生重构 + `handleQuota429`/`_triggerQuotaExhausted` 主路径切换；`AuthSwitcher._computeNextResetTimestamp()` fallback 镜像算法；`en.json` tooltip 文案同步；
+   - 立：F2P 红灯单测 `tests/test_quota_guard_429_until_refresh.mjs`（5 组断言：15:00 前/后/边界/地板 + 双 fallback + 委托回归）；旧测试 2h 硬断言派生清退；
+   - 遗留清零：`src/**` 与 `ui/**` 中 `2 hours|2-hour|banDuration|7190000` 引用 100% 物理拔除（grep 断言零命中）。
+- 状态：施工完成；移交 NEXT_OWNER: moe-debug 执行单测验证退出码 0。
 
 ## 工作区状态
 - 交付物变更：
-  * `docs/prototypes/project_engineering_atlas.html` (全息工程骨架图谱与 SSOT Manifest 增量刷新)
-  * `memory-bank/agents/moe-code/activeContext.md` (记忆沉淀与当期进展更新)
-- 状态：单文件微晶 HTML 施工完成，严格遵循 SSR 模式标准与预算限制，移交 NEXT_OWNER: moe-debug。
+  * `src/core/QuotaGuardService.js` (banDurationMs 物理拔除 + getNextResetTimestamp 权威源 + until-refresh 主路径与日志)
+  * `src/auth/AuthSwitcher.js` (fallback 硬编码拔除 + _computeNextResetTimestamp 镜像算法 + 日志同步)
+  * `ui/locales/en.json` (quotaExhaustedTooltip until-refresh 文案)
+  * `tests/test_quota_guard_429_until_refresh.mjs` (新增 F2P 契约单测)
+  * `tests/test_quota_guard_service.mjs` ([LEGACY_ERADICATION_SCOPE] 派生清退：2h 硬断言与遗留文案更新)
+  * `memory-bank/agents/moe-code/activeContext.md` (记忆沉淀)
+- 状态：施工完成，移交 NEXT_OWNER: moe-debug。

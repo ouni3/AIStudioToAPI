@@ -200,7 +200,7 @@
     "passwordPlaceholder": "Password",
     "proxySettings": "Proxy",
     "proxySettingsStatus": "Proxy Status",
-    "quotaExhaustedTooltip": "429 quota exceeded, auto-disabled from rotation, will automatically restore in 2 hours or at 15:00.",
+    "quotaExhaustedTooltip": "429 quota exceeded, auto-disabled from rotation, will automatically restore at the next daily 15:00 (UTC+8) quota refresh.",
     "real": "Real",
     "realStream": "Real Streaming",
     "realtimeLogs": "Real-time Logs",

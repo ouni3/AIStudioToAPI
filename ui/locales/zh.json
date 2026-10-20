@@ -200,7 +200,7 @@
     "passwordPlaceholder": "密码",
     "proxySettings": "代理",
     "proxySettingsStatus": "代理状态",
-    "quotaExhaustedTooltip": "遭遇 429 配额限制已自动退出轮询，满 2 小时或于 15:00 自动恢复",
+    "quotaExhaustedTooltip": "遭遇 429 配额限制已自动退出轮询，将于下一个每日 15:00（UTC+8）配额刷新时自动恢复",
     "real": "真",
     "realStream": "真流式",
     "realtimeLogs": "实时日志",
