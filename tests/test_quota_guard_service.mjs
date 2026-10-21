@@ -344,8 +344,12 @@ const testSwitcher = new AuthSwitcher(
 );
 testSwitcher.setQuotaGuardService(mockQG);
 
-// Simulate 429 error
-await testSwitcher.handleRequestFailureAndSwitch({ status: 429, message: "RESOURCE_EXHAUSTED", model: "gemini-3.8-flash" }, null);
+// Simulate 429 error (Daily Quota Exhausted format)
+await testSwitcher.handleRequestFailureAndSwitch({
+    status: 429,
+    message: "RESOURCE_EXHAUSTED: Quota exceeded for quota metric 'generaterequests_per_model_per_user' and limit '100'",
+    model: "gemini-3.8-flash"
+}, null);
 
 assert.ok(qg429CalledWith, "handleQuota429 must be called on 429");
 assert.strictEqual(qg429CalledWith.authIndex, 3);

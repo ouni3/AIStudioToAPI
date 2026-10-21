@@ -14,7 +14,6 @@ CORE_FILES = [
     "memory-bank/assets.md",
     "memory-bank/profit.md",
     "memory-bank/aes-history.md",
-    "memory-bank/mermaid.md",
     "memory-bank/agents/moe-code/activeContext.md",
 ]
 

@@ -8,7 +8,7 @@
 > - `ect`: **S** (count(+)=4, count(-)=0, Value_Delivered=+, S_total=+)
 > - `verdict`: **KEEP** (核心 memory-bank 资产)
 
-- **Baseline Marker**: `BASELINE_PHASE_19` (Phase 19 429 配额用尽熔断升级为直接关闭直到每日 15:00 CST 刷新时间基线已对齐)
+- **Baseline Marker**: `BASELINE_PHASE_20` (Phase 20 429 错误精细分流与双容器金丝雀平滑上线基线已对齐)
 
 ## 0. 资产定级标定 (Rating & Asset Profile)
 - **项目等级**: **SR (Super Rare - 系统枢纽级)**

@@ -10,8 +10,8 @@
 
 ## 1. 当前会话状态 (Current Session State)
 - **Active Phase**: `IDLE_NO_ACTIVE_PHASE`
-- **Recent Settled**: `[PHASE_19_SETTLED_PENDING_POOL|v1.3.8-p19|2026-10-20T16:15:00+08:00]`
-- **Task Goal**: Phase 19 429 配额用尽熔断升级为直接关闭直到每日 15:00 CST 刷新时间与双容器串行金丝雀平滑刷新已全部闭环。
+- **Recent Settled**: `[PHASE_20_SETTLED_PENDING_POOL|v1.3.10-p20|2026-10-21T18:50:00+08:00]`
+- **Task Goal**: Phase 20 429 错误精细分流 (TPM/RPM 瞬态限频零关号仅切号冷却 vs 每日配额耗尽关号至 15:00) 与双容器平滑上线已全部闭环。
 - **Status**: [SETTLED_PENDING_POOL|ALL_PASS]
 
 ## 2. 核心架构与编排经验 (Orchestration Insights)

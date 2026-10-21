@@ -103,6 +103,45 @@ class QuotaGuardService {
     }
 
     /**
+     * Determine whether an upstream 429 error message indicates daily quota exhaustion.
+     * Differentiates daily quota exhaustion (e.g. per_model_per_user, retry in Xh, limit: 100/50/11000000)
+     * from transient rate limits (e.g. TPM / RPM, retry in Xs, short 'Quota exceeded').
+     * @param {string|Object} errorMsg
+     * @returns {boolean} True if daily quota is exhausted; False if transient TPM/RPM limit.
+     */
+    isDailyQuotaExhausted(errorMsg = "") {
+        const msg = (typeof errorMsg === "string" ? errorMsg : errorMsg?.message || "").toLowerCase();
+        if (!msg) return false;
+
+        // 1. Hourly retry indication: e.g. "please retry in 15h58m", "retry in 2h"
+        if (/please retry in \d+h/i.test(msg) || /retry in \d+h/i.test(msg)) {
+            return true;
+        }
+
+        // 2. Daily metric indicators
+        const dailyMetricPatterns = [
+            "per_model_per_user",
+            "requests_per_model_per_user",
+            "tokens_per_model_per_user",
+            "generate_content_tokens_per_model_per_user",
+            "per-day",
+            "requests per day",
+            "daily",
+        ];
+        if (dailyMetricPatterns.some(pattern => msg.includes(pattern))) {
+            return true;
+        }
+
+        // 3. Daily limit numbers / tier thresholds: e.g. limit: 100, limit: 50, limit: 11000000, limit: 10000000, free tier limit
+        if (/limit:\s*(?:100|50|11000000|10000000)\b/i.test(msg) || msg.includes("free tier limit")) {
+            return true;
+        }
+
+        // Otherwise (tokens per minute, requests per minute, retry in Xs, short Quota exceeded, etc.) -> transient
+        return false;
+    }
+
+    /**
      * Calculate milliseconds remaining until next 15:00 Beijing Time.
      * @param {Date} [now]
      * @returns {number} ms until next 15:00 UTC+8

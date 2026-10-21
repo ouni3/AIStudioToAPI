@@ -9,21 +9,25 @@
 > - `verdict`: **KEEP**
 
 ## 当前阶段 (Active Phase)
-- **Phase Target**: 429 熔断 Until-Refresh 机制升级的双容器串行金丝雀发布与验证收口。
-- **Status**: 泳道 B 关卡 2.1a 四维例保洗礼脱脂进行中：单测全绿 (49/49 pass) + 代码死资产洁净 + 临时碎屑洗脱完成，出具例保清洗凭据。工作区变更待关卡 2.2 原子暂存。
+- **Phase Target**: 关卡 2.1a 四维脱脂清洗与全量自动化跑测质控验收，锁定四维洁净状态。
+- **Status**: 单测 50/50 100% PASS，`LEGACY_REF_COUNT == 0` 断言成立，四维脱脂清洗完成，出具 `[ROUTINE_MAINTENANCE_CLEANSED: PASS]`。
 
-## 运维记录 (2026-10-20 双容器例行重启)
-- 104 双容器串行重启完成: `aistudio-to-api` (8317) → `aistudio-to-api-8316` 逐个 `docker restart`, 各 ~15s 达 `healthy`; 双节点 GET / 均 HTTP 200, 启动日志无 error/panic/fatal。标准重启 SOP: ssh fy@192.168.0.104 + 5s 轮询 `docker inspect .State.Health.Status`。
+## 运维记录 (2026-10-21 双容器串行金丝雀发布与关卡 2.1a 跑测脱脂)
+- 8317 节点发布: `remote_8317_deploy.sh` 顺利完成，容器新鲜重启 `Up (healthy)`，HTTP 200，端到端实际出字 `gemini-3.8-flash` 推理成功。
+- 8316 专线节点发布: 8317 稳定后执行 `remote_8316_deploy.sh`，容器重启 `Up (healthy)`，HTTP 200，流式与非流式端到端推理成功出字。
+- 关卡 2.1a 验收: 全套单元测试（50 个测试用例）全部通过退出码 0，内存库 Token 限制与零幽灵文件预检全部通过，核心格式与日志规范全绿。
 
-## 最新验证与提交记录 (2026-10-20 复验轮)
-1. **单测三证全绿 (PASS / 退出码实测)**:
-   - `node tests/test_quota_guard_429_until_refresh.mjs` → EXIT 0；
-   - `node tests/test_quota_guard_service.mjs` → EXIT 0；
-   - `npm test` → EXIT 0（49/49 pass / 0 fail）。
-2. **LEGACY 清零断言 (PASS)**: 业务源码面 (src/tests/ui/scripts/configs/main.js) `banDurationMs`、`2*3600*1000`、`2 hours/2小时` 文案三类旧符号 COUNT=0；仅测试夹具存 3 处 `7200000` 字面量（语义为"未来未过期禁令"模拟值，验证 Channel A 自愈，非旧逻辑引用）；locale quotaExhaustedTooltip 已含 15:00 CST 新语义且 JSON parse 通过。
-3. **8317 串行金丝雀 (PASS)**: 部署脚本 EXIT 0；容器 `Up 15 seconds (healthy)` 新鲜重启，8316 全程未触碰；三文件 MD5 本地↔容器一致 (`54061abe…`/`688ea012…`/`d05e158d…`)；探针 HTTP 200 + `"8317 CANARY OK"` (finish_reason=stop)；GET / 双次 200。
-4. **8316 专线金丝雀 (PASS)**: 8317 定型放行后启动，脚本 EXIT 0；容器重启 healthy，三文件 MD5 三方 (本地/8317/8316) 一致；探针 HTTP 200 + 分片 `"83"`+`"16 CANARY OK"` 拼接 `"8316 CANARY OK"`；GET / 200。
-5. **新 QuotaGuard 遥测双节点生产生效**: 8317 `Account #1 request telemetry count for model "gemini-flash-latest": 1`；8316 `Account #2 request telemetry count for model "gemini-3.8-flash": 37→39`（真实生产流量计数）。
+## 最新验证与提交记录 (2026-10-21 关卡 2.1a 终审前清洗)
+1. **单测全绿 (PASS / 退出码实测)**:
+   - `npm test` → EXIT 0（50/50 pass / 0 fail / duration ~1.2s）；
+   - `LEGACY_REF_COUNT == 0` 静态与动态断言 100% 成立。
+2. **四维脱脂清洗凭据**:
+   - `audit_token_limits.py` → PASS (All memory-bank assets within 4096 Tokens)；
+   - `audit_memory_bank.py` → PASS (Zero ghost files)；
+   - `lint_core_file_format.py` → PASS (All core files passed ECT-S/A validation)；
+   - `lint_routine_maintenance.py` → PASS；
+   - `compile_engineering_atlas.py --check` → PASS (Manifest ~1766 Tokens ≤ 3500)；
+   - `[ROUTINE_MAINTENANCE_CLEANSED: PASS]`.
 
 ## 沉淀经验条目 (Core Debugging & Healthcheck Lessons)
 1. **Build 通道 429 配额保真与熔断切号自愈 (P0)**: Build 通道 429 降级 Playground 失败严禁被 400/503 掩盖，必须强制保真 429 状态码与 Google 配额特征；`buildChannelBlocked` 仅对 403 权限异常置 true，429 仅触发 QuotaGuard until-refresh 熔断（`getNextResetTimestamp()` 禁用至下一个每日 15:00 CST 刷新，15:00 后触发则至明日）与即时切号自愈。

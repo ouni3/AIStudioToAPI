@@ -27,7 +27,7 @@ ALLOWED_TOP_ENTRIES = {
     "assets.md",
     "profit.md",
     "aes-history.md",
-    "mermaid.md",
+    "engineering-atlas.json",
     "agents",
 }
 

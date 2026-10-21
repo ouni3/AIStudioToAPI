@@ -14,19 +14,19 @@
     "commercial_stage": "S2 (极客验证期) / 基础设施算力赋能网关 (COMMERCIAL_EXEMPT)"
   },
   "settlement_seal": {
-    "release_tag": "v1.3.8-p18",
+    "release_tag": "v1.3.10-p20",
     "commit_hash": "HEAD_STAGED_COMMIT",
     "staged_tree_hash": "INITIAL_STAGED_TREE_HASH",
-    "batch_pool_size": "Phase 18 双节点 400 早停守卫与 429 配额保真平权升级结算",
-    "e2e_pass_rate": "100% (48/48 PASS)",
+    "batch_pool_size": "Phase 20 429 错误精细分流与双容器金丝雀平滑上线结算",
+    "e2e_pass_rate": "100% (50/50 PASS)",
     "legacy_cleansed_rate": "100%",
     "legacy_ref_count": 0,
     "mode_a_escalations": 0,
-    "source_tree_hash": "d0505ca2bbe67295cf27da4f4fd9f054a630c6fe",
+    "source_tree_hash": "fea0b1d1c115d9afba1a729f21f4d509a089c878",
     "net_entropy_ratio": {
-      "added_lines": 852,
-      "deleted_lines": 220,
-      "net_delta": 632,
+      "added_lines": 669,
+      "deleted_lines": 124,
+      "net_delta": 545,
       "status": "CONTROLLED_EXPANSION"
     }
   },
@@ -122,17 +122,16 @@
   ],
   "break_and_build_ledger": {
     "built": [
-      "8316 节点跨账号同签名 400 早停守卫机制 (CROSS_ACCOUNT_400_EARLY_STOP_THRESHOLD = 3，将无效等待压缩至 1.5 分钟)",
-      "8317 综合网关 Build 429 配额错误保真机制，彻底杜绝被 Playground 400 掩盖，精准触发 QuotaGuardService 2 小时自动熔断换号",
-      "QuotaGuardService 2 小时配额熔断与双轨恢复调度机制 (到期自动解封 + 每日 15:00 CST 兜底重置)",
-      "Build 与 Playground 双通道平权架构与动态自适应降级中继 (scripts/client/playground-relay.js)",
-      "多容器 8316/8317 金丝雀双节点部署拓扑与 48 项全量自动化测试套件 (100% PASS)"
+      "落地 isDailyQuotaExhausted 权威判别器，精细解耦瞬态 TPM/RPM 速率限制与每日配额耗尽",
+      "瞬态 429 速率限制零关号，仅设置 60s 冷却并触发立即切号自愈",
+      "真正每日配额耗尽精准关号直到次日 15:00 CST 刷新",
+      "新增 tests/test_quota_guard_429_tpm_split.mjs 单测，全套 50 项单测 100% PASS",
+      "恪守双容器串行金丝雀发布铁律，8317 与 8316 双节点全部更新并实测业务推理出字 200 OK"
     ],
     "eradicated_legacy": [
-      "彻底拔除 Build 429 被降级 Playground 400 掩盖的严重漏洞与旧 isBuildQuota && isPlaygroundQuota 严苛分支",
-      "清退 429 速率限制误标记 buildChannelBlocked 导致账号沦为永久毒账号的错误逻辑",
-      "拔除上游 400 强制重写为 503 的粗暴错误码篡改逻辑 (playground-relay.js)",
-      "清退无界 400 切号穷举机制，消除客户端参数报错与账号级上游错误混淆引发的账号误封锁 (AuthSwitcher.js)",
+      "彻底拔除 429 报错一刀切关闭账号至 15:00 CST 的过敏逻辑",
+      "消灭将单分钟并发流量误判为日限额耗尽导致大面积误封账号至次日的重大缺陷",
+      "清退旧版单通道配额粗暴判断逻辑",
       "零注释残留与零遗留废弃符号引用 (LEGACY_REF_COUNT == 0)"
     ]
   },
@@ -359,7 +358,7 @@
       <div class="header-row">
         <div class="title-group">
           <h1>🏛️ aistudio-to-api · 项目工程全息骨架图谱</h1>
-          <p>人机同源 SSOT 单文件微晶工程星图 · Phase 17 慢车道收口与双节点加固快照</p>
+          <p>人机同源 SSOT 单文件微晶工程星图 · Phase 20 慢车道收口与双容器金丝雀快照</p>
         </div>
         <button class="theme-toggle" onclick="toggleTheme()">🌓 切换视效主题</button>
       </div>
@@ -371,11 +370,11 @@
         </div>
         <div class="metric-card">
           <div class="metric-label">结算标签 / 批次</div>
-          <div class="metric-value">v1.3.8-p18</div>
+          <div class="metric-value">v1.3.10-p20</div>
         </div>
         <div class="metric-card">
           <div class="metric-label">E2E / 单元测试通过率</div>
-          <div class="metric-value">100% (48/48 PASS)</div>
+          <div class="metric-value">100% (50/50 PASS)</div>
         </div>
         <div class="metric-card">
           <div class="metric-label">旧逻辑拔除率 (Cleansed)</div>

@@ -413,38 +413,72 @@ class AuthSwitcher {
         }
 
         // Upstream 429 Quota Exhaustion handling:
-        // If status is 429, trigger QuotaGuardService.handleQuota429 to disable the account until
-        // the next daily 15:00 CST quota reset and physically remove it from the rotation pool.
+        // Differentiate transient rate limits (TPM / RPM, short Quota exceeded) from daily quota exhaustion:
+        // - Daily quota exhaustion (per_model_per_user, retry in Xh, limit: 100/50, etc.): disable account until 15:00 CST.
+        // - Transient rate limits (TPM / RPM, retry in Xs, short Quota exceeded): NEVER disable account, only set 60s cooldown and switch account.
         if (status === 429 && this.currentAuthIndex >= 0) {
             const failingIndex = this.currentAuthIndex;
             const modelName = errorDetails?.model || null;
-            if (this.quotaGuardService && typeof this.quotaGuardService.handleQuota429 === "function") {
-                this.logger.warn(
-                    `🛑 [Auth] 429 rate limit / quota exhaustion detected on account #${failingIndex}. Invoking QuotaGuardService.handleQuota429 to disable until the next daily 15:00 CST refresh...`
-                );
-                try {
-                    await this.quotaGuardService.handleQuota429(failingIndex, modelName);
-                } catch (qErr) {
-                    this.logger.error(
-                        `[Auth] Failed to invoke handleQuota429 for account #${failingIndex}: ${qErr.message}`
+            const errorMessage =
+                errorDetails?.message || (typeof errorDetails === "string" ? errorDetails : "");
+
+            let isDailyExhausted = false;
+            if (this.quotaGuardService && typeof this.quotaGuardService.isDailyQuotaExhausted === "function") {
+                isDailyExhausted = this.quotaGuardService.isDailyQuotaExhausted(errorMessage);
+            } else {
+                // Fallback implementation if quotaGuardService reference not present
+                const msg = String(errorMessage).toLowerCase();
+                isDailyExhausted =
+                    /please retry in \d+h/i.test(msg) ||
+                    /retry in \d+h/i.test(msg) ||
+                    [
+                        "per_model_per_user",
+                        "requests_per_model_per_user",
+                        "tokens_per_model_per_user",
+                        "generate_content_tokens_per_model_per_user",
+                        "per-day",
+                        "requests per day",
+                        "daily",
+                    ].some(p => msg.includes(p)) ||
+                    /limit:\s*(?:100|50|11000000|10000000)\b/i.test(msg) ||
+                    msg.includes("free tier limit");
+            }
+
+            if (isDailyExhausted) {
+                if (this.quotaGuardService && typeof this.quotaGuardService.handleQuota429 === "function") {
+                    this.logger.warn(
+                        `🛑 [Auth] Daily quota exhaustion detected on account #${failingIndex}. Invoking QuotaGuardService.handleQuota429 to disable until the next daily 15:00 CST refresh...`
                     );
+                    try {
+                        await this.quotaGuardService.handleQuota429(failingIndex, modelName);
+                    } catch (qErr) {
+                        this.logger.error(
+                            `[Auth] Failed to invoke handleQuota429 for account #${failingIndex}: ${qErr.message}`
+                        );
+                    }
+                } else if (this.authSource && typeof this.authSource.updateAccountStatus === "function") {
+                    // Fallback direct disable if quotaGuardService reference not explicitly attached
+                    const disabledUntil = this._computeNextResetTimestamp();
+                    this.logger.warn(
+                        `🛑 [Auth] Daily quota exhaustion detected on account #${failingIndex}. Fallback direct disable until the next daily 15:00 CST refresh (until ${new Date(disabledUntil).toISOString()})...`
+                    );
+                    try {
+                        await this.authSource.updateAccountStatus(failingIndex, {
+                            disabled: true,
+                            disabledReason: "quota_exhausted",
+                            disabledUntil,
+                            reason: "quota_exhausted",
+                        });
+                    } catch (asErr) {
+                        this.logger.error(`[Auth] Failed to fallback disable account #${failingIndex}: ${asErr.message}`);
+                    }
                 }
-            } else if (this.authSource && typeof this.authSource.updateAccountStatus === "function") {
-                // Fallback direct disable if quotaGuardService reference not explicitly attached
-                const disabledUntil = this._computeNextResetTimestamp();
-                this.logger.warn(
-                    `🛑 [Auth] 429 rate limit / quota exhaustion detected on account #${failingIndex}. Fallback direct disable until the next daily 15:00 CST refresh (until ${new Date(disabledUntil).toISOString()})...`
+            } else {
+                // Transient TPM / RPM rate limit: DO NOT disable account, only apply cooldown and switch!
+                this.logger.info(
+                    `⏳ [Auth] Transient 429 rate limit (TPM/RPM) detected on account #${failingIndex}. Account will NOT be disabled; applying cooldown (${(this.accountCooldownMs || 60000) / 1000}s) and switching to next account.`
                 );
-                try {
-                    await this.authSource.updateAccountStatus(failingIndex, {
-                        disabled: true,
-                        disabledReason: "quota_exhausted",
-                        disabledUntil,
-                        reason: "quota_exhausted",
-                    });
-                } catch (asErr) {
-                    this.logger.error(`[Auth] Failed to fallback disable account #${failingIndex}: ${asErr.message}`);
-                }
+                this.setAccountCooldown(failingIndex, this.accountCooldownMs || 60000);
             }
         }
 

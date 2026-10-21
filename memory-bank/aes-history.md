@@ -91,3 +91,28 @@
   - 8316 专线容器 (`aistudio-to-api-custom:8316`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, 增量更新上线，实测 curl 流式出字 `8316 CANARY OK` 200 OK)
   - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
 - **核心沉淀**: 彻底拔除写死的 2 小时 429 熔断限制 (`banDurationMs = 2 * 3600 * 1000`)，新增 `getNextResetTimestamp` 权威时间源，统一将 429 账号直接关闭直到每日北京时间 15:00 CST 刷新时间；`AuthSwitcher` fallback 路径同等对齐，旧逻辑与文案引用全面清零（`LEGACY_REF_COUNT == 0`）；全量 49 项单测 100% PASS；恪守双容器串行金丝雀发布铁律，8317 综合网关先行构建更新并验证业务出字 200 OK，定型后 8316 专线容器平滑重启并验证业务出字 200 OK，双节点均已健康上线。
+
+---
+
+## 8. Phase 20 效能快照 (AES Summary)
+
+### [AES_SUMMARY_P20]
+- **Phase**: `Phase 20 (429 错误精细分流 (TPM/RPM 瞬态限频零关号仅切号冷却 vs 每日配额耗尽关号至 15:00) 与双容器平滑上线)`
+- **结算时间**: `2026-10-21T18:50:00+08:00`
+- **主要参与 Agent**:
+  - `moe-orchestrator` (小奏): 全局统筹调度、任务快照推进、前置两步门禁执行与结算收口
+  - `moe-ask` (栞): 深入 104 容器日志抓取真实日配额耗尽与短文本 429 错误特征切片，梳理 TPM/RPM 差异
+  - `moe-code` (诺诺): 编写 F2P 单测、实现 `isDailyQuotaExhausted` 判别器并在 `AuthSwitcher` 中分流
+  - `moe-debug` (千夏): 单测 50/50 PASS 验证、恪守串行金丝雀发布铁律先后重启 8317 与 8316 并实测真实端到端推理出字通过
+- **效能指标**:
+  - `avg_effectiveness`: 100%
+  - `first_pass_rate`: 100%
+  - `avg_rework`: 0
+  - `sentinel_triggered`: NONE
+  - `settlement_advice`: `[PASS_SETTLEMENT_RECOMMENDED]`
+- **双容器健康状态**:
+  - 8317 综合网关 (`aistudio-to-api-custom:latest`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, 增量更新上线，实测 curl 非流式出字 200 OK)
+  - 8316 专线容器 (`aistudio-to-api-custom:8316`): 🟢 `DEPLOYED_HEALTHY` (`/health` 200 OK, 增量更新上线，实测 curl 流式/非流式出字 200 OK)
+  - 8318 镜像稳定容器 (`aistudio-to-api-8318`): ⚪ `STANDBY_ON_DEMAND` (按需常驻待命)
+- **核心沉淀**: 彻底解耦 429 报错中瞬态 TPM/RPM 速率限制与每日配额耗尽；在 `QuotaGuardService.js` 中新增 `isDailyQuotaExhausted` 权威识别器，对 TPM/RPM 瞬态超频绝对不关号，仅设置 60s 冷却并换号重试；仅对真正日配额耗尽才关号直到 15:00 CST 刷新；全量 50 项单测 100% PASS；恪守双容器串行金丝雀发布铁律，8317 与 8316 双节点全部更新并实测业务推理出字 200 OK。
+

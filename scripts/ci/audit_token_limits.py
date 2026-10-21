@@ -14,7 +14,6 @@ TOKEN_LIMITS = {
     "systemPatterns.md": 4096,
     "assets.md": 4096,
     "profit.md": 4096,
-    "mermaid.md": 4096,
     "aes-history.md": 4096,
     "plan.md": 8192,
 }

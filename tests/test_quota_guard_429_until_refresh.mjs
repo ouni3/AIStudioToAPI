@@ -155,7 +155,11 @@ const switcher = new AuthSwitcher(
     { currentAuthIndex: 3 }
 );
 
-await switcher.handleRequestFailureAndSwitch({ status: 429, model: "gemini-3.8-flash" }, null);
+await switcher.handleRequestFailureAndSwitch({
+    status: 429,
+    message: "Resource has been exhausted (e.g. check quota). per_model_per_user limit: 100",
+    model: "gemini-3.8-flash"
+}, null);
 assert.strictEqual(
     switcherAuthSource.updated.length,
     1,
@@ -192,7 +196,11 @@ switcher2.quotaGuardService = {
     },
 };
 
-await switcher2.handleRequestFailureAndSwitch({ status: 429, model: "gemini-flash-latest" }, null);
+await switcher2.handleRequestFailureAndSwitch({
+    status: 429,
+    message: "Quota exceeded for quota metric 'generaterequests_per_model_per_user' and limit '100' on model 'gemini-flash-latest'",
+    model: "gemini-flash-latest"
+}, null);
 assert.deepStrictEqual(delegatedCall, { index: 5, model: "gemini-flash-latest" });
 assert.strictEqual(
     delegationAuthSource.updated.length,
