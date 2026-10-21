@@ -9,8 +9,8 @@
 > - `verdict`: **KEEP**
 
 ## 当前阶段 (Active Phase)
-- **Phase Target**: 关卡 2.1a 四维脱脂清洗与全量自动化跑测质控验收，锁定四维洁净状态。
-- **Status**: 单测 50/50 100% PASS，`LEGACY_REF_COUNT == 0` 断言成立，四维脱脂清洗完成，出具 `[ROUTINE_MAINTENANCE_CLEANSED: PASS]`。
+- **Phase Target**: Phase 20 Step 7b 物理收口（429 细粒度拆分：TPM/RPM 瞬时限额 vs 每日配额耗尽）。
+- **Status**: `[RELEASE_STATUS: COMPLETE]` — commit `f437fef`，树哈希 `38939b89…f84` 四树同一性实测成立，Tag `v1.3.10-p20` 已推送 myfork，sync_all 全局广播 PASS。
 
 ## 运维记录 (2026-10-21 双容器串行金丝雀发布与关卡 2.1a 跑测脱脂)
 - 8317 节点发布: `remote_8317_deploy.sh` 顺利完成，容器新鲜重启 `Up (healthy)`，HTTP 200，端到端实际出字 `gemini-3.8-flash` 推理成功。
@@ -37,8 +37,9 @@
 5. **容器重启后金丝雀探针三陷阱 (P0)**: ①冷启动切换窗口——首发探针撞上 403 Region→切号→队列关闭（reconnect_cleanup）返回 503，属瞬态，待 "Account switch completed" 日志后重试即过；②模型级 404——`gemini-2.5-flash` 在部分账号 Build/Playground 双通道均报 "Requested entity was not found"，探针应选 `gemini-flash-latest` 等经实测可用模型；③生产并发碰撞——8316 常驻承载 129K token 重型推理，探针 503 先查日志确认是否与真实流量并发，健康容器上瞬态 503 严禁误判发布失败。
 6. **Xray TypedArray 跨界访问禁忌与字符串纯化 (P0)**: 严禁跨 Xray 边界读写 TypedArray/ArrayBuffer（会触发 `Accessing TypedArray data over Xrays is slow, and forbidden` 导致 Build 渠道降级）；哈希与摘要计算通过 Content 端 Helper 完成，仅跨界传递 primitive string。
 7. **协议头捕获非侵入化 (Playwright request 监听代替 fetch 劫持)**: 前端侵入式重写 `window.fetch` 易破坏 CSP 与引发 Xray 权限崩溃；通过 Node 端 Playwright `page.on("request")` 纯外层非侵入捕获 public headers 并回填，实现页面 100% 原生加载。
+8. **Git 发布收口五步实测断言与本仓库远程拓扑 (P0)**: 收口标准流=①提交前 `git write-tree` 预校验暂存树==核准哈希（消灭三态分裂）→②commit 后 `git rev-parse HEAD^{tree}` 复验→③`git rev-parse <tag>^{}` 断言解引用指向 HEAD→④push 后 `git ls-remote` 实测远端分支/Tag 终态逐字节一致；**本仓库远程拓扑为硬事实：`origin` = iBUHub 上游库（无写权限，零发布 Tag），发布远程为 `myfork` = ouni3 fork（分支跟踪 remote 与历史 Tag v1.3.x 全部落点），严禁盲推 origin**；gitea 远程在本仓库缺席记 EXEMPT；`.husky/pre-commit` 因非可执行被 git 忽略属无害 hint，commit-msg CLAIRE 钩子正常生效。
 
 ## 工作区状态 (Workspace Status)
 - 分支: `feat/deploy-104-container-failover`
-- HEAD: `860bcd6` (docs(memory) 结算后记忆提交)；上一结算锚点 `1d36346…` + Tag `v1.3.8-p18`
-- 状态: 本期 Until-Refresh 机制源码变更 (src/auth/AuthSwitcher.js / src/core/QuotaGuardService.js / tests / ui/locales) 保持未暂存待结算链路处理；双容器生产节点已运行最新代码 (MD5 实证)。
+- HEAD: `f437fef` (Phase 20 收口提交) + Tag `v1.3.10-p20`，上一结算锚点 `98c584e…` + Tag `v1.3.9-p19`
+- 状态: 工作区 `--porcelain` 零输出 100% 清洁，myfork 远端分支与 Tag 终态实测与本地一致；Phase 20 (429 细粒度拆分) 结算闭环完成。
