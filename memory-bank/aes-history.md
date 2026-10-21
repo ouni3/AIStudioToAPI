@@ -98,12 +98,15 @@
 
 ### [AES_SUMMARY_P20]
 - **Phase**: `Phase 20 (429 错误精细分流 (TPM/RPM 瞬态限频零关号仅切号冷却 vs 每日配额耗尽关号至 15:00) 与双容器平滑上线)`
-- **结算时间**: `2026-10-21T18:50:00+08:00`
+- **结算时间**: `2026-10-22T00:00:16+08:00`
 - **主要参与 Agent**:
   - `moe-orchestrator` (小奏): 全局统筹调度、任务快照推进、前置两步门禁执行与结算收口
   - `moe-ask` (栞): 深入 104 容器日志抓取真实日配额耗尽与短文本 429 错误特征切片，梳理 TPM/RPM 差异
   - `moe-code` (诺诺): 编写 F2P 单测、实现 `isDailyQuotaExhausted` 判别器并在 `AuthSwitcher` 中分流
-  - `moe-debug` (千夏): 单测 50/50 PASS 验证、恪守串行金丝雀发布铁律先后重启 8317 与 8316 并实测真实端到端推理出字通过
+  - `moe-debug` (千夏): 单测 50/50 PASS 验证、恪守串行金丝雀发布铁律先后重启 8317 与 8316 并实测真实端到端推理出字通过，执行 Step 7b 物理收口
+  - `audit` (克莱尔): 关卡 1 纯黑盒 Caller DX 体验走查与双档案审查 (`CLAIRE_VERDICT: PASS_p20`)
+  - `audit_p0` (经济师总监): 关卡 2.1a 商业生命周期与微账本宏观评估 (`AUDIT_P0_VERDICT: PASS`)
+  - `audit-expert` (终审专家): 关卡 3 三证验票与 3 步 FSM 仓库级终审 (`PASS_PENDING_AUDIT`)
 - **效能指标**:
   - `avg_effectiveness`: 100%
   - `first_pass_rate`: 100%

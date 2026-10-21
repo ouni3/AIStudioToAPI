@@ -10,9 +10,9 @@
 
 ## 1. 当前会话状态 (Current Session State)
 - **Active Phase**: `IDLE_NO_ACTIVE_PHASE`
-- **Recent Settled**: `[PHASE_20_SETTLED_PENDING_POOL|v1.3.10-p20|2026-10-21T18:50:00+08:00]`
+- **Recent Settled**: `[PHASE_20_SETTLED@f437fef|v1.3.10-p20|CI=LOCAL_VERIFIED|2026-10-22T00:00:16+08:00]`
 - **Task Goal**: Phase 20 429 错误精细分流 (TPM/RPM 瞬态限频零关号仅切号冷却 vs 每日配额耗尽关号至 15:00) 与双容器平滑上线已全部闭环。
-- **Status**: [SETTLED_PENDING_POOL|ALL_PASS]
+- **Status**: [SETTLED_RELEASED|ALL_PASS]
 
 ## 2. 核心架构与编排经验 (Orchestration Insights)
 1. **双通道 429 配额错误保真与熔断切号自愈契约 (Phase 17 补齐)**:

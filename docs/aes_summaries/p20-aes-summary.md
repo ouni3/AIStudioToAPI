@@ -15,9 +15,9 @@
 - **Theme**: `429 错误精细分流 (TPM/RPM 瞬态限频零关号仅切号冷却 vs 每日配额耗尽关号至 15:00) 与双容器平滑上线`
 - **Release Version**: `1.3.10-p20`
 - **Release Tag**: `v1.3.10-p20`
-- **Commit Hash**: `待提交 (Pending 库级审计收口)`
-- **结算时间**: `2026-10-21T18:50:00+08:00`
-- **审核裁决**: `PASS_PENDING_COMMIT` (单 Phase 效能反思完成，待多 Phase 累积池集中批量终审)
+- **Commit Hash**: `f437fef`
+- **结算时间**: `2026-10-22T00:00:16+08:00`
+- **审核裁决**: `SETTLED_RELEASED` (库级审计已放行，commit & tag 已闭环推送)
 
 ---
 
